@@ -7,10 +7,11 @@
   "theme_color": "#000000",
  "icons": [
   {
-    "src": "https://cdn-icons-png.flaticon.com",
+    "src": "https://github.githubassets.com",
     "sizes": "512x512",
     "type": "image/png"
   }
 ]
 }
+
 
