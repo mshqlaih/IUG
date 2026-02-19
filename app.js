@@ -67,26 +67,53 @@ async function saveActivity() {
 }
 
 function exportToExcel() {
-    const tx = db.transaction("records", "readonly");
-    tx.objectStore("records").getAll().onsuccess = (e) => {
-        const data = e.target.result;
-        if(data.length === 0) return alert("لا توجد بيانات");
-        // تنظيف البيانات للعرض في إكسل
-        const cleanedData = data.map(item => ({
-            "التاريخ": item.date,
-            "المُسمع": item.teacher,
-            "اسم الطالب": item.student,
-            "النشاط": item.type,
-            "السورة": item.surah,
-            "الصفحات": item.pages,
-            "الأخطاء": item.errors,
-            "التقييم": item.rating
-        }));
-        const ws = XLSX.utils.json_to_sheet(cleanedData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Records");
-        XLSX.writeFile(wb, "سجل_التسميع.xlsx");
-    };
+    try {
+        // التأكد من وجود المكتبة
+        if (typeof XLSX === 'undefined') {
+            alert("خطأ: مكتبة التصدير لم تكتمل في التحميل، تأكد من الاتصال بالإنترنت.");
+            return;
+        }
+
+        const tx = db.transaction("records", "readonly");
+        const store = tx.objectStore("records");
+        
+        store.getAll().onsuccess = (e) => {
+            const data = e.target.result;
+            if (!data || data.length === 0) {
+                alert("لا توجد بيانات مسجلة لتصديرها حالياً.");
+                return;
+            }
+
+            // تنظيف وترتيب الأعمدة بشكل يدوي لضمان ظهورها بالعربية في إكسل
+            const excelRows = data.map(r => ({
+                "التاريخ": r.date,
+                "رقم المسمع": r.teacher,
+                "اسم الطالب": r.student,
+                "نوع النشاط": r.type,
+                "السورة": r.surah,
+                "الصفحات": r.pages,
+                "الأخطاء": r.errors,
+                "التقييم": r.rating
+            }));
+
+            // إنشاء ورقة العمل
+            const worksheet = XLSX.utils.json_to_sheet(excelRows);
+            
+            // ضبط اتجاه ورقة العمل لتكون من اليمين لليسار (RTL)
+            worksheet['!dir'] = "rtl";
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "سجلات التسميع");
+
+            // تنفيذ التحميل
+            XLSX.writeFile(workbook, `سجل_تسميع_${new Date().toISOString().slice(0,10)}.xlsx`);
+            
+            alert("تم إنشاء ملف الإكسل بنجاح، تحقق من مجلد التحميلات (Downloads).");
+        };
+    } catch (err) {
+        console.error(err);
+        alert("حدث خطأ أثناء التصدير: " + err.message);
+    }
 }
 
 function refreshAll() {
@@ -125,3 +152,4 @@ function displayRecords() {
 function deleteRecord(id) { if(confirm("حذف؟")) db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); }
 function clearStuFields() { ['stuID','fName','pName','gName','lName'].forEach(i => document.getElementById(i).value = ''); document.getElementById('stuID').disabled = false; }
 function clearActivityFields() { ['pFrom','pTo','errors'].forEach(i => document.getElementById(i).value = ''); document.getElementById('studentSelect').value = ''; }
+
