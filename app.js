@@ -101,3 +101,37 @@ function displayRecords() {
         }
     };
 }
+
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // منع المتصفح من إظهار الرسالة التلقائية الضعيفة
+  e.preventDefault();
+  // حفظ الحدث لاستخدامه عند الضغط على الزر
+  deferredPrompt = e;
+  // إظهار الزر الخاص بنا الآن
+  installBtn.style.display = 'block';
+
+  installBtn.addEventListener('click', () => {
+    // إخفاء الزر بعد الضغط
+    installBtn.style.display = 'none';
+    // إظهار نافذة التثبيت الحقيقية للمستخدم
+    deferredPrompt.prompt();
+    // معرفة قرار المستخدم (هل وافق أم رفض؟)
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('المستخدم وافق على التثبيت');
+      }
+      deferredPrompt = null;
+    });
+  });
+});
+
+// إخفاء الزر إذا تم التثبيت بنجاح
+window.addEventListener('appinstalled', () => {
+  installBtn.style.display = 'none';
+  console.log('تم تثبيت التطبيق بنجاح!');
+});
+
+
