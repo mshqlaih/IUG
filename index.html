@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>نظام متابعة التسميع - نسخة الأوفلاين</title>
+    <style>
+        :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 20px; direction: rtl; }
+        .container { max-width: 1100px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 12px; color: #666; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; }
+        button { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-add { background: var(--secondary); color: white; margin-top: 10px; width: 200px; }
+        .btn-save { background: var(--primary); color: white; width: 100%; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { background: var(--primary); color: white; }
+        .badge { padding: 3px 7px; border-radius: 4px; background: #e8f5e9; color: #2e7d32; font-size: 11px; }
+    </style>
+    <link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h3>👤 تسجيل طالب جديد</h3>
+        <div class="grid">
+            <div><label>رقم الهوية</label><input type="number" id="newID"></div>
+            <div><label>الاسم الأول</label><input type="text" id="fName"></div>
+            <div><label>الأب</label><input type="text" id="pName"></div>
+            <div><label>الجد</label><input type="text" id="gName"></div>
+            <div><label>العائلة</label><input type="text" id="lName"></div>
+        </div>
+        <button class="btn-add" onclick="addNewStudent()">إضافة طالب +</button>
+    </div>
+
+    <div class="card">
+        <h3>📝 تسجيل النشاط اليومي</h3>
+        <div class="grid">
+            <div><label>الطالب</label><select id="studentSelect"></select></div>
+            <div><label>التاريخ</label><input type="date" id="activityDate"></div>
+            <div><label>نوع النشاط</label>
+                <select id="activityType">
+                    <option value="تسميع">تسميع</option>
+                    <option value="مراجعة">مراجعة</option>
+                    <option value="حضور">حضور</option>
+                    <option value="غياب">غياب</option>
+                </select>
+            </div>
+            <div><label>السورة</label><select id="surahSelect"></select></div>
+            <div><label>من صفحة</label><input type="number" id="pageFrom" min="1" max="604"></div>
+            <div><label>إلى صفحة</label><input type="number" id="pageTo" min="1" max="604"></div>
+            <div><label>الأخطاء</label><input type="number" id="errorsCount"></div>
+            <div><label>التقييم</label>
+                <select id="rating">
+                    <option value="ممتاز">ممتاز</option>
+                    <option value="جيد جداً">جيد جداً</option>
+                    <option value="جيد">جيد</option>
+                    <option value="ضعيف">ضعيف</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn-save" onclick="saveActivity()">حفظ في سجل الطالب</button>
+    </div>
+
+    <div class="card" style="overflow-x: auto;">
+        <h3>📊 السجلات (مخزنة محلياً 100%)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>التاريخ</th>
+                    <th>الطالب</th>
+                    <th>النوع</th>
+                    <th>السورة</th>
+                    <th>الصفحات</th>
+                    <th>الأخطاء</th>
+                    <th>التقييم</th>
+                </tr>
+            </thead>
+            <tbody id="logTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
