@@ -1,127 +1,124 @@
 const QURAN_SURAHS = ["الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"];
 
 let db;
-const DB_NAME = "QuranAppFinalDB";
 
 window.onload = () => {
-    initDB();
-    fillSurahDropdown();
-    // ضبط تاريخ اليوم ليكون القيمة الافتراضية
-    document.getElementById('activityDate').valueAsDate = new Date();
-};
-
-function initDB() {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open("QuranManagementV2", 1);
     request.onupgradeneeded = (e) => {
         db = e.target.result;
-        if (!db.objectStoreNames.contains("students")) {
-            db.createObjectStore("students", { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains("records")) {
-            db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
-        }
+        db.createObjectStore("students", { keyPath: "id" });
+        db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
     };
     request.onsuccess = (e) => {
         db = e.target.result;
-        loadStudentsList();
-        displayRecords();
+        refreshUI();
     };
+    fillSurahs();
+    document.getElementById('activityDate').valueAsDate = new Date();
+};
+
+function fillSurahs() {
+    const s = document.getElementById('surahSelect');
+    s.innerHTML = '<option value="-">بدون تحديد</option>';
+    QURAN_SURAHS.forEach(name => s.innerHTML += `<option value="${name}">${name}</option>`);
 }
 
-function fillSurahDropdown() {
-    const select = document.getElementById('surahSelect');
-    select.innerHTML = '<option value="-">بدون تحديد</option>';
-    QURAN_SURAHS.forEach(s => {
-        const option = document.createElement('option');
-        option.value = s;
-        option.textContent = s;
-        select.appendChild(option);
-    });
-}
-
-function addNewStudent() {
+// حفظ أو تعديل طالب
+function saveStudent() {
     const s = {
-        id: document.getElementById('newID').value,
+        id: document.getElementById('stuID').value,
         fName: document.getElementById('fName').value.trim(),
         pName: document.getElementById('pName').value.trim(),
         gName: document.getElementById('gName').value.trim(),
         lName: document.getElementById('lName').value.trim()
     };
-    
-    if(!s.id || !s.fName || !s.lName) return alert("الرجاء إدخال رقم الهوية والاسم الأول والعائلة");
+    if(!s.id || !s.fName) return alert("أكمل البيانات");
 
     const tx = db.transaction("students", "readwrite");
-    const store = tx.objectStore("students");
-    
-    const request = store.add(s);
-    request.onsuccess = () => {
-        loadStudentsList();
-        clearFields(['newID', 'fName', 'pName', 'gName', 'lName']);
-        alert("تم تسجيل الطالب بنجاح");
+    tx.objectStore("students").put(s); // put تقوم بالإضافة أو التحديث تلقائياً
+    tx.oncomplete = () => {
+        refreshUI();
+        clearStuFields();
+        alert("تم حفظ بيانات الطالب");
     };
-    request.onerror = () => alert("خطأ: رقم الهوية موجود مسبقاً");
+}
+
+// تعبئة الحقول للتعديل
+function editStudent(id) {
+    db.transaction("students").objectStore("students").get(id).onsuccess = (e) => {
+        const s = e.target.result;
+        document.getElementById('stuID').value = s.id;
+        document.getElementById('fName').value = s.fName;
+        document.getElementById('pName').value = s.pName;
+        document.getElementById('gName').value = s.gName;
+        document.getElementById('lName').value = s.lName;
+        document.getElementById('stuID').disabled = true; // منع تغيير الهوية لأنها مفتاح
+    };
+}
+
+function refreshUI() {
+    loadStudentsList();
+    displayRecords();
+    displayStudentsTable();
 }
 
 function loadStudentsList() {
     const select = document.getElementById('studentSelect');
     select.innerHTML = '<option value="">-- اختر الطالب --</option>';
-    
     db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
         e.target.result.forEach(s => {
-            const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
-            const option = document.createElement('option');
-            option.value = fullName;
-            option.textContent = fullName;
-            select.appendChild(option);
+            const name = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
+            select.innerHTML += `<option value="${name}">${name}</option>`;
+        });
+    };
+}
+
+function displayStudentsTable() {
+    const list = document.getElementById('studentsList');
+    list.innerHTML = '';
+    db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
+        e.target.result.forEach(s => {
+            const name = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.trim();
+            list.innerHTML += `<tr><td>${s.id}</td><td>${name}</td>
+            <td><button class="btn-edit" onclick="editStudent('${s.id}')">تعديل</button></td></tr>`;
         });
     };
 }
 
 function saveActivity() {
     const record = {
+        teacher: document.getElementById('teacherID').value || "غير محدد",
         student: document.getElementById('studentSelect').value,
         date: document.getElementById('activityDate').value,
-        type: document.getElementById('activityType').value,
         surah: document.getElementById('surahSelect').value,
-        from: document.getElementById('pageFrom').value || '-',
-        to: document.getElementById('pageTo').value || '-',
-        errors: document.getElementById('errorsCount').value || 0,
+        type: document.getElementById('activityType').value,
+        pages: `${document.getElementById('pFrom').value} - ${document.getElementById('pTo').value}`,
         rating: document.getElementById('rating').value
     };
-
-    if(!record.student) return alert("يرجى اختيار طالب من القائمة");
-
+    if(!record.student) return alert("اختر طالباً");
+    
     const tx = db.transaction("records", "readwrite");
-    tx.objectStore("records").add(record).onsuccess = () => {
-        displayRecords();
-        clearFields(['pageFrom', 'pageTo', 'errorsCount']);
-        alert("تم حفظ سجل النشاط");
-    };
+    tx.objectStore("records").add(record);
+    tx.oncomplete = () => displayRecords();
 }
 
 function displayRecords() {
     const tbody = document.getElementById('logTable');
     tbody.innerHTML = '';
-    
     db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if(cursor) {
-            const r = cursor.value;
-            const row = `<tr>
-                <td>${r.date}</td>
-                <td><b>${r.student}</b></td>
-                <td><span class="badge">${r.type}</span></td>
-                <td>${r.surah}</td>
-                <td>${r.from} - ${r.to}</td>
-                <td>${r.errors}</td>
-                <td class="${r.rating === 'ممتاز' ? 'excellent' : ''}">${r.rating}</td>
+            const r = cursor.result || cursor.value;
+            tbody.innerHTML += `<tr>
+                <td>${r.date}</td><td>${r.teacher}</td><td>${r.student}</td>
+                <td>${r.type}</td><td>${r.surah}</td><td>${r.pages}</td><td>${r.rating}</td>
             </tr>`;
-            tbody.innerHTML += row;
             cursor.continue();
         }
     };
 }
 
-function clearFields(ids) {
-    ids.forEach(id => document.getElementById(id).value = '');
+function clearStuFields() {
+    ['stuID', 'fName', 'pName', 'gName', 'lName'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('stuID').disabled = false;
 }
