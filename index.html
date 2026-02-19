@@ -2,84 +2,111 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام متابعة الحلقات - نسخة الإدارة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نظام متابعة الحلقات الشامل</title>
     <style>
         :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; direction: rtl; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; direction: rtl; }
         .container { max-width: 1100px; margin: auto; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h3 { color: var(--primary); border-right: 5px solid var(--secondary); padding-right: 10px; margin-top: 0; }
-        .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-        @media (min-width: 768px) { .grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
+        h3 { color: var(--primary); border-right: 5px solid var(--secondary); padding-right: 10px; margin-top: 0; font-size: 1.1rem; }
+        
+        /* شبكة مرنة: عمود واحد للجوال، عدة أعمدة للاب توب */
+        .grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 10px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+
         .field { display: flex; flex-direction: column; }
         label { margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #666; }
-        input, select { padding: 12px; border: 2px solid #eee; border-radius: 8px; font-size: 16px; width: 100%; box-sizing: border-box; }
-        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-add { background: var(--secondary); color: white; margin-top: 10px; }
-        .btn-edit { background: #ffc107; color: #333; padding: 5px 10px; font-size: 12px; }
-        .table-wrap { overflow-x: auto; margin-top: 10px; background: white; border-radius: 10px; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; }
+        
+        input, select { 
+            padding: 12px; border: 2px solid #eee; border-radius: 8px; 
+            font-size: 16px; width: 100%; box-sizing: border-box; outline: none; transition: 0.3s;
+        }
+        input:focus { border-color: var(--secondary); background: #fff; }
+
+        button { 
+            padding: 14px; border: none; border-radius: 8px; cursor: pointer; 
+            font-weight: bold; font-size: 16px; transition: 0.2s; width: 100%; margin-top: 5px;
+        }
+        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-edit { background: #ffc107; color: #333; padding: 6px; font-size: 12px; width: auto; }
+
+        /* حاوية الجدول للسحب على الجوال */
+        .table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 10px; background: white; }
+        table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        th, td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { background: #f8f9fa; color: var(--primary); }
+        
+        .badge { background: #f1f3f5; padding: 4px 8px; border-radius: 5px; font-size: 12px; }
+        .excellent { color: #27ae60; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- قسم الطلاب -->
     <div class="card">
-        <h3>👤 إدارة الطلاب (إضافة / تعديل)</h3>
-        <input type="hidden" id="editMode" value="false">
+        <h3>👤 إدارة الطلاب (إضافة وتعديل)</h3>
         <div class="grid">
             <div class="field"><label>رقم الهوية</label><input type="number" id="stuID"></div>
-            <div class="field"><label>الأول</label><input type="text" id="fName"></div>
+            <div class="field"><label>الاسم الأول</label><input type="text" id="fName"></div>
             <div class="field"><label>الأب</label><input type="text" id="pName"></div>
             <div class="field"><label>الجد</label><input type="text" id="gName"></div>
             <div class="field"><label>العائلة</label><input type="text" id="lName"></div>
         </div>
-        <button id="saveStuBtn" class="btn-add" onclick="saveStudent()">حفظ بيانات الطالب</button>
+        <button class="btn-add" onclick="saveStudent()">حفظ / تحديث بيانات الطالب</button>
         
         <div class="table-wrap">
-            <table id="studentsTable">
-                <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>إجراءات</th></tr></thead>
+            <table style="min-width: 100%;">
+                <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>إجراء</th></tr></thead>
                 <tbody id="studentsList"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- قسم النشاط -->
     <div class="card">
-        <h3>📝 تسجيل النشاط</h3>
+        <h3>📝 تسجيل النشاط اليومي</h3>
         <div class="grid">
-            <div class="field"><label>هوية المُسمع</label><input type="number" id="teacherID" placeholder="رقم هوية المعلم"></div>
-            <div class="field"><label>الطالب</label><select id="studentSelect"></select></div>
+            <div class="field"><label>هوية المُسمع</label><input type="number" id="teacherID"></div>
+            <div class="field"><label>اسم الطالب</label><select id="studentSelect"></select></div>
             <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
-            <div class="field"><label>السورة</label><select id="surahSelect"></select></div>
-            <div class="field"><label>النوع</label>
+            <div class="field"><label>النشاط</label>
                 <select id="activityType">
-                    <option value="تسميع">تسميع</option><option value="مراجعة">مراجعة</option>
-                    <option value="حضور">حضور</option><option value="غياب">غياب</option>
+                    <option value="تسميع">تسميع</option>
+                    <option value="مراجعة">مراجعة</option>
+                    <option value="حضور">حضور</option>
+                    <option value="غياب">غياب</option>
                 </select>
             </div>
+            <div class="field"><label>السورة</label><select id="surahSelect"></select></div>
             <div class="field"><label>من ص</label><input type="number" id="pFrom"></div>
             <div class="field"><label>إلى ص</label><input type="number" id="pTo"></div>
-            <div class="field"><label>أخطاء</label><input type="number" id="errors"></div>
-            <div class="field"><label>تقييم</label>
+            <div class="field"><label>الأخطاء</label><input type="number" id="errors"></div>
+            <div class="field"><label>التقييم</label>
                 <select id="rating">
-                    <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
+                    <option>ممتاز</option><option>جيد جداً</option>
+                    <option>جيد</option><option>ضعيف</option>
                 </select>
             </div>
         </div>
-        <button class="btn-add" style="background: var(--primary);" onclick="saveActivity()">حفظ التسميع</button>
+        <button class="btn-save" onclick="saveActivity()">حفظ سجل التسميع</button>
     </div>
 
-    <!-- السجلات -->
     <div class="card">
-        <h3>📊 سجل النشاطات</h3>
+        <h3>📊 سجل النشاطات العام</h3>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>التاريخ</th><th>المُسمع</th><th>الطالب</th><th>النشاط</th><th>السورة</th><th>الصفحات</th><th>التقييم</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>المُسمع</th>
+                        <th>الطالب</th>
+                        <th>النشاط</th>
+                        <th>السورة</th>
+                        <th>الصفحات</th>
+                        <th>التقييم</th>
+                    </tr>
+                </thead>
                 <tbody id="logTable"></tbody>
             </table>
         </div>
