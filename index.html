@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام متابعة الحلقات الاحترافي</title>
-    <!-- مكتبة التصدير إلى اكسل -->
+    <title>نظام متابعة الحلقات</title>
+    <!-- مكتبة التصدير الضرورية -->
     <script src="https://cdnjs.cloudflare.com"></script>
     <style>
         :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; --danger: #e74c3c; }
@@ -18,13 +18,11 @@
         label { margin-bottom: 4px; font-weight: bold; font-size: 12px; color: #666; }
         input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; width: 100%; box-sizing: border-box; }
         button { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); margin-top: 10px; width: 100%; }
+        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); width: 100%; margin-top: 10px; }
         .btn-save { background: var(--primary); color: white; flex: 2; }
-        .btn-excel { background: #1d6f42; color: white; width: auto; margin-bottom: 10px; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-excel { background: #1d6f42; color: white; width: auto; font-size: 14px; }
         .btn-clear { background: #95a5a6; color: white; flex: 1; }
         .btn-del { background: var(--danger); color: white; padding: 4px 8px; font-size: 11px; }
-        .btn-edit { background: #ffc107; color: #333; padding: 4px 8px; font-size: 11px; }
-        .action-btns { display: flex; gap: 10px; margin-top: 15px; }
         .table-wrap { overflow-x: auto; margin-top: 10px; background: white; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 13px; }
@@ -32,20 +30,17 @@
     </style>
 </head>
 <body>
-
 <div class="container">
-    <!-- المُسمع -->
     <div class="card">
         <div style="display: flex; gap: 10px; align-items: flex-end;">
             <div class="field" style="flex-grow: 1;">
                 <label>هوية المُسمع</label>
                 <input type="number" id="teacherID">
             </div>
-            <button onclick="saveTeacherID()" style="background: var(--primary); color: white; width: auto;">حفظ</button>
+            <button onclick="saveTeacherID()" style="background: var(--primary); color: white;">حفظ المُسمع</button>
         </div>
     </div>
 
-    <!-- الطلاب -->
     <div class="card">
         <h3>👤 إدارة الطلاب</h3>
         <div class="grid">
@@ -55,16 +50,15 @@
             <input type="text" id="gName" placeholder="الجد">
             <input type="text" id="lName" placeholder="العائلة">
         </div>
-        <button class="btn-add" onclick="saveStudent()">حفظ/تحديث الطالب</button>
+        <button class="btn-add" onclick="saveStudent()">حفظ / تحديث الطالب</button>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>الهوية</th><th>الاسم</th><th>إجراء</th></tr></thead>
+                <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>تعديل</th></tr></thead>
                 <tbody id="studentsList"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- النشاط -->
     <div class="card">
         <h3>📝 تسجيل نشاط</h3>
         <div class="grid">
@@ -72,37 +66,31 @@
             <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
             <div class="field"><label>النوع</label>
                 <select id="activityType">
-                    <option value="تسميع">تسميع</option>
-                    <option value="مراجعة">مراجعة</option>
-                    <option value="حضور">حضور</option>
-                    <option value="غياب">غياب</option>
+                    <option>تسميع</option><option>مراجعة</option><option>حضور</option><option>غياب</option>
                 </select>
             </div>
             <div class="field"><label>السورة</label><select id="surahSelect"></select></div>
-            <div class="field"><label>من ص</label><input type="number" id="pFrom"></div>
-            <div class="field"><label>إلى ص</label><input type="number" id="pTo"></div>
-            <div class="field"><label>أخطاء</label><input type="number" id="errors" value="0"></div>
-            <div class="field"><label>تقييم</label>
-                <select id="rating">
-                    <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
-                </select>
-            </div>
+            <input type="number" id="pFrom" placeholder="من ص">
+            <input type="number" id="pTo" placeholder="إلى ص">
+            <input type="number" id="errors" placeholder="أخطاء" value="0">
+            <select id="rating">
+                <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
+            </select>
         </div>
-        <div class="action-btns">
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
             <button class="btn-save" onclick="saveActivity()">حفظ النشاط</button>
             <button class="btn-clear" onclick="clearActivityFields()">مسح الحقول</button>
         </div>
     </div>
 
-    <!-- السجلات -->
     <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3>📊 السجلات</h3>
-            <button class="btn-excel" onclick="exportToExcel()">📥 تصدير Excel</button>
+            <button class="btn-excel" onclick="exportToExcel()">تصدير إكسل 📥</button>
         </div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>التاريخ</th><th>المُسمع</th><th>الطالب</th><th>النوع</th><th>السورة</th><th>الصفحات</th><th>الأخطاء</th><th>التقييم</th><th>حذف</th></tr></thead>
+                <thead><tr><th>التاريخ</th><th>المسمع</th><th>الطالب</th><th>النوع</th><th>السورة</th><th>الصفحات</th><th>أخطاء</th><th>التقييم</th><th>حذف</th></tr></thead>
                 <tbody id="logTable"></tbody>
             </table>
         </div>
