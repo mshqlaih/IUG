@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام متابعة الحلقات</title>
+    <title>نظام متابعة الحلقات الاحترافي</title>
+    <!-- مكتبة التصدير إلى اكسل -->
+    <script src="https://cdnjs.cloudflare.com"></script>
     <style>
         :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; --danger: #e74c3c; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; direction: rtl; }
@@ -16,18 +18,17 @@
         label { margin-bottom: 4px; font-weight: bold; font-size: 12px; color: #666; }
         input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; width: 100%; box-sizing: border-box; }
         button { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); margin-top: 10px; }
+        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); margin-top: 10px; width: 100%; }
         .btn-save { background: var(--primary); color: white; flex: 2; }
+        .btn-excel { background: #1d6f42; color: white; width: auto; margin-bottom: 10px; display: inline-flex; align-items: center; gap: 8px; }
         .btn-clear { background: #95a5a6; color: white; flex: 1; }
         .btn-del { background: var(--danger); color: white; padding: 4px 8px; font-size: 11px; }
         .btn-edit { background: #ffc107; color: #333; padding: 4px 8px; font-size: 11px; }
-        .teacher-box { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 5px; }
         .action-btns { display: flex; gap: 10px; margin-top: 15px; }
         .table-wrap { overflow-x: auto; margin-top: 10px; background: white; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; min-width: 850px; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 13px; }
         th { background: #f8f9fa; }
-        .badge { padding: 3px 6px; border-radius: 4px; background: #eee; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -35,12 +36,12 @@
 <div class="container">
     <!-- المُسمع -->
     <div class="card">
-        <div class="teacher-box">
+        <div style="display: flex; gap: 10px; align-items: flex-end;">
             <div class="field" style="flex-grow: 1;">
-                <label>هوية المُسمع (قابلة للتغيير والحفظ)</label>
-                <input type="number" id="teacherID" placeholder="رقم هويتك">
+                <label>هوية المُسمع</label>
+                <input type="number" id="teacherID">
             </div>
-            <button onclick="saveTeacherID()" style="width: auto; background: var(--primary); color: white;">حفظ المُسمع</button>
+            <button onclick="saveTeacherID()" style="background: var(--primary); color: white; width: auto;">حفظ</button>
         </div>
     </div>
 
@@ -48,15 +49,15 @@
     <div class="card">
         <h3>👤 إدارة الطلاب</h3>
         <div class="grid">
-            <div class="field"><label>الهوية</label><input type="number" id="stuID"></div>
-            <div class="field"><label>الأول</label><input type="text" id="fName"></div>
-            <div class="field"><label>الأب</label><input type="text" id="pName"></div>
-            <div class="field"><label>الجد</label><input type="text" id="gName"></div>
-            <div class="field"><label>العائلة</label><input type="text" id="lName"></div>
+            <input type="number" id="stuID" placeholder="الهوية">
+            <input type="text" id="fName" placeholder="الأول">
+            <input type="text" id="pName" placeholder="الأب">
+            <input type="text" id="gName" placeholder="الجد">
+            <input type="text" id="lName" placeholder="العائلة">
         </div>
-        <button class="btn-add" onclick="saveStudent()">حفظ الطالب</button>
+        <button class="btn-add" onclick="saveStudent()">حفظ/تحديث الطالب</button>
         <div class="table-wrap">
-            <table style="min-width: 100%;">
+            <table>
                 <thead><tr><th>الهوية</th><th>الاسم</th><th>إجراء</th></tr></thead>
                 <tbody id="studentsList"></tbody>
             </table>
@@ -65,19 +66,22 @@
 
     <!-- النشاط -->
     <div class="card">
-        <h3>📝 تسجيل نشاط جديد</h3>
+        <h3>📝 تسجيل نشاط</h3>
         <div class="grid">
             <div class="field"><label>الطالب</label><select id="studentSelect"></select></div>
             <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
             <div class="field"><label>النوع</label>
                 <select id="activityType">
-                    <option>تسميع</option><option>مراجعة</option><option>حضور</option><option>غياب</option>
+                    <option value="تسميع">تسميع</option>
+                    <option value="مراجعة">مراجعة</option>
+                    <option value="حضور">حضور</option>
+                    <option value="غياب">غياب</option>
                 </select>
             </div>
             <div class="field"><label>السورة</label><select id="surahSelect"></select></div>
             <div class="field"><label>من ص</label><input type="number" id="pFrom"></div>
             <div class="field"><label>إلى ص</label><input type="number" id="pTo"></div>
-            <div class="field"><label>أخطاء</label><input type="number" id="errors"></div>
+            <div class="field"><label>أخطاء</label><input type="number" id="errors" value="0"></div>
             <div class="field"><label>تقييم</label>
                 <select id="rating">
                     <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
@@ -92,10 +96,13 @@
 
     <!-- السجلات -->
     <div class="card">
-        <h3>📊 السجلات</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>📊 السجلات</h3>
+            <button class="btn-excel" onclick="exportToExcel()">📥 تصدير Excel</button>
+        </div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>التاريخ</th><th>المُسمع</th><th>الطالب</th><th>النوع</th><th>السورة</th><th>الصفحات</th><th>التقييم</th><th>حذف</th></tr></thead>
+                <thead><tr><th>التاريخ</th><th>المُسمع</th><th>الطالب</th><th>النوع</th><th>السورة</th><th>الصفحات</th><th>الأخطاء</th><th>التقييم</th><th>حذف</th></tr></thead>
                 <tbody id="logTable"></tbody>
             </table>
         </div>
