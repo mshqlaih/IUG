@@ -6,22 +6,22 @@ window.onload = () => {
     initDB();
     fillSurahs();
     document.getElementById('activityDate').valueAsDate = new Date();
-    // استرجاع هوية المسمع المحفوظة
     const savedID = localStorage.getItem('teacherID');
     if(savedID) document.getElementById('teacherID').value = savedID;
 };
 
-// وظيفة حفظ هوية المسمع في الذاكرة الدائمة للمتصفح
 function saveTeacherID() {
     const id = document.getElementById('teacherID').value;
     if(id) {
         localStorage.setItem('teacherID', id);
-        alert("تم حفظ هوية المُسمع بنجاح");
+        alert("تم تحديث هوية المُسمع بنجاح");
+    } else {
+        alert("أدخل رقم الهوية أولاً");
     }
 }
 
 function initDB() {
-    const request = indexedDB.open("QuranFinalSystemV3", 1);
+    const request = indexedDB.open("QuranFinalV4", 1);
     request.onupgradeneeded = (e) => {
         db = e.target.result;
         db.createObjectStore("students", { keyPath: "id" });
@@ -44,7 +44,7 @@ function saveStudent() {
         gName: document.getElementById('gName').value.trim(),
         lName: document.getElementById('lName').value.trim()
     };
-    if(!s.id || !s.fName) return alert("يرجى إدخال الهوية والاسم");
+    if(!s.id || !s.fName) return alert("أكمل البيانات");
     const tx = db.transaction("students", "readwrite");
     tx.objectStore("students").put(s);
     tx.oncomplete = () => {
@@ -96,8 +96,15 @@ function saveActivity() {
     if(!record.student) return alert("اختر طالباً");
     db.transaction("records", "readwrite").objectStore("records").add(record).onsuccess = () => {
         displayRecords();
-        ['pFrom', 'pTo', 'errors'].forEach(id => document.getElementById(id).value = '');
+        clearActivityFields();
     };
+}
+
+function deleteRecord(id) {
+    if(confirm("هل أنت متأكد من حذف هذا السجل؟")) {
+        const tx = db.transaction("records", "readwrite");
+        tx.objectStore("records").delete(id).onsuccess = () => displayRecords();
+    }
 }
 
 function displayRecords() {
@@ -107,15 +114,20 @@ function displayRecords() {
         const cursor = e.target.result;
         if(cursor) {
             const r = cursor.value;
-            tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.teacher}</td><td><b>${r.student}</b></td><td>${r.type}</td><td>${r.surah}</td><td>${r.pages}</td><td class="${r.rating === 'ممتاز' ? 'excellent' : ''}">${r.rating}</td></tr>`;
+            tbody.innerHTML += `<tr>
+                <td>${r.date}</td><td>${r.teacher}</td><td><b>${r.student}</b></td>
+                <td><span class="badge">${r.type}</span></td><td>${r.surah}</td>
+                <td>${r.pages}</td><td>${r.rating}</td>
+                <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
+            </tr>`;
             cursor.continue();
         }
     };
 }
 
-function clearStuFields() {
-    ['stuID', 'fName', 'pName', 'gName', 'lName'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('stuID').disabled = false;
+function clearActivityFields() {
+    ['pFrom', 'pTo', 'errors'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('studentSelect').value = '';
+    document.getElementById('surahSelect').value = '-';
+    document.getElementById('activityDate').valueAsDate = new Date();
 }
-
-
