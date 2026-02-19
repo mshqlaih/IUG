@@ -3,97 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام متابعة الحلقات الشامل</title>
+    <title>نظام متابعة الحلقات</title>
     <style>
-        :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; direction: rtl; }
+        :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; --danger: #e74c3c; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; direction: rtl; }
         .container { max-width: 1100px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h3 { color: var(--primary); border-right: 5px solid var(--secondary); padding-right: 10px; margin-top: 0; font-size: 1.1rem; }
-        .grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 10px; }
-        @media (min-width: 768px) { .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        h3 { color: var(--primary); border-right: 4px solid var(--secondary); padding-right: 10px; margin-top: 0; font-size: 1rem; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
         .field { display: flex; flex-direction: column; }
-        label { margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #666; }
-        input, select { padding: 12px; border: 2px solid #eee; border-radius: 8px; font-size: 16px; width: 100%; box-sizing: border-box; outline: none; }
-        input:focus { border-color: var(--secondary); }
-        button { padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.2s; width: 100%; margin-top: 5px; }
-        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); }
-        .btn-save { background: var(--primary); color: white; }
-        .btn-edit { background: #ffc107; color: #333; padding: 6px; font-size: 12px; width: auto; }
-        .teacher-box { display: flex; gap: 5px; align-items: flex-end; }
-        .table-wrap { overflow-x: auto; margin-top: 15px; border-radius: 10px; background: white; }
+        label { margin-bottom: 4px; font-weight: bold; font-size: 12px; color: #666; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; width: 100%; box-sizing: border-box; }
+        button { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); margin-top: 10px; }
+        .btn-save { background: var(--primary); color: white; flex: 2; }
+        .btn-clear { background: #95a5a6; color: white; flex: 1; }
+        .btn-del { background: var(--danger); color: white; padding: 4px 8px; font-size: 11px; }
+        .btn-edit { background: #ffc107; color: #333; padding: 4px 8px; font-size: 11px; }
+        .teacher-box { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 5px; }
+        .action-btns { display: flex; gap: 10px; margin-top: 15px; }
+        .table-wrap { overflow-x: auto; margin-top: 10px; background: white; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; min-width: 850px; }
-        th, td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; font-size: 14px; }
-        th { background: #f8f9fa; color: var(--primary); }
-        .excellent { color: #27ae60; font-weight: bold; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 13px; }
+        th { background: #f8f9fa; }
+        .badge { padding: 3px 6px; border-radius: 4px; background: #eee; font-size: 11px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- قسم هوية المُسمع الثابتة -->
+    <!-- المُسمع -->
     <div class="card">
         <div class="teacher-box">
             <div class="field" style="flex-grow: 1;">
-                <label>هوية المُسمع (ستُحفظ تلقائياً)</label>
-                <input type="number" id="teacherID" placeholder="أدخل رقم هويتك هنا">
+                <label>هوية المُسمع (قابلة للتغيير والحفظ)</label>
+                <input type="number" id="teacherID" placeholder="رقم هويتك">
             </div>
-            <button onclick="saveTeacherID()" style="width: auto; padding: 12px 20px; background: #34495e; color: white;">حفظ</button>
+            <button onclick="saveTeacherID()" style="width: auto; background: var(--primary); color: white;">حفظ المُسمع</button>
         </div>
     </div>
 
-    <!-- قسم الطلاب -->
+    <!-- الطلاب -->
     <div class="card">
         <h3>👤 إدارة الطلاب</h3>
         <div class="grid">
-            <div class="field"><label>رقم الهوية</label><input type="number" id="stuID"></div>
-            <div class="field"><label>الاسم الأول</label><input type="text" id="fName"></div>
+            <div class="field"><label>الهوية</label><input type="number" id="stuID"></div>
+            <div class="field"><label>الأول</label><input type="text" id="fName"></div>
             <div class="field"><label>الأب</label><input type="text" id="pName"></div>
             <div class="field"><label>الجد</label><input type="text" id="gName"></div>
             <div class="field"><label>العائلة</label><input type="text" id="lName"></div>
         </div>
-        <button class="btn-add" onclick="saveStudent()">حفظ / تحديث بيانات الطالب</button>
-        
+        <button class="btn-add" onclick="saveStudent()">حفظ الطالب</button>
         <div class="table-wrap">
             <table style="min-width: 100%;">
-                <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>إجراء</th></tr></thead>
+                <thead><tr><th>الهوية</th><th>الاسم</th><th>إجراء</th></tr></thead>
                 <tbody id="studentsList"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- تسجيل النشاط -->
+    <!-- النشاط -->
     <div class="card">
-        <h3>📝 تسجيل النشاط اليومي</h3>
+        <h3>📝 تسجيل نشاط جديد</h3>
         <div class="grid">
             <div class="field"><label>الطالب</label><select id="studentSelect"></select></div>
             <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
-            <div class="field"><label>النشاط</label>
+            <div class="field"><label>النوع</label>
                 <select id="activityType">
-                    <option value="تسميع">تسميع</option><option value="مراجعة">مراجعة</option>
-                    <option value="حضور">حضور</option><option value="غياب">غياب</option>
+                    <option>تسميع</option><option>مراجعة</option><option>حضور</option><option>غياب</option>
                 </select>
             </div>
             <div class="field"><label>السورة</label><select id="surahSelect"></select></div>
             <div class="field"><label>من ص</label><input type="number" id="pFrom"></div>
             <div class="field"><label>إلى ص</label><input type="number" id="pTo"></div>
-            <div class="field"><label>الأخطاء</label><input type="number" id="errors"></div>
-            <div class="field"><label>التقييم</label>
+            <div class="field"><label>أخطاء</label><input type="number" id="errors"></div>
+            <div class="field"><label>تقييم</label>
                 <select id="rating">
-                    <option>ممتاز</option><option>جيد جداً</option>
-                    <option>جيد</option><option>ضعيف</option>
+                    <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
                 </select>
             </div>
         </div>
-        <button class="btn-save" onclick="saveActivity()">حفظ السجل</button>
+        <div class="action-btns">
+            <button class="btn-save" onclick="saveActivity()">حفظ النشاط</button>
+            <button class="btn-clear" onclick="clearActivityFields()">مسح الحقول</button>
+        </div>
     </div>
 
+    <!-- السجلات -->
     <div class="card">
-        <h3>📊 سجل النشاطات العام</h3>
-        <div class="table-wrap"><table id="logTableWrap">
-            <thead><tr><th>التاريخ</th><th>المُسمع</th><th>الطالب</th><th>النوع</th><th>السورة</th><th>الصفحات</th><th>التقييم</th></tr></thead>
-            <tbody id="logTable"></tbody>
-        </table></div>
+        <h3>📊 السجلات</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>التاريخ</th><th>المُسمع</th><th>الطالب</th><th>النوع</th><th>السورة</th><th>الصفحات</th><th>التقييم</th><th>حذف</th></tr></thead>
+                <tbody id="logTable"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 <script src="app.js"></script>
