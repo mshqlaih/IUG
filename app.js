@@ -3,19 +3,23 @@ const QURAN_SURAHS = ["الفاتحة","البقرة","آل عمران","الن�
 let db;
 
 window.onload = () => {
-    const request = indexedDB.open("QuranManagementV2", 1);
-    request.onupgradeneeded = (e) => {
-        db = e.target.result;
-        db.createObjectStore("students", { keyPath: "id" });
-        db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
-    };
-    request.onsuccess = (e) => {
-        db = e.target.result;
-        refreshUI();
-    };
+    initDB();
     fillSurahs();
     document.getElementById('activityDate').valueAsDate = new Date();
 };
+
+function initDB() {
+    const request = indexedDB.open("QuranFinalSystem", 2);
+    request.onupgradeneeded = (e) => {
+        db = e.target.result;
+        if (!db.objectStoreNames.contains("students")) db.createObjectStore("students", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("records")) db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
+    };
+    request.onsuccess = (e) => {
+        db = e.target.result;
+        refreshAll();
+    };
+}
 
 function fillSurahs() {
     const s = document.getElementById('surahSelect');
@@ -23,7 +27,6 @@ function fillSurahs() {
     QURAN_SURAHS.forEach(name => s.innerHTML += `<option value="${name}">${name}</option>`);
 }
 
-// حفظ أو تعديل طالب
 function saveStudent() {
     const s = {
         id: document.getElementById('stuID').value,
@@ -32,74 +35,67 @@ function saveStudent() {
         gName: document.getElementById('gName').value.trim(),
         lName: document.getElementById('lName').value.trim()
     };
-    if(!s.id || !s.fName) return alert("أكمل البيانات");
+    if(!s.id || !s.fName) return alert("يرجى إدخال الهوية والاسم");
 
     const tx = db.transaction("students", "readwrite");
-    tx.objectStore("students").put(s); // put تقوم بالإضافة أو التحديث تلقائياً
+    tx.objectStore("students").put(s); // put تحفظ الجديد أو تحدث القديم
     tx.oncomplete = () => {
-        refreshUI();
-        clearStuFields();
+        refreshAll();
+        ['stuID', 'fName', 'pName', 'gName', 'lName'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('stuID').disabled = false;
         alert("تم حفظ بيانات الطالب");
     };
 }
 
-// تعبئة الحقول للتعديل
 function editStudent(id) {
     db.transaction("students").objectStore("students").get(id).onsuccess = (e) => {
         const s = e.target.result;
         document.getElementById('stuID').value = s.id;
+        document.getElementById('stuID').disabled = true; // الهوية مفتاح لا يعدل
         document.getElementById('fName').value = s.fName;
         document.getElementById('pName').value = s.pName;
         document.getElementById('gName').value = s.gName;
         document.getElementById('lName').value = s.lName;
-        document.getElementById('stuID').disabled = true; // منع تغيير الهوية لأنها مفتاح
+        window.scrollTo(0,0); // الصعود لأعلى الصفحة للتعديل
     };
 }
 
-function refreshUI() {
-    loadStudentsList();
-    displayRecords();
-    displayStudentsTable();
-}
-
-function loadStudentsList() {
+function refreshAll() {
+    // 1. تحديث قائمة الاختيار
     const select = document.getElementById('studentSelect');
     select.innerHTML = '<option value="">-- اختر الطالب --</option>';
-    db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
-        e.target.result.forEach(s => {
-            const name = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
-            select.innerHTML += `<option value="${name}">${name}</option>`;
-        });
-    };
-}
-
-function displayStudentsTable() {
+    // 2. تحديث جدول الإدارة
     const list = document.getElementById('studentsList');
     list.innerHTML = '';
+
     db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
         e.target.result.forEach(s => {
-            const name = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.trim();
-            list.innerHTML += `<tr><td>${s.id}</td><td>${name}</td>
+            const full = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
+            select.innerHTML += `<option value="${full}">${full}</option>`;
+            list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td>
             <td><button class="btn-edit" onclick="editStudent('${s.id}')">تعديل</button></td></tr>`;
         });
     };
+    displayRecords();
 }
 
 function saveActivity() {
     const record = {
-        teacher: document.getElementById('teacherID').value || "غير محدد",
+        teacher: document.getElementById('teacherID').value || "غير مسجل",
         student: document.getElementById('studentSelect').value,
         date: document.getElementById('activityDate').value,
-        surah: document.getElementById('surahSelect').value,
         type: document.getElementById('activityType').value,
+        surah: document.getElementById('surahSelect').value,
         pages: `${document.getElementById('pFrom').value} - ${document.getElementById('pTo').value}`,
         rating: document.getElementById('rating').value
     };
     if(!record.student) return alert("اختر طالباً");
-    
+
     const tx = db.transaction("records", "readwrite");
-    tx.objectStore("records").add(record);
-    tx.oncomplete = () => displayRecords();
+    tx.objectStore("records").add(record).onsuccess = () => {
+        displayRecords();
+        ['pFrom', 'pTo', 'errors'].forEach(id => document.getElementById(id).value = '');
+    };
 }
 
 function displayRecords() {
@@ -108,10 +104,11 @@ function displayRecords() {
     db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if(cursor) {
-            const r = cursor.result || cursor.value;
+            const r = cursor.value;
             tbody.innerHTML += `<tr>
-                <td>${r.date}</td><td>${r.teacher}</td><td>${r.student}</td>
-                <td>${r.type}</td><td>${r.surah}</td><td>${r.pages}</td><td>${r.rating}</td>
+                <td>${r.date}</td><td>${r.teacher}</td><td><b>${r.student}</b></td>
+                <td><span class="badge">${r.type}</span></td><td>${r.surah}</td>
+                <td>${r.pages}</td><td class="${r.rating === 'ممتاز' ? 'excellent' : ''}">${r.rating}</td>
             </tr>`;
             cursor.continue();
         }
@@ -122,3 +119,4 @@ function clearStuFields() {
     ['stuID', 'fName', 'pName', 'gName', 'lName'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('stuID').disabled = false;
 }
+
