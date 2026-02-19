@@ -67,53 +67,43 @@ async function saveActivity() {
 }
 
 function exportToExcel() {
-    try {
-        // التأكد من وجود المكتبة
-        if (typeof XLSX === 'undefined') {
-            alert("خطأ: مكتبة التصدير لم تكتمل في التحميل، تأكد من الاتصال بالإنترنت.");
+    // التأكد من أن الملف المحتوي على المكتبة موجود وتم تحميله
+    if (typeof XLSX === 'undefined') {
+        alert("خطأ: ملف المكتبة (xlsx.full.min.js) غير موجود في مجلد المشروع.");
+        return;
+    }
+
+    const tx = db.transaction("records", "readonly");
+    const store = tx.objectStore("records");
+
+    store.getAll().onsuccess = (e) => {
+        const data = e.target.result;
+        if (!data || data.length === 0) {
+            alert("لا توجد سجلات لتصديرها.");
             return;
         }
 
-        const tx = db.transaction("records", "readonly");
-        const store = tx.objectStore("records");
-        
-        store.getAll().onsuccess = (e) => {
-            const data = e.target.result;
-            if (!data || data.length === 0) {
-                alert("لا توجد بيانات مسجلة لتصديرها حالياً.");
-                return;
-            }
+        // تنسيق البيانات للأعمدة العربية
+        const excelRows = data.map(r => ({
+            "التاريخ": r.date,
+            "هوية المسمع": r.teacher,
+            "اسم الطالب": r.student,
+            "النشاط": r.type,
+            "السورة": r.surah,
+            "الصفحات": r.pages,
+            "الأخطاء": r.errors,
+            "التقييم": r.rating
+        }));
 
-            // تنظيف وترتيب الأعمدة بشكل يدوي لضمان ظهورها بالعربية في إكسل
-            const excelRows = data.map(r => ({
-                "التاريخ": r.date,
-                "رقم المسمع": r.teacher,
-                "اسم الطالب": r.student,
-                "نوع النشاط": r.type,
-                "السورة": r.surah,
-                "الصفحات": r.pages,
-                "الأخطاء": r.errors,
-                "التقييم": r.rating
-            }));
+        const worksheet = XLSX.utils.json_to_sheet(excelRows);
+        worksheet['!dir'] = "rtl"; // جعل الملف يبدأ من اليمين لليسار
 
-            // إنشاء ورقة العمل
-            const worksheet = XLSX.utils.json_to_sheet(excelRows);
-            
-            // ضبط اتجاه ورقة العمل لتكون من اليمين لليسار (RTL)
-            worksheet['!dir'] = "rtl";
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "سجل التسميع");
 
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "سجلات التسميع");
-
-            // تنفيذ التحميل
-            XLSX.writeFile(workbook, `سجل_تسميع_${new Date().toISOString().slice(0,10)}.xlsx`);
-            
-            alert("تم إنشاء ملف الإكسل بنجاح، تحقق من مجلد التحميلات (Downloads).");
-        };
-    } catch (err) {
-        console.error(err);
-        alert("حدث خطأ أثناء التصدير: " + err.message);
-    }
+        // تصدير وحفظ
+        XLSX.writeFile(workbook, `Quran_Records_${new Date().getTime()}.xlsx`);
+    };
 }
 
 function refreshAll() {
@@ -152,4 +142,5 @@ function displayRecords() {
 function deleteRecord(id) { if(confirm("حذف؟")) db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); }
 function clearStuFields() { ['stuID','fName','pName','gName','lName'].forEach(i => document.getElementById(i).value = ''); document.getElementById('stuID').disabled = false; }
 function clearActivityFields() { ['pFrom','pTo','errors'].forEach(i => document.getElementById(i).value = ''); document.getElementById('studentSelect').value = ''; }
+
 
