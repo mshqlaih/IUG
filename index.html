@@ -156,6 +156,29 @@
     </div>
 </div>
 
+<!-- لوحة إحصائيات الطالب الذكية -->
+<div class="card" id="studentStatsCard" style="display:none; background: #e3f2fd; border: 1px solid #90caf9;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #1565c0; border-right-color: #1565c0;">📊 إحصائيات الطالب: <span id="statStudentName"></span></h3>
+        <button class="btn-del" id="deleteStudentBtn" style="width: auto; padding: 8px 15px;">حذف الطالب نهائياً 🗑️</button>
+    </div>
+    <div class="grid" style="margin-top: 15px;">
+        <div class="calc-box" style="background: #fff;">
+            <label>إجمالي الحفظ (هذا الشهر)</label>
+            <div id="totalHifz" style="font-size: 18px; color: #2e7d32;">0 صفحة</div>
+        </div>
+        <div class="calc-box" style="background: #fff;">
+            <label>إجمالي المراجعة</label>
+            <div id="totalMuraja" style="font-size: 18px; color: #1565c0;">0 صفحة</div>
+        </div>
+        <div class="calc-box" style="background: #fff;">
+            <label>متوسط الأخطاء</label>
+            <div id="avgErrors" style="font-size: 18px; color: #c62828;">0</div>
+        </div>
+    </div>
+</div>
+    
+
 <!-- قائمة البحث الذكي (سيتم ملؤها من app.js) -->
 <datalist id="ayatList"></datalist>
 
@@ -165,6 +188,7 @@
 <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
