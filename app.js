@@ -52,7 +52,7 @@ function calculateExactProgress() {
     if (fromObj && toObj) {
         let totalLines = 0;
 
-        // 1. حساب إجمالي الأسطر (نفس المنطق الدقيق السابق)
+        // 1. حساب إجمالي الأسطر بدقة
         if (fromObj.p === toObj.p) {
             totalLines = Math.abs(toObj.le - fromObj.ls) + 1;
         } else {
@@ -65,37 +65,46 @@ function calculateExactProgress() {
             totalLines = firstPageLines + lastPageLines + intermediateLines;
         }
 
-        // 2. تحويل الأسطر إلى صفحات كاملة وبواقي
+        // 2. تقسيم الأسطر إلى صفحات وأرباع
         let fullPages = Math.floor(totalLines / 15);
         let remainingLines = totalLines % 15;
         let fractionText = "";
 
-        // 3. منطق التقريب إلى أرباع الصفحات
+        // 3. تحويل الباقي إلى كسور (أرباع)
         if (remainingLines >= 1 && remainingLines <= 4) {
-            fractionText = "وربع"; 
+            fractionText = "وربع";
         } else if (remainingLines >= 5 && remainingLines <= 8) {
             fractionText = "ونصف";
         } else if (remainingLines >= 9 && remainingLines <= 12) {
             fractionText = "وثلاثة أرباع";
         } else if (remainingLines >= 13) {
-            fullPages += 1; // جبر الكسر لصفحة كاملة
+            fullPages += 1;
             fractionText = "";
         }
 
-        // 4. صياغة النص النهائي بشكل جمالي
+        // 4. بناء النص النهائي (بدون كلمة أسطر)
         let resultText = "";
+
         if (fullPages > 0) {
-            resultText = `${fullPages} صفحة ${fractionText}`;
+            // حالة وجود صفحات كاملة
+            resultText = `${fullPages} صفحة`;
+            if (fractionText !== "") {
+                resultText += ` ${fractionText}`;
+            }
         } else {
-            // إذا كان المجموع أقل من صفحة، نعرض الكسر فقط
-            resultText = fractionText.replace("و", "") || `${remainingLines} أسطر`;
+            // حالة أقل من صفحة واحدة
+            if (fractionText === "وربع") resultText = "ربع صفحة";
+            else if (fractionText === "ونصف") resultText = "نصف صفحة";
+            else if (fractionText === "وثلاثة أرباع") resultText = "ثلاثة أرباع صفحة";
+            else resultText = "أقل من ربع صفحة"; 
         }
 
-        // تنظيف النص (مثل إزالة "وربع" إذا كانت الصفحة 0 لتصبح "ربع")
-        resultText = resultText.trim();
-        if (resultText === "ونصف") resultText = "نصف صفحة";
-        if (resultText === "وربع") resultText = "ربع صفحة";
-        if (resultText === "وثلاثة أرباع") resultText = "ثلاثة أرباع صفحة";
+        // استثناء الفاتحة وأول البقرة: إذا كانت الصفحة كاملة آياتها، نجبرها لصفحة
+        const pageAyahs = QURAN_DATA.filter(a => a.p === fromObj.p);
+        const lastAyah = Math.max(...pageAyahs.map(a => a.a));
+        if (fromObj.p === toObj.p && fromObj.a === 1 && toObj.a === lastAyah) {
+            resultText = "1 صفحة كاملة";
+        }
 
         document.getElementById('pagesResult').innerText = "المقدار: " + resultText;
         document.getElementById('partNumber').value = toObj.j;
@@ -277,6 +286,7 @@ function clearActivityFields() {
     document.getElementById('partNumber').value = "";
     document.getElementById('activityDate').valueAsDate = new Date();
 }
+
 
 
 
