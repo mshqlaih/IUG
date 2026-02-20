@@ -94,12 +94,12 @@
 
             <div class="field">
                 <label>من (بحث بالآية أو الصفحة)</label>
-                <input list="ayatList" id="rangeFrom" placeholder="اكتب للبحث..." onchange="calculateExactProgress()">
+                <input list="ayatList" id="rangeFrom" placeholder="اكتب للبحث..." autocomplete="off" onchange="calculateExactProgress()">
                 <span onclick="document.getElementById('rangeFrom').value=''" style="position:absolute; left:10px; top:32px; cursor:pointer; color:#999;">✕</span>
             </div>
             <div class="field">
                 <label>إلى (بحث بالآية أو الصفحة)</label>
-                <input list="ayatList" id="rangeTo" placeholder="اكتب للبحث..." onchange="calculateExactProgress()">
+                <input list="ayatList" id="rangeTo" placeholder="اكتب للبحث..." autocomplete="off" onchange="calculateExactProgress()">
             </div>
             <div class="field">
                 <label>رقم الجزء</label>
@@ -165,6 +165,7 @@
 <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
