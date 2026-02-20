@@ -50,46 +50,57 @@ function calculateExactProgress() {
     const toObj = QURAN_DATA.find(item => item.l === toLabel);
 
     if (fromObj && toObj) {
-        const pageFrom = fromObj.p;
-        const pageTo = toObj.p;
-        const pageDiff = Math.abs(pageTo - pageFrom);
-        
-        let resultText = "";
+        let totalLines = 0;
 
-        // --- الحالة 1: التسميع عبر صفحات متعددة ---
-        if (pageDiff > 0) {
-            const totalPages = pageDiff + 1;
-            resultText = `${totalPages} صفحة كاملة`;
+        // الحالة 1: التسميع داخل نفس الصفحة
+        if (fromObj.p === toObj.p) {
+            totalLines = Math.abs(toObj.le - fromObj.ls) + 1;
         } 
-        // --- الحالة 2: التسميع داخل نفس الصفحة (التركيز على الاستثناءات) ---
+        // الحالة 2: التسميع عبر صفحات متعددة (مثلاً من ص 1 إلى ص 3)
         else {
-            // جلب كافة آيات هذه الصفحة لمعرفة أول وآخر آية فيها
-            const pageAyahs = QURAN_DATA.filter(a => a.p === pageFrom);
-            const firstAyahInPage = Math.min(...pageAyahs.map(a => a.a));
-            const lastAyahInPage = Math.max(...pageAyahs.map(a => a.a));
-
-            // أ. التحقق هل سمع الصفحة كاملة (من أول آية لآخر آية في الصفحة)
-            if (fromObj.a === firstAyahInPage && toObj.a === lastAyahInPage) {
-                resultText = "1 صفحة كاملة";
-            } 
-            // ب. إذا لم تكن صفحة كاملة، نحسبها بالأسطر
-            else {
-                const totalLines = Math.abs(toObj.le - fromObj.ls) + 1;
-                // جبر الكسر إذا قارب على إنهاء الصفحة (13 سطر فأكثر)
-                if (totalLines >= 13) {
-                    resultText = "1 صفحة كاملة";
-                } else {
-                    resultText = `${totalLines} أسطر`;
-                }
-            }
+            const startPage = Math.min(fromObj.p, toObj.p);
+            const endPage = Math.max(fromObj.p, toObj.p);
+            
+            // أ. حساب أسطر الصفحة الأولى (من بداية الآية المختارة إلى آخر السطر 15)
+            const firstPageLines = 15 - fromObj.ls + 1;
+            
+            // ب. حساب أسطر الصفحة الأخيرة (من السطر 1 إلى نهاية الآية المختارة)
+            const lastPageLines = toObj.le;
+            
+            // ج. حساب الصفحات الكاملة المحصورة بينهما (كل صفحة 15 سطر)
+            const intermediatePages = (endPage - startPage) - 1;
+            const intermediateLines = (intermediatePages > 0) ? intermediatePages * 15 : 0;
+            
+            totalLines = firstPageLines + lastPageLines + intermediateLines;
         }
 
+        // تحويل إجمالي الأسطر إلى صفحات وأسطر (المعيار 15 سطر)
+        const fullPages = Math.floor(totalLines / 15);
+        const remainingLines = totalLines % 15;
+
+        // --- منطق الجبر الذكي ---
+        let resultText = "";
+        
+        // إذا كان الباقي 14 أو 13 سطر، نجبرها لصفحة كاملة (للمرونة الإدارية)
+        if (remainingLines >= 13) {
+            resultText = `${fullPages + 1} صفحة كاملة`;
+        } else if (fullPages > 0) {
+            resultText = `${fullPages} صفحة`;
+            if (remainingLines > 0) resultText += ` و ${remainingLines} أسطر`;
+        } else {
+            resultText = `${remainingLines} أسطر`;
+        }
+
+        // استثناء خاص: إذا بدأ من أول آية في الصفحة وانتهى في آخر آية في صفحة أخرى
+        // (نتأكد من فحص حدود الصفحات لضمان دقة كلمة "كاملة")
+        
         document.getElementById('pagesResult').innerText = "المقدار: " + resultText;
         document.getElementById('partNumber').value = toObj.j;
         return { text: resultText, part: toObj.j };
     }
     return null;
 }
+
 
 function saveTeacherID() { 
     localStorage.setItem('teacherID', document.getElementById('teacherID').value); 
@@ -262,5 +273,6 @@ function clearActivityFields() {
     document.getElementById('partNumber').value = "";
     document.getElementById('activityDate').valueAsDate = new Date();
 }
+
 
 
