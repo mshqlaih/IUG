@@ -290,37 +290,43 @@ function clearActivityFields() {
 // 1. أتمتة البداية بناءً على آخر حفظ للطالب
 document.getElementById('studentSelect').addEventListener('change', function() {
     const studentName = this.value;
+    const direction = document.getElementById('flowDirection').value; // جلب الاتجاه المختار
     if (!studentName) return;
 
     const tx = db.transaction("records", "readonly");
     const store = tx.objectStore("records");
     
-    // نفتح السجلات من الأحدث إلى الأقدم (prev)
-    const request = store.openCursor(null, 'prev');
-    
-    request.onsuccess = (e) => {
+    store.openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
-            // إذا وجدنا سجلاً يحمل نفس اسم الطالب المختار
             if (cursor.value.student === studentName) {
-                // نأخذ قيمة "إلى" القديمة ونضعها في "من" الحالية
-                document.getElementById('rangeFrom').value = cursor.value.toRange;
+                const lastToRange = cursor.value.toRange;
+                const lastAyahObj = QURAN_DATA.find(item => item.l === lastToRange);
                 
-                // تنبيه بصري بسيط للمعلم (اختياري)
-                console.log("تم جلب آخر مراجعة لـ " + studentName);
-                
-                // تحديث الحساب فوراً ليظهر المقدار والجزء
+                if (lastAyahObj) {
+                    let nextId;
+                    if (direction === "forward") {
+                        nextId = lastAyahObj.id + 1; // قفزة للأمام
+                    } else {
+                        nextId = lastAyahObj.id - 1; // قفزة للخلف (مراجعة عكسية)
+                    }
+
+                    const nextAyahObj = QURAN_DATA.find(item => item.id === nextId);
+                    
+                    if (nextAyahObj) {
+                        document.getElementById('rangeFrom').value = nextAyahObj.l;
+                    } else {
+                        document.getElementById('rangeFrom').value = lastAyahObj.l;
+                    }
+                }
                 calculateExactProgress();
-                return; // نوقف البحث بمجرد إيجاد أول سجل (الأحدث)
+                return; 
             }
-            cursor.continue(); // إذا لم يطابق الاسم، أكمل البحث في السجل الذي قبله
-        } else {
-            // إذا بحث في كل السجلات ولم يجد شيئاً (طالب جديد)
-            document.getElementById('rangeFrom').value = "";
-            document.getElementById('pagesResult').innerText = "المقدار: 0 صفحة (طالب جديد)";
+            cursor.continue();
         }
     };
 });
+
 
 
 // 2. محرك البحث الذكي (دعم الاختصارات)
@@ -355,6 +361,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
