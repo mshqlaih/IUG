@@ -84,6 +84,14 @@
                 </select>
             </div>
             <div class="field">
+    <label>اتجاه السير (للأمام/للخلف)</label>
+    <select id="flowDirection">
+        <option value="forward">تصاعدي (البقرة ← الناس)</option>
+        <option value="backward">تنازلي (الناس ← البقرة)</option>
+    </select>
+</div>
+
+            <div class="field">
                 <label>من (بحث بالآية أو الصفحة)</label>
                 <input list="ayatList" id="rangeFrom" placeholder="اكتب للبحث..." onchange="calculateExactProgress()">
                 <span onclick="document.getElementById('rangeFrom').value=''" style="position:absolute; left:10px; top:32px; cursor:pointer; color:#999;">✕</span>
@@ -156,4 +164,5 @@
 <script src="app.js"></script>
 </body>
 </html>
+
 
