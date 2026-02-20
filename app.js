@@ -290,26 +290,29 @@ function clearActivityFields() {
 // 1. أتمتة البداية بناءً على آخر حفظ للطالب
 document.getElementById('studentSelect').addEventListener('change', function() {
     const studentName = this.value;
-    const direction = document.getElementById('flowDirection').value; // جلب الاتجاه المختار
     if (!studentName) return;
 
     const tx = db.transaction("records", "readonly");
     const store = tx.objectStore("records");
     
+    // البحث عن آخر سجل لهذا الطالب
     store.openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
             if (cursor.value.student === studentName) {
-                const lastToRange = cursor.value.toRange;
+                const lastRecord = cursor.value;
+                const lastToRange = lastRecord.toRange;
+                
+                // 1. تذكر اتجاه السير الأخير وضبط القائمة المنسدلة تلقائياً
+                const lastDir = lastRecord.flowDirection || "forward";
+                document.getElementById('flowDirection').value = lastDir;
+
+                // 2. البحث عن الكائن المرتبط بآخر آية
                 const lastAyahObj = QURAN_DATA.find(item => item.l === lastToRange);
                 
                 if (lastAyahObj) {
-                    let nextId;
-                    if (direction === "forward") {
-                        nextId = lastAyahObj.id + 1; // قفزة للأمام
-                    } else {
-                        nextId = lastAyahObj.id - 1; // قفزة للخلف (مراجعة عكسية)
-                    }
+                    // 3. تنفيذ القفزة بناءً على الاتجاه المتذكر
+                    let nextId = (lastDir === "forward") ? lastAyahObj.id + 1 : lastAyahObj.id - 1;
 
                     const nextAyahObj = QURAN_DATA.find(item => item.id === nextId);
                     
@@ -319,13 +322,19 @@ document.getElementById('studentSelect').addEventListener('change', function() {
                         document.getElementById('rangeFrom').value = lastAyahObj.l;
                     }
                 }
+                
                 calculateExactProgress();
                 return; 
             }
             cursor.continue();
+        } else {
+            // طالب جديد: افتراضي للأمام والحقول فارغة
+            document.getElementById('flowDirection').value = "forward";
+            document.getElementById('rangeFrom').value = "";
         }
     };
 });
+
 
 
 
@@ -361,6 +370,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
