@@ -43,59 +43,49 @@ function fillAyatSearchList() {
 
 // دالة الحساب الدقيق بالأسطر والصفحات
 function calculateExactProgress() {
-    const fromLabel = document.getElementById('rangeFrom').value;
-    const toLabel = document.getElementById('rangeTo').value;
-
-    const fromObj = QURAN_DATA.find(item => item.l === fromLabel);
-    const toObj = QURAN_DATA.find(item => item.l === toLabel);
+    const fromObj = QURAN_DATA.find(item => item.l === document.getElementById('rangeFrom').value);
+    const toObj = QURAN_DATA.find(item => item.l === document.getElementById('rangeTo').value);
 
     if (fromObj && toObj) {
-        let totalLines = 0;
-
-        // تحديد الترتيب الفعلي (أيهما يسبق الآخر في المصحف) لضمان صحة الطرح
+        // ترتيب المصحف لضمان حساب المسافة دوماً
         const start = (fromObj.id <= toObj.id) ? fromObj : toObj;
         const end = (fromObj.id <= toObj.id) ? toObj : fromObj;
 
-        // حساب المسافة بين النقطتين بالأسطر
+        let totalLines = 0;
+
         if (start.p === end.p) {
-            // التسميع داخل نفس الصفحة
             totalLines = (end.le - start.ls) + 1;
         } else {
-            // التسميع عبر صفحات متعددة
-            const firstPageLines = 15 - start.ls + 1; // الأسطر المتبقية في صفحة البداية
-            const lastPageLines = end.le;             // الأسطر المنجزة في صفحة النهاية
-            const intermediatePages = (end.p - start.p) - 1; // عدد الصفحات الكاملة بينهما
+            // أسطر صفحة البداية + أسطر صفحة النهاية
+            const edgeLines = (15 - start.ls + 1) + end.le;
+            // الصفحات التي تقع بينهما تماماً (دون احتساب البداية والنهاية)
+            const diff = end.p - start.p;
+            const fullPagesLines = (diff > 1) ? (diff - 1) * 15 : 0;
             
-            totalLines = firstPageLines + lastPageLines + (intermediatePages > 0 ? intermediatePages * 15 : 0);
+            totalLines = edgeLines + fullPagesLines;
         }
 
-        // تحويل إجمالي الأسطر إلى صفحات وأرباع
         let fullPages = Math.floor(totalLines / 15);
         let rem = totalLines % 15;
+        
+        // التقريب لأرباع الصفحات (المعيار 15 سطر)
         let fraction = "";
-
         if (rem >= 1 && rem <= 4) fraction = "وربع";
         else if (rem >= 5 && rem <= 8) fraction = "ونصف";
         else if (rem >= 9 && rem <= 12) fraction = "وثلاثة أرباع";
-        else if (rem >= 13) { fullPages++; fraction = ""; }
+        else if (rem >= 13) { fullPages++; rem = 0; fraction = ""; }
 
-        // صياغة النص النهائي
-        let resultText = "";
-        if (fullPages > 0) {
-            resultText = `${fullPages} صفحة ${fraction}`;
-        } else {
-            if (fraction === "وربع") resultText = "ربع صفحة";
-            else if (fraction === "ونصف") resultText = "نصف صفحة";
-            else if (fraction === "وثلاثة أرباع") resultText = "ثلاثة أرباع صفحة";
-            else resultText = `${totalLines} أسطر`;
-        }
+        let res = fullPages > 0 ? `${fullPages} صفحة ${fraction}` : (fraction.replace("و","") || "أقل من ربع");
+        
+        // تعديل نصي للجمالية
+        res = res.trim();
+        if (res === "ونصف") res = "نصف صفحة";
+        if (res === "وربع") res = "ربع صفحة";
+        if (res === "وثلاثة أرباع") res = "ثلاثة أرباع صفحة";
 
-        document.getElementById('pagesResult').innerText = "المقدار: " + resultText.trim();
-        document.getElementById('partNumber').value = toObj.j; // الجزء دائماً يتبع نقطة النهاية الحالية
-
-        return { text: resultText.trim(), part: toObj.j };
+        document.getElementById('pagesResult').innerText = "المقدار: " + res;
+        return { text: res, part: toObj.j };
     }
-    return null;
 }
 
 
@@ -355,6 +345,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
