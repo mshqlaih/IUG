@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام متابعة الحلقات</title>
-    <!-- مكتبة التصدير الضرورية -->
+    <title>نظام متابعة الحلقات - المطور</title>
     <style>
-        :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; --danger: #e74c3c; }
+        :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; --danger: #e74c3c; --accent: #d35400; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; direction: rtl; }
         .container { max-width: 1100px; margin: auto; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
@@ -16,20 +15,27 @@
         .field { display: flex; flex-direction: column; }
         label { margin-bottom: 4px; font-weight: bold; font-size: 12px; color: #666; }
         input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; width: 100%; box-sizing: border-box; }
+        input:focus { border-color: var(--secondary); outline: none; background: #fff; }
+        input[readonly] { background: #f9f9f9; color: var(--primary); font-weight: bold; }
+        
         button { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); width: 100%; margin-top: 10px; }
         .btn-save { background: var(--primary); color: white; flex: 2; }
         .btn-excel { background: #1d6f42; color: white; width: auto; font-size: 14px; }
         .btn-clear { background: #95a5a6; color: white; flex: 1; }
         .btn-del { background: var(--danger); color: white; padding: 4px 8px; font-size: 11px; }
+        
         .table-wrap { overflow-x: auto; margin-top: 10px; background: white; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
         th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 13px; }
         th { background: #f8f9fa; }
+        
+        .calc-box { background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; text-align: center; color: var(--accent); font-weight: bold; font-size: 14px; }
     </style>
 </head>
 <body>
 <div class="container">
+    <!-- هوية المسمع -->
     <div class="card">
         <div style="display: flex; gap: 10px; align-items: flex-end;">
             <div class="field" style="flex-grow: 1;">
@@ -40,6 +46,7 @@
         </div>
     </div>
 
+    <!-- إدارة الطلاب -->
     <div class="card">
         <h3>👤 إدارة الطلاب</h3>
         <div class="grid">
@@ -58,30 +65,60 @@
         </div>
     </div>
 
+    <!-- تسجيل النشاط المطور -->
     <div class="card">
-        <h3>📝 تسجيل نشاط</h3>
+        <h3>📝 تسجيل نشاط (بالآيات والصفحات)</h3>
         <div class="grid">
-            <div class="field"><label>الطالب</label><select id="studentSelect"></select></div>
-            <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
-            <div class="field"><label>النوع</label>
-                <select id="activityType">
+            <div class="field">
+                <label>الطالب</label>
+                <select id="studentSelect"></select>
+            </div>
+            <div class="field">
+                <label>التاريخ</label>
+                <input type="date" id="activityDate">
+            </div>
+            <div class="field">
+                <label>النوع</label>
+                <select id="activityType" onchange="calculateExactProgress()">
                     <option>تسميع</option><option>مراجعة</option><option>حضور</option><option>غياب</option>
                 </select>
             </div>
-            <div class="field"><label>السورة</label><select id="surahSelect"></select></div>
-            <input type="number" id="pFrom" placeholder="من ص">
-            <input type="number" id="pTo" placeholder="إلى ص">
-            <input type="number" id="errors" placeholder="أخطاء" value="0">
-            <select id="rating">
-                <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
-            </select>
+            <div class="field">
+                <label>من (بحث بالآية أو الصفحة)</label>
+                <input list="ayatList" id="rangeFrom" placeholder="اكتب للبحث..." onchange="calculateExactProgress()">
+            </div>
+            <div class="field">
+                <label>إلى (بحث بالآية أو الصفحة)</label>
+                <input list="ayatList" id="rangeTo" placeholder="اكتب للبحث..." onchange="calculateExactProgress()">
+            </div>
+            <div class="field">
+                <label>رقم الجزء</label>
+                <input type="text" id="partNumber" readonly placeholder="-">
+            </div>
+            <div class="field">
+                <label>أخطاء</label>
+                <input type="number" id="errors" value="0">
+            </div>
+            <div class="field">
+                <label>التقييم</label>
+                <select id="rating">
+                    <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
+                </select>
+            </div>
         </div>
+
+        <!-- صندوق عرض المقدار المحسوب -->
+        <div class="calc-box" id="pagesResult" style="margin-top: 15px;">
+            المقدار: 0 صفحة و 0 أسطر
+        </div>
+
         <div style="display: flex; gap: 10px; margin-top: 15px;">
             <button class="btn-save" onclick="saveActivity()">حفظ النشاط</button>
             <button class="btn-clear" onclick="clearActivityFields()">مسح الحقول</button>
         </div>
     </div>
 
+    <!-- السجلات -->
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3>📊 السجلات</h3>
@@ -89,15 +126,32 @@
         </div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>التاريخ</th><th>المسمع</th><th>الطالب</th><th>النوع</th><th>السورة</th><th>الصفحات</th><th>أخطاء</th><th>التقييم</th><th>حذف</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>المسمع</th>
+                        <th>الطالب</th>
+                        <th>النوع</th>
+                        <th>من</th>
+                        <th>إلى</th>
+                        <th>المقدار</th>
+                        <th>أخطاء</th>
+                        <th>التقييم</th>
+                        <th>حذف</th>
+                    </tr>
+                </thead>
                 <tbody id="logTable"></tbody>
             </table>
         </div>
     </div>
 </div>
+
+<!-- قائمة البحث الذكي (سيتم ملؤها من app.js) -->
+<datalist id="ayatList"></datalist>
+
+<!-- استدعاء ملفات البيانات والسكربت -->
+<script src="quran_data.js"></script>
 <script src="xlsx.full.min.js"></script>    
 <script src="app.js"></script>
 </body>
 </html>
-
-
