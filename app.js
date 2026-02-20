@@ -141,6 +141,7 @@ async function saveActivity() {
         student: document.getElementById('studentSelect').value,
         date: document.getElementById('activityDate').value,
         type: document.getElementById('activityType').value,
+        flowDirection: document.getElementById('flowDirection').value, // حفظ الاتجاه
         fromRange: document.getElementById('rangeFrom').value,
         toRange: document.getElementById('rangeTo').value,
         amount: progress ? progress.text : "---",
@@ -370,6 +371,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
