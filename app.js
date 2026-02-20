@@ -294,22 +294,34 @@ document.getElementById('studentSelect').addEventListener('change', function() {
 
     const tx = db.transaction("records", "readonly");
     const store = tx.objectStore("records");
-    let lastRecord = null;
-
-    store.openCursor(null, 'prev').onsuccess = (e) => {
+    
+    // نفتح السجلات من الأحدث إلى الأقدم (prev)
+    const request = store.openCursor(null, 'prev');
+    
+    request.onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
+            // إذا وجدنا سجلاً يحمل نفس اسم الطالب المختار
             if (cursor.value.student === studentName) {
-                lastRecord = cursor.value;
-                // نضع آية "إلى" السابقة في حقل "من" الحالي
-                document.getElementById('rangeFrom').value = lastRecord.toRange;
-                calculateExactProgress(); // تحديث الحساب فوراً
-                return; 
+                // نأخذ قيمة "إلى" القديمة ونضعها في "من" الحالية
+                document.getElementById('rangeFrom').value = cursor.value.toRange;
+                
+                // تنبيه بصري بسيط للمعلم (اختياري)
+                console.log("تم جلب آخر مراجعة لـ " + studentName);
+                
+                // تحديث الحساب فوراً ليظهر المقدار والجزء
+                calculateExactProgress();
+                return; // نوقف البحث بمجرد إيجاد أول سجل (الأحدث)
             }
-            cursor.continue();
+            cursor.continue(); // إذا لم يطابق الاسم، أكمل البحث في السجل الذي قبله
+        } else {
+            // إذا بحث في كل السجلات ولم يجد شيئاً (طالب جديد)
+            document.getElementById('rangeFrom').value = "";
+            document.getElementById('pagesResult').innerText = "المقدار: 0 صفحة (طالب جديد)";
         }
     };
 });
+
 
 // 2. محرك البحث الذكي (دعم الاختصارات)
 document.getElementById('rangeFrom').addEventListener('input', (e) => handleSmartSearch(e.target));
@@ -343,6 +355,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
