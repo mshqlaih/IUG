@@ -52,64 +52,48 @@ function calculateExactProgress() {
     if (fromObj && toObj) {
         let totalLines = 0;
 
-        // 1. حساب إجمالي الأسطر بدقة
-        if (fromObj.p === toObj.p) {
-            totalLines = Math.abs(toObj.le - fromObj.ls) + 1;
+        // تحديد الترتيب الفعلي (أيهما يسبق الآخر في المصحف) لضمان صحة الطرح
+        const start = (fromObj.id <= toObj.id) ? fromObj : toObj;
+        const end = (fromObj.id <= toObj.id) ? toObj : fromObj;
+
+        // حساب المسافة بين النقطتين بالأسطر
+        if (start.p === end.p) {
+            // التسميع داخل نفس الصفحة
+            totalLines = (end.le - start.ls) + 1;
         } else {
-            const startPage = Math.min(fromObj.p, toObj.p);
-            const endPage = Math.max(fromObj.p, toObj.p);
-            const firstPageLines = 15 - fromObj.ls + 1;
-            const lastPageLines = toObj.le;
-            const intermediatePages = (endPage - startPage) - 1;
-            const intermediateLines = (intermediatePages > 0) ? intermediatePages * 15 : 0;
-            totalLines = firstPageLines + lastPageLines + intermediateLines;
+            // التسميع عبر صفحات متعددة
+            const firstPageLines = 15 - start.ls + 1; // الأسطر المتبقية في صفحة البداية
+            const lastPageLines = end.le;             // الأسطر المنجزة في صفحة النهاية
+            const intermediatePages = (end.p - start.p) - 1; // عدد الصفحات الكاملة بينهما
+            
+            totalLines = firstPageLines + lastPageLines + (intermediatePages > 0 ? intermediatePages * 15 : 0);
         }
 
-        // 2. تقسيم الأسطر إلى صفحات وأرباع
+        // تحويل إجمالي الأسطر إلى صفحات وأرباع
         let fullPages = Math.floor(totalLines / 15);
-        let remainingLines = totalLines % 15;
-        let fractionText = "";
+        let rem = totalLines % 15;
+        let fraction = "";
 
-        // 3. تحويل الباقي إلى كسور (أرباع)
-        if (remainingLines >= 1 && remainingLines <= 4) {
-            fractionText = "وربع";
-        } else if (remainingLines >= 5 && remainingLines <= 8) {
-            fractionText = "ونصف";
-        } else if (remainingLines >= 9 && remainingLines <= 12) {
-            fractionText = "وثلاثة أرباع";
-        } else if (remainingLines >= 13) {
-            fullPages += 1;
-            fractionText = "";
-        }
+        if (rem >= 1 && rem <= 4) fraction = "وربع";
+        else if (rem >= 5 && rem <= 8) fraction = "ونصف";
+        else if (rem >= 9 && rem <= 12) fraction = "وثلاثة أرباع";
+        else if (rem >= 13) { fullPages++; fraction = ""; }
 
-        // 4. بناء النص النهائي (بدون كلمة أسطر)
+        // صياغة النص النهائي
         let resultText = "";
-
         if (fullPages > 0) {
-            // حالة وجود صفحات كاملة
-            resultText = `${fullPages} صفحة`;
-            if (fractionText !== "") {
-                resultText += ` ${fractionText}`;
-            }
+            resultText = `${fullPages} صفحة ${fraction}`;
         } else {
-            // حالة أقل من صفحة واحدة
-            if (fractionText === "وربع") resultText = "ربع صفحة";
-            else if (fractionText === "ونصف") resultText = "نصف صفحة";
-            else if (fractionText === "وثلاثة أرباع") resultText = "ثلاثة أرباع صفحة";
-            else resultText = "أقل من ربع صفحة"; 
+            if (fraction === "وربع") resultText = "ربع صفحة";
+            else if (fraction === "ونصف") resultText = "نصف صفحة";
+            else if (fraction === "وثلاثة أرباع") resultText = "ثلاثة أرباع صفحة";
+            else resultText = `${totalLines} أسطر`;
         }
 
-        // استثناء الفاتحة وأول البقرة: إذا كانت الصفحة كاملة آياتها، نجبرها لصفحة
-        const pageAyahs = QURAN_DATA.filter(a => a.p === fromObj.p);
-        const lastAyah = Math.max(...pageAyahs.map(a => a.a));
-        if (fromObj.p === toObj.p && fromObj.a === 1 && toObj.a === lastAyah) {
-            resultText = "1 صفحة كاملة";
-        }
+        document.getElementById('pagesResult').innerText = "المقدار: " + resultText.trim();
+        document.getElementById('partNumber').value = toObj.j; // الجزء دائماً يتبع نقطة النهاية الحالية
 
-        document.getElementById('pagesResult').innerText = "المقدار: " + resultText;
-        document.getElementById('partNumber').value = toObj.j;
-        
-        return { text: resultText, part: toObj.j };
+        return { text: resultText.trim(), part: toObj.j };
     }
     return null;
 }
@@ -371,6 +355,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
