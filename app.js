@@ -1,6 +1,8 @@
-const QURAN_SURAHS = ["الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"];
+// استدعاء ملف Service Worker للعمل أوفلاين
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(() => console.log("جاهز للعمل أوفلاين"));
+}
 
-// اسم قاعدة بيانات ثابت لا يتغير
 const DB_NAME = "QuranProjectDB";
 let db;
 
@@ -11,46 +13,101 @@ window.onload = () => {
         if (!db.objectStoreNames.contains("students")) db.createObjectStore("students", { keyPath: "id" });
         if (!db.objectStoreNames.contains("records")) db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
     };
-    request.onsuccess = (e) => { db = e.target.result; refreshAll(); };
-    fillSurahs();
+    request.onsuccess = (e) => { 
+        db = e.target.result; 
+        refreshAll(); 
+    };
+    
+    // ملء قائمة البحث الذكي من بيانات أوراكل المدمجة في quran_data.js
+    fillAyatSearchList();
+    
     document.getElementById('activityDate').valueAsDate = new Date();
     const savedID = localStorage.getItem('teacherID');
     if(savedID) document.getElementById('teacherID').value = savedID;
 };
 
-function saveTeacherID() { localStorage.setItem('teacherID', document.getElementById('teacherID').value); alert("تم الحفظ"); }
+// ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
+function fillAyatSearchList() {
+    const list = document.getElementById('ayatList');
+    if (typeof QURAN_DATA === 'undefined') return;
+    
+    const fragment = document.createDocumentFragment();
+    QURAN_DATA.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.l; // النص: سورة... آية... ص...
+        fragment.appendChild(option);
+    });
+    list.innerHTML = "";
+    list.appendChild(fragment);
+}
 
-function fillSurahs() {
-    const s = document.getElementById('surahSelect');
-    s.innerHTML = '<option value="-">بدون تحديد</option>';
-    QURAN_SURAHS.forEach(name => s.innerHTML += `<option value="${name}">${name}</option>`);
+// دالة الحساب الدقيق بالأسطر والصفحات
+function calculateExactProgress() {
+    const fromLabel = document.getElementById('rangeFrom').value;
+    const toLabel = document.getElementById('rangeTo').value;
+
+    const fromObj = QURAN_DATA.find(item => item.l === fromLabel);
+    const toObj = QURAN_DATA.find(item => item.l === toLabel);
+
+    if (fromObj && toObj) {
+        // الموقع التراكمي: (الصفحة * 15 سطر) + السطر الحالي
+        const startPos = (fromObj.p * 15) + fromObj.ls;
+        const endPos = (toObj.p * 15) + toObj.le;
+
+        const totalLines = Math.abs(endPos - startPos) + 1;
+        const fullPages = Math.floor(totalLines / 15);
+        const remainingLines = totalLines % 15;
+
+        let resultText = `${fullPages} صفحة و ${remainingLines} أسطر`;
+        document.getElementById('pagesResult').innerText = "المقدار: " + resultText;
+        document.getElementById('partNumber').value = toObj.j; // تحديث الجزء تلقائياً
+
+        return { text: resultText, part: toObj.j };
+    }
+    return null;
+}
+
+function saveTeacherID() { 
+    localStorage.setItem('teacherID', document.getElementById('teacherID').value); 
+    alert("تم الحفظ"); 
 }
 
 function saveStudent() {
-    const s = { id: document.getElementById('stuID').value, fName: document.getElementById('fName').value.trim(), pName: document.getElementById('pName').value.trim(), gName: document.getElementById('gName').value.trim(), lName: document.getElementById('lName').value.trim() };
+    const s = { 
+        id: document.getElementById('stuID').value, 
+        fName: document.getElementById('fName').value.trim(), 
+        pName: document.getElementById('pName').value.trim(), 
+        gName: document.getElementById('gName').value.trim(), 
+        lName: document.getElementById('lName').value.trim() 
+    };
     if(!s.id || !s.fName) return alert("أكمل البيانات");
     const tx = db.transaction("students", "readwrite");
     tx.objectStore("students").put(s).onsuccess = () => { refreshAll(); clearStuFields(); };
 }
 
 async function saveActivity() {
+    const progress = calculateExactProgress();
+    
     const record = {
         teacher: document.getElementById('teacherID').value || "---",
         student: document.getElementById('studentSelect').value,
         date: document.getElementById('activityDate').value,
         type: document.getElementById('activityType').value,
-        surah: document.getElementById('surahSelect').value,
-        pages: `${document.getElementById('pFrom').value || 0} - ${document.getElementById('pTo').value || 0}`,
+        fromRange: document.getElementById('rangeFrom').value,
+        toRange: document.getElementById('rangeTo').value,
+        amount: progress ? progress.text : "---",
+        part: progress ? progress.part : "---",
         errors: document.getElementById('errors').value || 0,
         rating: document.getElementById('rating').value
     };
 
-    if(!record.student) return alert("اختر طالباً");
+    if(!record.student || !record.fromRange) return alert("اختر الطالب ونطاق التسميع");
 
-    // فحص التكرار
+    // فحص التكرار لنفس النشاط في نفس اليوم
     const tx = db.transaction("records", "readonly");
     const store = tx.objectStore("records");
     let isDuplicate = false;
+
     store.openCursor().onsuccess = (e) => {
         const cursor = e.target.result;
         if(cursor) {
@@ -61,13 +118,16 @@ async function saveActivity() {
         } else {
             if(isDuplicate) return alert("هذا النشاط مسجل مسبقاً لهذا الطالب اليوم");
             const writeTx = db.transaction("records", "readwrite");
-            writeTx.objectStore("records").add(record).onsuccess = () => { displayRecords(); clearActivityFields(); };
+            writeTx.objectStore("records").add(record).onsuccess = () => { 
+                displayRecords(); 
+                clearActivityFields(); 
+                alert("تم الحفظ بنجاح");
+            };
         }
     };
 }
 
 function exportToExcel() {
-    // التأكد من أن الملف المحتوي على المكتبة موجود وتم تحميله
     if (typeof XLSX === 'undefined') {
         alert("خطأ: ملف المكتبة (xlsx.full.min.js) غير موجود في مجلد المشروع.");
         return;
@@ -83,37 +143,41 @@ function exportToExcel() {
             return;
         }
 
-        // تنسيق البيانات للأعمدة العربية
+        // تنسيق البيانات للأعمدة العربية لتشمل البيانات الجديدة
         const excelRows = data.map(r => ({
             "التاريخ": r.date,
             "هوية المسمع": r.teacher,
             "اسم الطالب": r.student,
             "النشاط": r.type,
-            "السورة": r.surah,
-            "الصفحات": r.pages,
+            "من": r.fromRange,
+            "إلى": r.toRange,
+            "المقدار المحسوب": r.amount,
+            "الجزء": r.part,
             "الأخطاء": r.errors,
             "التقييم": r.rating
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(excelRows);
-        worksheet['!dir'] = "rtl"; // جعل الملف يبدأ من اليمين لليسار
+        worksheet['!dir'] = "rtl"; 
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "سجل التسميع");
 
-        // تصدير وحفظ
-        XLSX.writeFile(workbook, `Quran_Records_${new Date().getTime()}.xlsx`);
+        XLSX.writeFile(workbook, `Quran_Detailed_Records_${new Date().getTime()}.xlsx`);
     };
 }
 
 function refreshAll() {
-    const sel = document.getElementById('studentSelect'); sel.innerHTML = '<option value="">-- اختر --</option>';
-    const list = document.getElementById('studentsList'); list.innerHTML = '';
+    const sel = document.getElementById('studentSelect'); 
+    sel.innerHTML = '<option value="">-- اختر --</option>';
+    const list = document.getElementById('studentsList'); 
+    list.innerHTML = '';
+    
     db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
         e.target.result.forEach(s => {
             const full = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
             sel.innerHTML += `<option value="${full}">${full}</option>`;
-            list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td><td><button style="background:#ffc107;padding:5px" onclick="editStudent('${s.id}')">✏️</button></td></tr>`;
+            list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td><td><button style="background:#ffc107;padding:5px;border-radius:4px;border:none;cursor:pointer" onclick="editStudent('${s.id}')">✏️</button></td></tr>`;
         });
     };
     displayRecords();
@@ -124,23 +188,53 @@ function editStudent(id) {
         const s = e.target.result;
         ['stuID','fName','pName','gName','lName'].forEach(k => document.getElementById(k).value = s[k]);
         document.getElementById('stuID').disabled = true;
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // صعود للأعلى للتعديل
     };
 }
 
 function displayRecords() {
-    const tbody = document.getElementById('logTable'); tbody.innerHTML = '';
+    const tbody = document.getElementById('logTable'); 
+    tbody.innerHTML = '';
+    
     db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if(cursor) {
             const r = cursor.value;
-            tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.teacher}</td><td><b>${r.student}</b></td><td>${r.type}</td><td>${r.surah}</td><td>${r.pages}</td><td>${r.errors}</td><td>${r.rating}</td><td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td></tr>`;
+            // عرض الأعمدة المتوافقة مع HTML الجديد (من، إلى، المقدار)
+            tbody.innerHTML += `<tr>
+                <td>${r.date}</td>
+                <td>${r.teacher}</td>
+                <td><b>${r.student}</b></td>
+                <td><span class="badge">${r.type}</span></td>
+                <td style="font-size:11px">${r.fromRange}</td>
+                <td style="font-size:11px">${r.toRange}</td>
+                <td style="color:var(--accent); font-weight:bold">${r.amount}</td>
+                <td>${r.errors}</td>
+                <td class="${r.rating === 'ممتاز' ? 'excellent' : ''}">${r.rating}</td>
+                <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
+            </tr>`;
             cursor.continue();
         }
     };
 }
 
-function deleteRecord(id) { if(confirm("حذف؟")) db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); }
-function clearStuFields() { ['stuID','fName','pName','gName','lName'].forEach(i => document.getElementById(i).value = ''); document.getElementById('stuID').disabled = false; }
-function clearActivityFields() { ['pFrom','pTo','errors'].forEach(i => document.getElementById(i).value = ''); document.getElementById('studentSelect').value = ''; }
+function deleteRecord(id) { 
+    if(confirm("هل أنت متأكد من حذف هذا السجل؟")) {
+        db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); 
+    }
+}
 
+function clearStuFields() { 
+    ['stuID','fName','pName','gName','lName'].forEach(i => document.getElementById(i).value = ''); 
+    document.getElementById('stuID').disabled = false; 
+}
 
+function clearActivityFields() { 
+    // تفريغ حقول النشاط وإعادة تعيين عداد المقدار
+    ['rangeFrom','rangeTo','errors'].forEach(i => document.getElementById(i).value = ''); 
+    document.getElementById('errors').value = 0;
+    document.getElementById('studentSelect').value = ''; 
+    document.getElementById('pagesResult').innerText = "المقدار: 0 صفحة و 0 أسطر";
+    document.getElementById('partNumber').value = "";
+    document.getElementById('activityDate').valueAsDate = new Date();
+}
