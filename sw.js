@@ -2,6 +2,7 @@ const CACHE_NAME = 'quran-app-v1';
 const ASSETS = [
   './',
   './index.html',
+  './quran_data.js',
   './app.js',
   './xlsx.full.min.js'
 ];
@@ -19,3 +20,4 @@ self.addEventListener('fetch', (e) => {
     caches.match(e.request).then((res) => res || fetch(e.request))
   );
 });
+
