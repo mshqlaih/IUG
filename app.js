@@ -320,39 +320,38 @@ document.getElementById('rangeTo').addEventListener('input', (e) => handleSmartS
 
 function handleSmartSearch(inputEl) {
     const val = inputEl.value.trim();
-    if (val.length < 1) return;
+    const list = document.getElementById('ayatList');
 
-    // تنظيف النص للبحث المرن (تجاهل "سورة" و "ال")
-    const searchVal = val.replace("سورة ", "").replace(/^ال/, "");
+    if (val.length < 1) {
+        renderOptions(QURAN_DATA.slice(0, 20));
+        return;
+    }
 
+    // 1. تقسيم كلمات البحث (مثلاً "بقرة 155" تصبح مصفوفة ["بقرة", "155"])
+    const searchTerms = val.replace("ال", "").split(" ");
+
+    // 2. الفلترة الذكية: يجب أن يحتوي السطر على كل الكلمات المكتوبة بغض النظر عن الترتيب
     const filtered = QURAN_DATA.filter(item => {
-        const cleanLabel = item.l.replace("سورة ", "").replace(/^ال/, "");
-        return cleanLabel.includes(searchVal) || item.l.includes(val);
-    }).slice(0, 30);
+        // تنظيف نص القاعدة من "سورة" و "آية" و "ال" لتسهيل المطابقة
+        const cleanLabel = item.l.replace("سورة ", "").replace("آية ", "").replace("ال", "");
+        
+        // التحقق من أن كل كلمة كتبها المعلم موجودة في السطر
+        return searchTerms.every(term => cleanLabel.includes(term) || item.l.includes(term));
+    }).slice(0, 40); 
 
-    renderOptions(filtered, val); // نرسل القيمة المكتوبة للدالة
-    // إذا بقيت نتيجة واحدة فقط تطابق ما كتبه المعلم بنسبة كبيرة، اخترها آلياً
-if (filtered.length === 1 && val.length > 5) {
-    inputEl.value = filtered[0].l;
-    calculateExactProgress(); // احسب الصفحات فوراً
+    renderOptions(filtered);
 }
 
-}
-
-function renderOptions(data, currentVal) {
+function renderOptions(data) {
     const list = document.getElementById('ayatList');
     list.innerHTML = ""; 
-    
+    const frag = document.createDocumentFragment();
     data.forEach(item => {
-        const option = document.createElement('option');
-        // السر هنا: نجعل الـ value هو النص الكامل (للحفظ) 
-        // والـ label أو الـ text هو ما يراه المستخدم
-        option.value = item.l; 
-        
-        // إذا كان المستخدم كتب "البقرة 155" والنص هو "سورة البقرة آية 155"
-        // المتصفح سيظهره لأننا نستخدم "includes" برمجياً
-        list.appendChild(option);
+        const opt = document.createElement('option');
+        opt.value = item.l; // سيظهر النص كاملاً عند الاختيار
+        frag.appendChild(opt);
     });
+    list.appendChild(frag);
 }
 
 
@@ -368,6 +367,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
