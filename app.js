@@ -369,6 +369,66 @@ function updateDatalist(data) {
 }
 
 
+// دالة تحديث الإحصائيات عند اختيار طالب
+document.getElementById('studentSelect').addEventListener('change', function() {
+    const name = this.value;
+    if (!name) {
+        document.getElementById('studentStatsCard').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('statStudentName').innerText = name;
+    document.getElementById('studentStatsCard').style.display = 'block';
+
+    const tx = db.transaction("records", "readonly");
+    const store = tx.objectStore("records");
+    let hifzPages = 0, murajaPages = 0, totalErrors = 0, count = 0;
+
+    store.openCursor().onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+            if (cursor.value.student === name) {
+                // استخراج عدد الصفحات من النص (مثلاً "2 صفحة ونصف" نأخذ الرقم 2)
+                const p = parseFloat(cursor.value.amount) || 0;
+                if (cursor.value.type === "تسميع") hifzPages += p;
+                else if (cursor.value.type === "مراجعة") murajaPages += p;
+                
+                totalErrors += parseInt(cursor.value.errors) || 0;
+                count++;
+            }
+            cursor.continue();
+        } else {
+            // عرض النتائج في اللوحة
+            document.getElementById('totalHifz').innerText = hifzPages.toFixed(1) + " صفحة";
+            document.getElementById('totalMuraja').innerText = murajaPages.toFixed(1) + " صفحة";
+            document.getElementById('avgErrors').innerText = count > 0 ? (totalErrors / count).toFixed(1) : 0;
+        }
+    };
+
+    // ربط زر الحذف بهوية الطالب
+    setupDeleteButton(name);
+});
+
+function setupDeleteButton(studentName) {
+    document.getElementById('deleteStudentBtn').onclick = () => {
+        if (confirm(`هل أنت متأكد من حذف الطالب (${studentName}) وجميع سجلاته نهائياً؟`)) {
+            // 1. البحث عن ID الطالب من اسمه
+            db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
+                const student = e.target.result.find(s => 
+                    `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim() === studentName
+                );
+                if (student) {
+                    const tx = db.transaction(["students", "records"], "readwrite");
+                    tx.objectStore("students").delete(student.id);
+                    // يمكنك اختيار حذف سجلاته أيضاً أو إبقاؤها للأرشيف
+                    alert("تم حذف الطالب بنجاح");
+                    location.reload(); // تحديث الصفحة لتنشيط القوائم
+                }
+            };
+        }
+    };
+}
+
 
 
 
