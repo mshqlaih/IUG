@@ -318,34 +318,37 @@ document.getElementById('studentSelect').addEventListener('change', function() {
 document.getElementById('rangeFrom').addEventListener('input', (e) => handleSmartSearch(e.target));
 document.getElementById('rangeTo').addEventListener('input', (e) => handleSmartSearch(e.target));
 
-function handleSmartSearch(input) {
-    const val = input.value.trim();
-    const list = document.getElementById('ayatList');
+function handleSmartSearch(inputEl) {
+    const val = inputEl.value.trim();
+    if (val.length < 1) return;
 
-    // إذا كان الحقل فارغاً، نعيد القائمة الكاملة أو نكتفي بأول 50 نتيجة للسرعة
-    if (val.length === 0) {
-        updateDatalist(QURAN_DATA.slice(0, 50));
-        return;
-    }
+    // تنظيف النص للبحث المرن (تجاهل "سورة" و "ال")
+    const searchVal = val.replace("سورة ", "").replace(/^ال/, "");
 
-    // منطق البحث المتعدد (الاسم، الآية، الصفحة)
     const filtered = QURAN_DATA.filter(item => {
-        const label = item.l; // النص المخزن: سورة البقرة آية 155 ص 25...
-        
-        // إذا كتب المستخدم "ص 20"
-        if (val.startsWith("ص ")) {
-            const pNum = val.replace("ص ", "");
-            return item.p == pNum;
-        }
-        
-        // البحث العادي: يبحث عن الكلمة في أي مكان (مثلاً "بق 155")
-        // نقوم بإزالة "سورة" من البحث لتسهيل الوصول
-        const cleanLabel = label.replace("سورة ", "");
-        return cleanLabel.includes(val) || label.includes(val);
-    }).slice(0, 30); // عرض أفضل 30 نتيجة فقط لضمان سرعة الاستجابة على الجوال
+        const cleanLabel = item.l.replace("سورة ", "").replace(/^ال/, "");
+        return cleanLabel.includes(searchVal) || item.l.includes(val);
+    }).slice(0, 30);
 
-    updateDatalist(filtered);
+    renderOptions(filtered, val); // نرسل القيمة المكتوبة للدالة
 }
+
+function renderOptions(data, currentVal) {
+    const list = document.getElementById('ayatList');
+    list.innerHTML = ""; 
+    
+    data.forEach(item => {
+        const option = document.createElement('option');
+        // السر هنا: نجعل الـ value هو النص الكامل (للحفظ) 
+        // والـ label أو الـ text هو ما يراه المستخدم
+        option.value = item.l; 
+        
+        // إذا كان المستخدم كتب "البقرة 155" والنص هو "سورة البقرة آية 155"
+        // المتصفح سيظهره لأننا نستخدم "includes" برمجياً
+        list.appendChild(option);
+    });
+}
+
 
 function updateDatalist(data) {
     const list = document.getElementById('ayatList');
@@ -359,6 +362,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
