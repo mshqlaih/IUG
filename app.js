@@ -331,6 +331,12 @@ function handleSmartSearch(inputEl) {
     }).slice(0, 30);
 
     renderOptions(filtered, val); // نرسل القيمة المكتوبة للدالة
+    // إذا بقيت نتيجة واحدة فقط تطابق ما كتبه المعلم بنسبة كبيرة، اخترها آلياً
+if (filtered.length === 1 && val.length > 5) {
+    inputEl.value = filtered[0].l;
+    calculateExactProgress(); // احسب الصفحات فوراً
+}
+
 }
 
 function renderOptions(data, currentVal) {
@@ -362,6 +368,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
