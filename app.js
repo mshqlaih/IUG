@@ -50,17 +50,47 @@ function calculateExactProgress() {
     const toObj = QURAN_DATA.find(item => item.l === toLabel);
 
     if (fromObj && toObj) {
-        // الموقع التراكمي: (الصفحة * 15 سطر) + السطر الحالي
+        // 1. حساب فرق الصفحات الفعلي
+        const pageDiff = Math.abs(toObj.p - fromObj.p);
+        
+        // 2. حساب إجمالي الأسطر
         const startPos = (fromObj.p * 15) + fromObj.ls;
         const endPos = (toObj.p * 15) + toObj.le;
-
         const totalLines = Math.abs(endPos - startPos) + 1;
-        const fullPages = Math.floor(totalLines / 15);
-        const remainingLines = totalLines % 15;
 
-        let resultText = `${fullPages} صفحة و ${remainingLines} أسطر`;
+        let fullPages = Math.floor(totalLines / 15);
+        let remainingLines = totalLines % 15;
+
+        // --- معالجة الاستثناءات الذكية ---
+        
+        // أ. إذا كان التسميع في صفحة واحدة (مثل الفاتحة أو جزء من صفحة)
+        // وكان عدد الأسطر أكثر من 12 سطر، نعتبرها صفحة كاملة تجوزاً
+        if (pageDiff === 0 && totalLines >= 13) {
+            fullPages = 1;
+            remainingLines = 0;
+        } 
+        // ب. حالة سورة الفاتحة تحديداً (إذا بدأت من آية 1 وانتهت في 7)
+        else if (fromObj.s === 1 && fromObj.a === 1 && toObj.a === 7) {
+            fullPages = 1;
+            remainingLines = 0;
+        }
+        // ج. إذا كان هناك كسر كبير من الأسطر (مثلاً 14 سطر) نتممه لصفحة
+        else if (remainingLines >= 14) {
+            fullPages += 1;
+            remainingLines = 0;
+        }
+
+        // صياغة النص النهائي
+        let resultText = "";
+        if (fullPages > 0) {
+            resultText += `${fullPages} صفحة `;
+            if (remainingLines > 0) resultText += `و ${remainingLines} أسطر`;
+        } else {
+            resultText = `${remainingLines} أسطر`;
+        }
+
         document.getElementById('pagesResult').innerText = "المقدار: " + resultText;
-        document.getElementById('partNumber').value = toObj.j; // تحديث الجزء تلقائياً
+        document.getElementById('partNumber').value = toObj.j;
 
         return { text: resultText, part: toObj.j };
     }
@@ -238,3 +268,4 @@ function clearActivityFields() {
     document.getElementById('partNumber').value = "";
     document.getElementById('activityDate').valueAsDate = new Date();
 }
+
