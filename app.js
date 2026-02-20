@@ -287,6 +287,65 @@ function clearActivityFields() {
     document.getElementById('activityDate').valueAsDate = new Date();
 }
 
+// 1. أتمتة البداية بناءً على آخر حفظ للطالب
+document.getElementById('studentSelect').addEventListener('change', function() {
+    const studentName = this.value;
+    if (!studentName) return;
+
+    const tx = db.transaction("records", "readonly");
+    const store = tx.objectStore("records");
+    let lastRecord = null;
+
+    store.openCursor(null, 'prev').onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+            if (cursor.value.student === studentName) {
+                lastRecord = cursor.value;
+                // نضع آية "إلى" السابقة في حقل "من" الحالي
+                document.getElementById('rangeFrom').value = lastRecord.toRange;
+                calculateExactProgress(); // تحديث الحساب فوراً
+                return; 
+            }
+            cursor.continue();
+        }
+    };
+});
+
+// 2. محرك البحث الذكي (دعم الاختصارات)
+document.getElementById('rangeFrom').addEventListener('input', (e) => handleSmartSearch(e.target));
+document.getElementById('rangeTo').addEventListener('input', (e) => handleSmartSearch(e.target));
+
+function handleSmartSearch(input) {
+    const val = input.value.trim();
+    if (val.length < 2) return;
+
+    // اختصار الصفحة: إذا بدأ بـ "ص "
+    if (val.startsWith("ص ")) {
+        const pNum = val.replace("ص ", "");
+        const filtered = QURAN_DATA.filter(a => a.p == pNum);
+        updateDatalist(filtered);
+    }
+    // اختصار السورة: إذا كتب أول حرفين من السورة
+    else if (val.length >= 2) {
+        const filtered = QURAN_DATA.filter(a => a.l.includes(val)).slice(0, 20); // عرض أول 20 نتيجة فقط للسرعة
+        updateDatalist(filtered);
+    }
+}
+
+function updateDatalist(data) {
+    const list = document.getElementById('ayatList');
+    list.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    data.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.l;
+        frag.appendChild(opt);
+    });
+    list.appendChild(frag);
+}
+
+
+
 
 
 
