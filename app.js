@@ -314,30 +314,44 @@ document.getElementById('studentSelect').addEventListener('change', function() {
 
 
 // 2. محرك البحث الذكي (دعم الاختصارات)
+// ربط الحقول بمحرك البحث
 document.getElementById('rangeFrom').addEventListener('input', (e) => handleSmartSearch(e.target));
 document.getElementById('rangeTo').addEventListener('input', (e) => handleSmartSearch(e.target));
 
 function handleSmartSearch(input) {
     const val = input.value.trim();
-    if (val.length < 2) return;
+    const list = document.getElementById('ayatList');
 
-    // اختصار الصفحة: إذا بدأ بـ "ص "
-    if (val.startsWith("ص ")) {
-        const pNum = val.replace("ص ", "");
-        const filtered = QURAN_DATA.filter(a => a.p == pNum);
-        updateDatalist(filtered);
+    // إذا كان الحقل فارغاً، نعيد القائمة الكاملة أو نكتفي بأول 50 نتيجة للسرعة
+    if (val.length === 0) {
+        updateDatalist(QURAN_DATA.slice(0, 50));
+        return;
     }
-    // اختصار السورة: إذا كتب أول حرفين من السورة
-    else if (val.length >= 2) {
-        const filtered = QURAN_DATA.filter(a => a.l.includes(val)).slice(0, 20); // عرض أول 20 نتيجة فقط للسرعة
-        updateDatalist(filtered);
-    }
+
+    // منطق البحث المتعدد (الاسم، الآية، الصفحة)
+    const filtered = QURAN_DATA.filter(item => {
+        const label = item.l; // النص المخزن: سورة البقرة آية 155 ص 25...
+        
+        // إذا كتب المستخدم "ص 20"
+        if (val.startsWith("ص ")) {
+            const pNum = val.replace("ص ", "");
+            return item.p == pNum;
+        }
+        
+        // البحث العادي: يبحث عن الكلمة في أي مكان (مثلاً "بق 155")
+        // نقوم بإزالة "سورة" من البحث لتسهيل الوصول
+        const cleanLabel = label.replace("سورة ", "");
+        return cleanLabel.includes(val) || label.includes(val);
+    }).slice(0, 30); // عرض أفضل 30 نتيجة فقط لضمان سرعة الاستجابة على الجوال
+
+    updateDatalist(filtered);
 }
 
 function updateDatalist(data) {
     const list = document.getElementById('ayatList');
-    list.innerHTML = "";
+    list.innerHTML = ""; // تفريغ القديم
     const frag = document.createDocumentFragment();
+    
     data.forEach(item => {
         const opt = document.createElement('option');
         opt.value = item.l;
@@ -345,6 +359,7 @@ function updateDatalist(data) {
     });
     list.appendChild(frag);
 }
+
 
 
 
