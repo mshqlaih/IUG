@@ -52,50 +52,54 @@ function calculateExactProgress() {
     if (fromObj && toObj) {
         let totalLines = 0;
 
-        // الحالة 1: التسميع داخل نفس الصفحة
+        // 1. حساب إجمالي الأسطر (نفس المنطق الدقيق السابق)
         if (fromObj.p === toObj.p) {
             totalLines = Math.abs(toObj.le - fromObj.ls) + 1;
-        } 
-        // الحالة 2: التسميع عبر صفحات متعددة (مثلاً من ص 1 إلى ص 3)
-        else {
+        } else {
             const startPage = Math.min(fromObj.p, toObj.p);
             const endPage = Math.max(fromObj.p, toObj.p);
-            
-            // أ. حساب أسطر الصفحة الأولى (من بداية الآية المختارة إلى آخر السطر 15)
             const firstPageLines = 15 - fromObj.ls + 1;
-            
-            // ب. حساب أسطر الصفحة الأخيرة (من السطر 1 إلى نهاية الآية المختارة)
             const lastPageLines = toObj.le;
-            
-            // ج. حساب الصفحات الكاملة المحصورة بينهما (كل صفحة 15 سطر)
             const intermediatePages = (endPage - startPage) - 1;
             const intermediateLines = (intermediatePages > 0) ? intermediatePages * 15 : 0;
-            
             totalLines = firstPageLines + lastPageLines + intermediateLines;
         }
 
-        // تحويل إجمالي الأسطر إلى صفحات وأسطر (المعيار 15 سطر)
-        const fullPages = Math.floor(totalLines / 15);
-        const remainingLines = totalLines % 15;
+        // 2. تحويل الأسطر إلى صفحات كاملة وبواقي
+        let fullPages = Math.floor(totalLines / 15);
+        let remainingLines = totalLines % 15;
+        let fractionText = "";
 
-        // --- منطق الجبر الذكي ---
-        let resultText = "";
-        
-        // إذا كان الباقي 14 أو 13 سطر، نجبرها لصفحة كاملة (للمرونة الإدارية)
-        if (remainingLines >= 13) {
-            resultText = `${fullPages + 1} صفحة كاملة`;
-        } else if (fullPages > 0) {
-            resultText = `${fullPages} صفحة`;
-            if (remainingLines > 0) resultText += ` و ${remainingLines} أسطر`;
-        } else {
-            resultText = `${remainingLines} أسطر`;
+        // 3. منطق التقريب إلى أرباع الصفحات
+        if (remainingLines >= 1 && remainingLines <= 4) {
+            fractionText = "وربع"; 
+        } else if (remainingLines >= 5 && remainingLines <= 8) {
+            fractionText = "ونصف";
+        } else if (remainingLines >= 9 && remainingLines <= 12) {
+            fractionText = "وثلاثة أرباع";
+        } else if (remainingLines >= 13) {
+            fullPages += 1; // جبر الكسر لصفحة كاملة
+            fractionText = "";
         }
 
-        // استثناء خاص: إذا بدأ من أول آية في الصفحة وانتهى في آخر آية في صفحة أخرى
-        // (نتأكد من فحص حدود الصفحات لضمان دقة كلمة "كاملة")
-        
+        // 4. صياغة النص النهائي بشكل جمالي
+        let resultText = "";
+        if (fullPages > 0) {
+            resultText = `${fullPages} صفحة ${fractionText}`;
+        } else {
+            // إذا كان المجموع أقل من صفحة، نعرض الكسر فقط
+            resultText = fractionText.replace("و", "") || `${remainingLines} أسطر`;
+        }
+
+        // تنظيف النص (مثل إزالة "وربع" إذا كانت الصفحة 0 لتصبح "ربع")
+        resultText = resultText.trim();
+        if (resultText === "ونصف") resultText = "نصف صفحة";
+        if (resultText === "وربع") resultText = "ربع صفحة";
+        if (resultText === "وثلاثة أرباع") resultText = "ثلاثة أرباع صفحة";
+
         document.getElementById('pagesResult').innerText = "المقدار: " + resultText;
         document.getElementById('partNumber').value = toObj.j;
+        
         return { text: resultText, part: toObj.j };
     }
     return null;
@@ -273,6 +277,7 @@ function clearActivityFields() {
     document.getElementById('partNumber').value = "";
     document.getElementById('activityDate').valueAsDate = new Date();
 }
+
 
 
 
