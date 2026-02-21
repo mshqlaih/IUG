@@ -5,6 +5,7 @@ const ASSETS = [
   './quran_data.js',
   './app.js',
   './xlsx.full.min.js'
+  './bootstrap.bundle.min.js',
 ];
 
 // تثبيت الملفات في الذاكرة
@@ -35,4 +36,5 @@ self.addEventListener('activate', (e) => {
     })
   );
 });
+
 
