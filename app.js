@@ -383,11 +383,15 @@ document.getElementById('studentSelect').addEventListener('change', function() {
     const tx = db.transaction("records", "readonly");
     const store = tx.objectStore("records");
     let hifzPages = 0, murajaPages = 0, totalErrors = 0, count = 0;
+    let lastDateStr = null; // متغير لحفظ تاريخ آخر نشاط
 
     store.openCursor().onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
             if (cursor.value.student === name) {
+                if (!lastDateStr) {
+                    lastDateStr = cursor.value.date;
+                }
                 // استخراج عدد الصفحات من النص (مثلاً "2 صفحة ونصف" نأخذ الرقم 2)
                 const p = parseFloat(cursor.value.amount) || 0;
                 if (cursor.value.type === "تسميع") hifzPages += p;
@@ -399,6 +403,24 @@ document.getElementById('studentSelect').addEventListener('change', function() {
             cursor.continue();
         } else {
             // عرض النتائج في اللوحة
+            
+            if (lastDateStr) {
+                // تحويل التاريخ من نص (مثلاً 20/02/2026) إلى كائن Date
+                // ملاحظة: قد تحتاج لتعديل تقسيم التاريخ بناءً على تنسيق جهازك
+                const parts = lastDateStr.split('/');
+                const lastDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                lastDate.setHours(0,0,0,0);
+
+                const diffTime = today - lastDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                let statusText = (diffDays === 0) ? "حضر اليوم ✅" : (diffDays === 1 ? "غائب منذ يوم واحد ⚠️" : `غائب منذ ${diffDays} أيام ⚠️`);
+                document.getElementById('lastSeen').innerText = statusText;
+            } else {
+                document.getElementById('lastSeen').innerText = "طالب جديد - لم يحضر بعد";
+            }
             document.getElementById('totalHifz').innerText = hifzPages.toFixed(1) + " صفحة";
             document.getElementById('totalMuraja').innerText = murajaPages.toFixed(1) + " صفحة";
             document.getElementById('avgErrors').innerText = count > 0 ? (totalErrors / count).toFixed(1) : 0;
@@ -428,6 +450,7 @@ function setupDeleteButton(studentName) {
         }
     };
 }
+
 
 
 
