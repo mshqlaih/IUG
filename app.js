@@ -255,12 +255,12 @@ function displayRecords() {
         if(cursor) {
             const r = cursor.value;
             // داخل دالة displayRecords عند عرض التاريخ:
-const displayDate = new Date(r.date).toLocaleDateString('ar-EG');
-
+            const displayDate = new Date(r.date).toLocaleDateString('ar-EG');
+           // tbody.innerHTML += `<tr><td>${displayDate}</td>...`;
 
             // عرض الأعمدة المتوافقة مع HTML الجديد (من، إلى، المقدار)
             tbody.innerHTML += `<tr>
-                <td>${r.date}</td>
+                <td>${displayDate}</td>
                 <td>${r.teacher}</td>
                 <td><b>${r.student}</b></td>
                 <td><span class="badge">${r.type}</span></td>
@@ -502,6 +502,7 @@ function setupDeleteButton(studentName) {
         }
     };
 }
+
 
 
 
