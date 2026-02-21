@@ -435,23 +435,42 @@ document.getElementById('studentSelect').addEventListener('change', function() {
         } else {
             // عرض النتائج في اللوحة
             
-            if (lastDateStr) {
-                // تحويل التاريخ من نص (مثلاً 20/02/2026) إلى كائن Date
-                // ملاحظة: قد تحتاج لتعديل تقسيم التاريخ بناءً على تنسيق جهازك
-                const parts = lastDateStr.split('/');
-                const lastDate = new Date(parts[2], parts[1] - 1, parts[0]);
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                lastDate.setHours(0,0,0,0);
+            // --- تصحيح رادار الغياب ---
+if (lastDateStr) {
+    // 1. تحويل التاريخ من نص (YYYY-MM-DD) إلى كائن تاريخ
+    // إذا كان التاريخ مخزناً بـ (-) أو (/) سنقوم بتوحيده
+    const formattedDate = lastDateStr.replace(/\//g, '-'); 
+    const lastDate = new Date(formattedDate);
+    
+    const today = new Date();
+    
+    // 2. تصفير الوقت للمقارنة بالأيام فقط
+    today.setHours(0, 0, 0, 0);
+    lastDate.setHours(0, 0, 0, 0);
 
-                const diffTime = today - lastDate;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // 3. حساب الفرق بالملي ثانية ثم تحويله لأيام
+    const diffTime = today.getTime() - lastDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-                let statusText = (diffDays === 0) ? "حضر اليوم ✅" : (diffDays === 1 ? "غائب منذ يوم واحد ⚠️" : `غائب منذ ${diffDays} أيام ⚠️`);
-                document.getElementById('lastSeen').innerText = statusText;
-            } else {
-                document.getElementById('lastSeen').innerText = "طالب جديد - لم يحضر بعد";
-            }
+    // 4. التحقق من النتيجة وعرضها
+    let statusText = "";
+    if (isNaN(diffDays)) {
+        statusText = "خطأ في قراءة التاريخ";
+    } else if (diffDays === 0) {
+        statusText = "حضر اليوم ✅";
+    } else if (diffDays === 1) {
+        statusText = "غائب منذ يوم واحد ⚠️";
+    } else if (diffDays === 2) {
+        statusText = "غائب منذ يومين ⚠️";
+    } else {
+        statusText = `غائب منذ ${diffDays} أيام ⚠️`;
+    }
+    
+    document.getElementById('lastSeen').innerText = statusText;
+} else {
+    document.getElementById('lastSeen').innerText = "طالب جديد - لم يحضر بعد";
+}
+
             document.getElementById('totalHifz').innerText = hifzPages.toFixed(1) + " صفحة";
             document.getElementById('totalMuraja').innerText = murajaPages.toFixed(1) + " صفحة";
             document.getElementById('avgErrors').innerText = count > 0 ? (totalErrors / count).toFixed(1) : 0;
@@ -481,6 +500,7 @@ function setupDeleteButton(studentName) {
         }
     };
 }
+
 
 
 
