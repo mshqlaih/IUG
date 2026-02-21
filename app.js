@@ -418,16 +418,16 @@ document.getElementById('studentSelect').addEventListener('change', function() {
     const tx = db.transaction("records", "readonly");
     const store = tx.objectStore("records");
     let hifzPages = 0, murajaPages = 0, totalErrors = 0, count = 0;
-    let lastDateStr = null; // متغير لحفظ تاريخ آخر نشاط
+    let lastDateStr = null;
 
-    store.openCursor().onsuccess = (e) => {
+    // نستخدم 'prev' لجلب الأحدث أولاً
+    store.openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
             if (cursor.value.student === name) {
-                if (!lastDateStr) {
-                    lastDateStr = cursor.value.date;
-                }
-                // استخراج عدد الصفحات من النص (مثلاً "2 صفحة ونصف" نأخذ الرقم 2)
+                // حفظ تاريخ أول سجل يواجهه (الأحدث)
+                if (!lastDateStr) lastDateStr = cursor.value.date;
+
                 const p = parseFloat(cursor.value.amount) || 0;
                 if (cursor.value.type === "تسميع") hifzPages += p;
                 else if (cursor.value.type === "مراجعة") murajaPages += p;
@@ -437,48 +437,32 @@ document.getElementById('studentSelect').addEventListener('change', function() {
             }
             cursor.continue();
         } else {
-            // عرض النتائج في اللوحة
+            // --- منطق رادار الغياب (بعد انتهاء البحث) ---
+            let statusText = "طالب جديد - لم يحضر بعد";
             
-// --- تصحيح رادار الغياب النهائي ---
-if (lastDateStr) {
-    const lastDate = new Date(lastDateStr);
-    const today = new Date();
-    
-    // تصفير الوقت لضمان دقة المقارنة بالتواريخ فقط
-    today.setHours(0, 0, 0, 0);
-    lastDate.setHours(0, 0, 0, 0);
+            if (lastDateStr) {
+                const lastDate = new Date(lastDateStr);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                lastDate.setHours(0,0,0,0);
 
-    // حساب أيام الغياب الفعلية (أيام الدوام الضائعة فقط)
-    const missedSessions = calculateWorkingDays(lastDate, today);
-
-    let statusText = "";
-    if (lastDate.getTime() === today.getTime()) {
-        statusText = "حضر اليوم ✅";
-    } else if (missedSessions === 0) {
-        statusText = "حضر آخر جلسة دوام 👍";
-    } else if (missedSessions === 1) {
-        statusText = "غائب عن جلسة واحدة ⚠️";
-    } else {
-        statusText = `غائب عن ${missedSessions} جلسات دوام 🚨`;
-    }
-    
-    document.getElementById('lastSeen').innerText = statusText;
-}
-
-    
-    document.getElementById('lastSeen').innerText = statusText;
-} else {
-    document.getElementById('lastSeen').innerText = "طالب جديد - لم يحضر بعد";
-}
-
-
+                if (lastDate.getTime() === today.getTime()) {
+                    statusText = "حضر اليوم ✅";
+                } else {
+                    const missedSessions = calculateWorkingDays(lastDate, today);
+                    if (missedSessions === 0) statusText = "حضر آخر جلسة دوام 👍";
+                    else if (missedSessions === 1) statusText = "غائب عن جلسة واحدة ⚠️";
+                    else statusText = `غائب عن ${missedSessions} جلسات دوام 🚨`;
+                }
+            }
+            
+            // تحديث الواجهة
+            document.getElementById('lastSeen').innerText = statusText;
             document.getElementById('totalHifz').innerText = hifzPages.toFixed(1) + " صفحة";
             document.getElementById('totalMuraja').innerText = murajaPages.toFixed(1) + " صفحة";
             document.getElementById('avgErrors').innerText = count > 0 ? (totalErrors / count).toFixed(1) : 0;
         }
     };
-
-    // ربط زر الحذف بهوية الطالب
     setupDeleteButton(name);
 });
 
@@ -517,6 +501,7 @@ function calculateWorkingDays(startDate, endDate) {
     }
     return count;
 }
+
 
 
 
