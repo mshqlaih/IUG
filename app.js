@@ -441,31 +441,30 @@ document.getElementById('studentSelect').addEventListener('change', function() {
             
 // --- تصحيح رادار الغياب النهائي ---
 if (lastDateStr) {
-    // إنشاء كائنات التاريخ وتصفير الوقت للحساب بالأيام فقط
     const lastDate = new Date(lastDateStr);
     const today = new Date();
     
+    // تصفير الوقت لضمان دقة المقارنة بالتواريخ فقط
     today.setHours(0, 0, 0, 0);
     lastDate.setHours(0, 0, 0, 0);
 
-    // حساب الفرق بالملي ثانية
-    const diffTime = today.getTime() - lastDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // حساب أيام الغياب الفعلية (أيام الدوام الضائعة فقط)
+    const missedSessions = calculateWorkingDays(lastDate, today);
 
     let statusText = "";
-    if (isNaN(diffDays)) {
-        statusText = "بيانات التاريخ غير دقيقة";
-    } else if (diffDays === 0) {
+    if (lastDate.getTime() === today.getTime()) {
         statusText = "حضر اليوم ✅";
-    } else if (diffDays === 1) {
-        statusText = "غائب منذ يوم واحد ⚠️";
-    } else if (diffDays === 2) {
-        statusText = "غائب منذ يومين ⚠️";
-    } else if (diffDays < 0) {
-        statusText = "تسميع مستقبلي 📅"; // في حال تم إدخال تاريخ غدٍ بالخطأ
+    } else if (missedSessions === 0) {
+        statusText = "حضر آخر جلسة دوام 👍";
+    } else if (missedSessions === 1) {
+        statusText = "غائب عن جلسة واحدة ⚠️";
     } else {
-        statusText = `غائب منذ ${diffDays} أيام ⚠️`;
+        statusText = `غائب عن ${missedSessions} جلسات دوام 🚨`;
     }
+    
+    document.getElementById('lastSeen').innerText = statusText;
+}
+
     
     document.getElementById('lastSeen').innerText = statusText;
 } else {
@@ -501,6 +500,22 @@ function setupDeleteButton(studentName) {
             };
         }
     };
+}
+
+function calculateWorkingDays(startDate, endDate) {
+    let count = 0;
+    let curDate = new Date(startDate);
+    curDate.setDate(curDate.getDate() + 1); // ابدأ الحساب من اليوم التالي لآخر حضور
+
+    while (curDate <= endDate) {
+        const day = curDate.getDay(); // 0 للأحد، 1 للاثنين، 6 للسبت
+        // أيام الدوام: السبت (6)، الاثنين (1)، الأربعاء (3)
+        if (day === 6 || day === 1 || day === 3) {
+            count++;
+        }
+        curDate.setDate(curDate.getDate() + 1);
+    }
+    return count;
 }
 
 
