@@ -1,6 +1,37 @@
 // استدعاء ملف Service Worker للعمل أوفلاين
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(() => console.log("جاهز للعمل أوفلاين"));
+    navigator.serviceWorker.register('sw.js').then(reg => {
+        // التحقق مما إذا كان هناك تحديث ينتظر التفعيل
+        reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // هنا يظهر التنبيه الذكي للمستخدم
+                    if (confirm("تم تحميل تحديثات جديدة للنظام (إحصائيات ورادار الغياب). هل تريد التفعيل الآن؟")) {
+                        location.reload(); 
+                    }
+                }
+            };
+        };
+        console.log("نظام العمل أوفلاين نشط");
+    }).catch(err => console.log("خطأ في التسجيل:", err));
+}
+
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    reg.onupdatefound = () => {
+      const installingWorker = reg.installing;
+      installingWorker.onstatechange = () => {
+        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // إذا وجد تحديث جديد، يظهر تنبيه للمستخدم أو يحدث تلقائياً
+          if(confirm("يوجد تحديث جديد للبرنامج، هل تريد التحديث الآن؟")) {
+             location.reload();
+          }
+        }
+      };
+    };
+  });
 }
 
 const DB_NAME = "QuranProjectDB";
@@ -450,6 +481,7 @@ function setupDeleteButton(studentName) {
         }
     };
 }
+
 
 
 
