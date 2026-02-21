@@ -435,33 +435,30 @@ document.getElementById('studentSelect').addEventListener('change', function() {
         } else {
             // عرض النتائج في اللوحة
             
-            // --- تصحيح رادار الغياب ---
+// --- تصحيح رادار الغياب النهائي ---
 if (lastDateStr) {
-    // 1. تحويل التاريخ من نص (YYYY-MM-DD) إلى كائن تاريخ
-    // إذا كان التاريخ مخزناً بـ (-) أو (/) سنقوم بتوحيده
-    const formattedDate = lastDateStr.replace(/\//g, '-'); 
-    const lastDate = new Date(formattedDate);
-    
+    // إنشاء كائنات التاريخ وتصفير الوقت للحساب بالأيام فقط
+    const lastDate = new Date(lastDateStr);
     const today = new Date();
     
-    // 2. تصفير الوقت للمقارنة بالأيام فقط
     today.setHours(0, 0, 0, 0);
     lastDate.setHours(0, 0, 0, 0);
 
-    // 3. حساب الفرق بالملي ثانية ثم تحويله لأيام
+    // حساب الفرق بالملي ثانية
     const diffTime = today.getTime() - lastDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    // 4. التحقق من النتيجة وعرضها
     let statusText = "";
     if (isNaN(diffDays)) {
-        statusText = "خطأ في قراءة التاريخ";
+        statusText = "بيانات التاريخ غير دقيقة";
     } else if (diffDays === 0) {
         statusText = "حضر اليوم ✅";
     } else if (diffDays === 1) {
         statusText = "غائب منذ يوم واحد ⚠️";
     } else if (diffDays === 2) {
         statusText = "غائب منذ يومين ⚠️";
+    } else if (diffDays < 0) {
+        statusText = "تسميع مستقبلي 📅"; // في حال تم إدخال تاريخ غدٍ بالخطأ
     } else {
         statusText = `غائب منذ ${diffDays} أيام ⚠️`;
     }
@@ -470,6 +467,7 @@ if (lastDateStr) {
 } else {
     document.getElementById('lastSeen').innerText = "طالب جديد - لم يحضر بعد";
 }
+
 
             document.getElementById('totalHifz').innerText = hifzPages.toFixed(1) + " صفحة";
             document.getElementById('totalMuraja').innerText = murajaPages.toFixed(1) + " صفحة";
@@ -500,6 +498,7 @@ function setupDeleteButton(studentName) {
         }
     };
 }
+
 
 
 
