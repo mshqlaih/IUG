@@ -2,140 +2,116 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>نظام متابعة الحلقات</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام متابعة الحلقات - Bootstrap</title>
+    <!-- Bootstrap 5 CSS من رابط سريع -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net">
     <style>
-        :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; direction: rtl; }
-        
-        /* شريط التبويبات العلوي */
-        .tabs-header { display: flex; background: white; border-radius: 10px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: bold; cursor: pointer; color: #777; transition: 0.3s; border-bottom: 3px solid transparent; }
-        .tab-btn.active { color: var(--primary); border-bottom-color: var(--secondary); background: #f9f9f9; }
-
-        /* حاويات الشاشات */
-        .tab-content { display: none; animation: fadeIn 0.3s; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-        @media (min-width: 768px) { .grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
-        
-        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 13px; color: #666; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; width: 100%; box-sizing: border-box; outline: none; }
-        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
-        
-        .btn-save { background: var(--primary); color: white; }
-        .btn-add { background: var(--secondary); color: white; }
-        .btn-excel { background: #1d6f42; color: white; margin-bottom: 10px; width: auto; padding: 8px 15px; }
-        
-        .table-wrap { overflow-x: auto; background: white; border-radius: 10px; max-height: 400px; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 13px; }
-        th { background: var(--primary); color: white; position: sticky; top: 0; }
-        
-        #pagesResult { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin: 10px 0; }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .calc-box { background: #fff8e1; padding: 15px; border-radius: 10px; border: 1px solid #ffe082; text-align: center; font-weight: bold; }
+        .table-responsive { border-radius: 10px; }
+        th { background-color: #2c3e50 !important; color: white !important; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <!-- أزرار التنقل -->
-    <div class="tabs-header">
-        <button class="tab-btn active" onclick="openTab('activityTab', this)">📝 النشاط</button>
-        <button class="tab-btn" onclick="openTab('studentsTab', this)">👥 الطلاب</button>
-        <button class="tab-btn" onclick="openTab('logsTab', this)">📊 السجلات</button>
-    </div>
+<div class="container py-4">
+    <h2 class="text-center mb-4 text-primary">📋 نظام إدارة الحلقات الذكي</h2>
 
-    <!-- شاشة النشاط (الرئيسية) -->
-    <div id="activityTab" class="tab-content active">
-        <div class="card">
-            <div style="display: flex; gap: 10px; align-items: flex-end;">
-                <div style="flex: 1;"><label>هوية المُسمع</label><input type="number" id="teacherID"></div>
-                <button onclick="saveTeacherID()" style="width: auto; background: #34495e; color: white;">حفظ</button>
+    <!-- هوية المسمع -->
+    <div class="card p-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-10 col-8">
+                <label class="form-label fw-bold">هوية المُسمع</label>
+                <input type="number" id="teacherID" class="form-control">
             </div>
-        </div>
-
-        <!-- لوحة الإحصائيات -->
-        <div id="studentStatsCard" class="card" style="display:none; background: #e3f2fd;">
-            <h4 id="statStudentName" style="margin:0 0 10px 0; color:var(--primary)"></h4>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; text-align: center; font-size: 11px;">
-                <div class="card" style="padding:5px; margin:0">حفظ<br><b id="totalHifz">0</b></div>
-                <div class="card" style="padding:5px; margin:0">مراجعة<br><b id="totalMuraja">0</b></div>
-                <div class="card" style="padding:5px; margin:0">أخطاء<br><b id="avgErrors">0</b></div>
-                <div class="card" style="padding:5px; margin:0">التزام<br><b id="lastSeen">-</b></div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>تسجيل نشاط جديد</h3>
-            <div class="grid">
-                <div class="field"><label>الطالب</label><select id="studentSelect"></select></div>
-                <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
-                <div class="field"><label>الاتجاه</label><select id="flowDirection"><option value="forward">تصاعدي</option><option value="backward">تنازلي</option></select></div>
-                <div class="field"><label>من</label><input list="ayatList" id="rangeFrom" oninput="handleSmartSearch(this)"></div>
-                <div class="field"><label>إلى</label><input list="ayatList" id="rangeTo" oninput="handleSmartSearch(this)"></div>
-                <div class="field"><label>النوع</label><select id="activityType"><option>تسميع</option><option>مراجعة</option></select></div>
-                <div class="field"><label>أخطاء</label><input type="number" id="errors" value="0"></div>
-                <div class="field"><label>تقييم</label><select id="rating"><option>ممتاز</option><option>جيد</option></select></div>
-            </div>
-            <div id="pagesResult">المقدار: 0</div>
-            <button class="btn-save" onclick="saveActivity()">حفظ النشاط ✅</button>
-        </div>
-    </div>
-
-    <!-- شاشة إدارة الطلاب -->
-    <div id="studentsTab" class="tab-content">
-        <div class="card">
-            <h3>إدارة الطلاب</h3>
-            <div class="grid">
-                <input type="number" id="stuID" placeholder="الهوية">
-                <input type="text" id="fName" placeholder="الأول">
-                <input type="text" id="pName" placeholder="الأب">
-                <input type="text" id="gName" placeholder="الجد">
-                <input type="text" id="lName" placeholder="العائلة">
-            </div>
-            <button class="btn-add" onclick="saveStudent()">حفظ / تحديث الطالب</button>
-            <div class="table-wrap" style="margin-top: 15px;">
-                <table>
-                    <thead><tr><th>الهوية</th><th>الاسم</th><th>تعديل</th></tr></thead>
-                    <tbody id="studentsList"></tbody>
-                </table>
+            <div class="col-md-2 col-4">
+                <button onclick="saveTeacherID()" class="btn btn-dark w-100">حفظ</button>
             </div>
         </div>
     </div>
 
-    <!-- شاشة السجلات -->
-    <div id="logsTab" class="tab-content">
-        <div class="card">
-            <div style="display: flex; justify-content: space-between;">
-                <h3>سجلات النشاط</h3>
-                <button class="btn-excel" onclick="exportToExcel()">تصدير Excel</button>
+    <!-- إدارة الطلاب -->
+    <div class="card p-3">
+        <h5 class="border-bottom pb-2 mb-3 text-secondary">👤 إدارة الطلاب</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-md-2"><input type="number" id="stuID" class="form-control" placeholder="الهوية"></div>
+            <div class="col-md-2"><input type="text" id="fName" class="form-control" placeholder="الأول"></div>
+            <div class="col-md-2"><input type="text" id="pName" class="form-control" placeholder="الأب"></div>
+            <div class="col-md-3"><input type="text" id="gName" class="form-control" placeholder="الجد"></div>
+            <div class="col-md-3"><input type="text" id="lName" class="form-control" placeholder="العائلة"></div>
+        </div>
+        <button class="btn btn-outline-success w-100 fw-bold" onclick="saveStudent()">حفظ / تحديث الطالب</button>
+        
+        <div class="table-responsive mt-3">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>تعديل</th></tr></thead>
+                <tbody id="studentsList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- لوحة إحصائيات الطالب (ستظهر عند الاختيار) -->
+    <div id="studentStatsCard" class="card p-3 border-primary" style="display:none; background-color: #e3f2fd;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="m-0 text-primary">📊 إحصائيات: <span id="statStudentName"></span></h5>
+            <button class="btn btn-danger btn-sm" id="deleteStudentBtn">حذف الطالب 🗑️</button>
+        </div>
+        <div class="row g-2 text-center">
+            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>الحفظ</h6><div id="totalHifz" class="fw-bold text-success">0</div></div></div>
+            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>المراجعة</h6><div id="totalMuraja" class="fw-bold text-primary">0</div></div></div>
+            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>متوسط الأخطاء</h6><div id="avgErrors" class="fw-bold text-danger">0</div></div></div>
+            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>الالتزام</h6><div id="lastSeen" class="fw-bold text-muted">0</div></div></div>
+        </div>
+    </div>
+
+    <!-- تسجيل النشاط -->
+    <div class="card p-3">
+        <h5 class="border-bottom pb-2 mb-3 text-secondary">📝 تسجيل نشاط</h5>
+        <div class="row g-3">
+            <div class="col-md-4"><label class="form-label">الطالب</label><select id="studentSelect" class="form-select"></select></div>
+            <div class="col-md-4"><label class="form-label">التاريخ</label><input type="date" id="activityDate" class="form-control"></div>
+            <div class="col-md-4">
+                <label class="form-label">الاتجاه</label>
+                <select id="flowDirection" class="form-select">
+                    <option value="forward">تصاعدي (البقرة ← الناس)</option>
+                    <option value="backward">تنازلي (الناس ← البقرة)</option>
+                </select>
             </div>
-            <div class="table-wrap">
-                <table>
-                    <thead><tr><th>التاريخ</th><th>المُسمع</th><th>الطالب</th><th>النوع</th><th>من</th><th>إلى</th><th>المقدار</th><th>التقييم</th><th>حذف</th></tr></thead>
-                    <tbody id="logTable"></tbody>
-                </table>
-            </div>
+            <div class="col-md-6"><label class="form-label">من</label><input list="ayatList" id="rangeFrom" class="form-control" onchange="calculateExactProgress()"></div>
+            <div class="col-md-6"><label class="form-label">إلى</label><input list="ayatList" id="rangeTo" class="form-control" onchange="calculateExactProgress()"></div>
+            <div class="col-md-3"><label class="form-label">النوع</label><select id="activityType" class="form-select"><option>تسميع</option><option>مراجعة</option></select></div>
+            <div class="col-md-3"><label class="form-label">أخطاء</label><input type="number" id="errors" class="form-control" value="0"></div>
+            <div class="col-md-3"><label class="form-label">التقييم</label><select id="rating" class="form-select"><option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option></select></div>
+            <div class="col-md-3"><label class="form-label">الجزء</label><input type="text" id="partNumber" class="form-control" readonly></div>
+        </div>
+        <div class="calc-box mt-3" id="pagesResult">المقدار: 0 صفحة</div>
+        <div class="row g-2 mt-3">
+            <div class="col-8"><button class="btn btn-primary w-100" onclick="saveActivity()">حفظ النشاط</button></div>
+            <div class="col-4"><button class="btn btn-secondary w-100" onclick="clearActivityFields()">مسح</button></div>
+        </div>
+    </div>
+
+    <!-- السجلات -->
+    <div class="card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>📊 سجلات النشاط</h5>
+            <button class="btn btn-success btn-sm" onclick="exportToExcel()">تصدير Excel 📥</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover text-center align-middle">
+                <thead><tr><th>التاريخ</th><th>المسمع</th><th>الطالب</th><th>النوع</th><th>من</th><th>إلى</th><th>المقدار</th><th>أخطاء</th><th>تقييم</th><th>حذف</th></tr></thead>
+                <tbody id="logTable"></tbody>
+            </table>
         </div>
     </div>
 </div>
 
 <datalist id="ayatList"></datalist>
+<script src="bootstrap.bundle.min.js"></script>    
 <script src="quran_data.js"></script>
 <script src="xlsx.full.min.js"></script>
 <script src="app.js"></script>
-
-<script>
-    // وظيفة التبديل بين التبويبات
-    function openTab(tabId, btn) {
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        btn.classList.add('active');
-    }
-</script>
 </body>
 </html>
