@@ -254,6 +254,10 @@ function displayRecords() {
         const cursor = e.target.result;
         if(cursor) {
             const r = cursor.value;
+            // داخل دالة displayRecords عند عرض التاريخ:
+const displayDate = new Date(r.date).toLocaleDateString('ar-EG');
+
+
             // عرض الأعمدة المتوافقة مع HTML الجديد (من، إلى، المقدار)
             tbody.innerHTML += `<tr>
                 <td>${r.date}</td>
@@ -498,6 +502,7 @@ function setupDeleteButton(studentName) {
         }
     };
 }
+
 
 
 
