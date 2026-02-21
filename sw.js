@@ -21,4 +21,18 @@ self.addEventListener('fetch', (e) => {
   );
 });
 
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            console.log("جاري حذف الكاش القديم...", key);
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
+});
 
