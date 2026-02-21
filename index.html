@@ -2,116 +2,193 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام متابعة الحلقات - Bootstrap</title>
-    <!-- Bootstrap 5 CSS من رابط سريع -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>نظام متابعة الحلقات - المطور</title>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .calc-box { background: #fff8e1; padding: 15px; border-radius: 10px; border: 1px solid #ffe082; text-align: center; font-weight: bold; }
-        .table-responsive { border-radius: 10px; }
-        th { background-color: #2c3e50 !important; color: white !important; }
+        :root { --primary: #2c3e50; --secondary: #27ae60; --bg: #f0f2f5; --danger: #e74c3c; --accent: #d35400; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); margin: 0; padding: 10px; direction: rtl; }
+        .container { max-width: 1100px; margin: auto; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        h3 { color: var(--primary); border-right: 4px solid var(--secondary); padding-right: 10px; margin-top: 0; font-size: 1rem; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
+        .field { display: flex; flex-direction: column; }
+        label { margin-bottom: 4px; font-weight: bold; font-size: 12px; color: #666; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; width: 100%; box-sizing: border-box; }
+        input:focus { border-color: var(--secondary); outline: none; background: #fff; }
+        input[readonly] { background: #f9f9f9; color: var(--primary); font-weight: bold; }
+        
+        button { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-add { background: #e8f5e9; color: var(--secondary); border: 1px solid var(--secondary); width: 100%; margin-top: 10px; }
+        .btn-save { background: var(--primary); color: white; flex: 2; }
+        .btn-excel { background: #1d6f42; color: white; width: auto; font-size: 14px; }
+        .btn-clear { background: #95a5a6; color: white; flex: 1; }
+        .btn-del { background: var(--danger); color: white; padding: 4px 8px; font-size: 11px; }
+        
+        .table-wrap { overflow-x: auto; margin-top: 10px; background: white; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-size: 13px; }
+        th { background: #f8f9fa; }
+        
+        .calc-box { background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; text-align: center; color: var(--accent); font-weight: bold; font-size: 14px; }
     </style>
 </head>
 <body>
-
-<div class="container py-4">
-    <h2 class="text-center mb-4 text-primary">📋 نظام إدارة الحلقات الذكي</h2>
-
+<div class="container">
     <!-- هوية المسمع -->
-    <div class="card p-3">
-        <div class="row g-2 align-items-end">
-            <div class="col-md-10 col-8">
-                <label class="form-label fw-bold">هوية المُسمع</label>
-                <input type="number" id="teacherID" class="form-control">
+    <div class="card">
+        <div style="display: flex; gap: 10px; align-items: flex-end;">
+            <div class="field" style="flex-grow: 1;">
+                <label>هوية المُسمع</label>
+                <input type="number" id="teacherID">
             </div>
-            <div class="col-md-2 col-4">
-                <button onclick="saveTeacherID()" class="btn btn-dark w-100">حفظ</button>
-            </div>
+            <button onclick="saveTeacherID()" style="background: var(--primary); color: white;">حفظ المُسمع</button>
         </div>
     </div>
 
     <!-- إدارة الطلاب -->
-    <div class="card p-3">
-        <h5 class="border-bottom pb-2 mb-3 text-secondary">👤 إدارة الطلاب</h5>
-        <div class="row g-2 mb-3">
-            <div class="col-md-2"><input type="number" id="stuID" class="form-control" placeholder="الهوية"></div>
-            <div class="col-md-2"><input type="text" id="fName" class="form-control" placeholder="الأول"></div>
-            <div class="col-md-2"><input type="text" id="pName" class="form-control" placeholder="الأب"></div>
-            <div class="col-md-3"><input type="text" id="gName" class="form-control" placeholder="الجد"></div>
-            <div class="col-md-3"><input type="text" id="lName" class="form-control" placeholder="العائلة"></div>
+    <div class="card">
+        <h3>👤 إدارة الطلاب</h3>
+        <div class="grid">
+            <input type="number" id="stuID" placeholder="الهوية">
+            <input type="text" id="fName" placeholder="الأول">
+            <input type="text" id="pName" placeholder="الأب">
+            <input type="text" id="gName" placeholder="الجد">
+            <input type="text" id="lName" placeholder="العائلة">
         </div>
-        <button class="btn btn-outline-success w-100 fw-bold" onclick="saveStudent()">حفظ / تحديث الطالب</button>
-        
-        <div class="table-responsive mt-3">
-            <table class="table table-hover align-middle">
+        <button class="btn-add" onclick="saveStudent()">حفظ / تحديث الطالب</button>
+        <div class="table-wrap">
+            <table>
                 <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>تعديل</th></tr></thead>
                 <tbody id="studentsList"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- لوحة إحصائيات الطالب (ستظهر عند الاختيار) -->
-    <div id="studentStatsCard" class="card p-3 border-primary" style="display:none; background-color: #e3f2fd;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="m-0 text-primary">📊 إحصائيات: <span id="statStudentName"></span></h5>
-            <button class="btn btn-danger btn-sm" id="deleteStudentBtn">حذف الطالب 🗑️</button>
-        </div>
-        <div class="row g-2 text-center">
-            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>الحفظ</h6><div id="totalHifz" class="fw-bold text-success">0</div></div></div>
-            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>المراجعة</h6><div id="totalMuraja" class="fw-bold text-primary">0</div></div></div>
-            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>متوسط الأخطاء</h6><div id="avgErrors" class="fw-bold text-danger">0</div></div></div>
-            <div class="col-md-3"><div class="p-2 bg-white rounded shadow-sm"><h6>الالتزام</h6><div id="lastSeen" class="fw-bold text-muted">0</div></div></div>
-        </div>
-    </div>
-
-    <!-- تسجيل النشاط -->
-    <div class="card p-3">
-        <h5 class="border-bottom pb-2 mb-3 text-secondary">📝 تسجيل نشاط</h5>
-        <div class="row g-3">
-            <div class="col-md-4"><label class="form-label">الطالب</label><select id="studentSelect" class="form-select"></select></div>
-            <div class="col-md-4"><label class="form-label">التاريخ</label><input type="date" id="activityDate" class="form-control"></div>
-            <div class="col-md-4">
-                <label class="form-label">الاتجاه</label>
-                <select id="flowDirection" class="form-select">
-                    <option value="forward">تصاعدي (البقرة ← الناس)</option>
-                    <option value="backward">تنازلي (الناس ← البقرة)</option>
+    <!-- تسجيل النشاط المطور -->
+    <div class="card">
+        <h3>📝 تسجيل نشاط (بالآيات والصفحات)</h3>
+        <div class="grid">
+            <div class="field">
+                <label>الطالب</label>
+                <select id="studentSelect"></select>
+            </div>
+            <div class="field">
+                <label>التاريخ</label>
+                <input type="date" id="activityDate">
+            </div>
+            <div class="field">
+                <label>النوع</label>
+                <select id="activityType" onchange="calculateExactProgress()">
+                    <option>تسميع</option><option>مراجعة</option><option>حضور</option><option>غياب</option>
                 </select>
             </div>
-            <div class="col-md-6"><label class="form-label">من</label><input list="ayatList" id="rangeFrom" class="form-control" onchange="calculateExactProgress()"></div>
-            <div class="col-md-6"><label class="form-label">إلى</label><input list="ayatList" id="rangeTo" class="form-control" onchange="calculateExactProgress()"></div>
-            <div class="col-md-3"><label class="form-label">النوع</label><select id="activityType" class="form-select"><option>تسميع</option><option>مراجعة</option></select></div>
-            <div class="col-md-3"><label class="form-label">أخطاء</label><input type="number" id="errors" class="form-control" value="0"></div>
-            <div class="col-md-3"><label class="form-label">التقييم</label><select id="rating" class="form-select"><option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option></select></div>
-            <div class="col-md-3"><label class="form-label">الجزء</label><input type="text" id="partNumber" class="form-control" readonly></div>
+            <div class="field">
+    <label>اتجاه السير (للأمام/للخلف)</label>
+                
+    <select id="flowDirection">
+        <option value="forward">تصاعدي (البقرة ← الناس)</option>
+        <option value="backward">تنازلي (الناس ← البقرة)</option>
+    </select>
+</div>
+
+            <div class="field">
+                <label>من (بحث بالآية أو الصفحة)</label>
+                <input list="ayatList" id="rangeFrom" placeholder="اكتب للبحث..." autocomplete="off" onchange="calculateExactProgress()">
+                <span onclick="document.getElementById('rangeFrom').value=''" style="position:absolute; left:10px; top:32px; cursor:pointer; color:#999;">✕</span>
+            </div>
+            <div class="field">
+                <label>إلى (بحث بالآية أو الصفحة)</label>
+                <input list="ayatList" id="rangeTo" placeholder="اكتب للبحث..." autocomplete="off" onchange="calculateExactProgress()">
+            </div>
+            <div class="field">
+                <label>رقم الجزء</label>
+                <input type="text" id="partNumber" readonly placeholder="-">
+            </div>
+            <div class="field">
+                <label>أخطاء</label>
+                <input type="number" id="errors" value="0">
+            </div>
+            <div class="field">
+                <label>التقييم</label>
+                <select id="rating">
+                    <option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option>
+                </select>
+            </div>
         </div>
-        <div class="calc-box mt-3" id="pagesResult">المقدار: 0 صفحة</div>
-        <div class="row g-2 mt-3">
-            <div class="col-8"><button class="btn btn-primary w-100" onclick="saveActivity()">حفظ النشاط</button></div>
-            <div class="col-4"><button class="btn btn-secondary w-100" onclick="clearActivityFields()">مسح</button></div>
+
+        <!-- صندوق عرض المقدار المحسوب -->
+        <div class="calc-box" id="pagesResult" style="margin-top: 15px;">
+            المقدار: 0 صفحة و 0 أسطر
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn-save" onclick="saveActivity()">حفظ النشاط</button>
+            <button class="btn-clear" onclick="clearActivityFields()">مسح الحقول</button>
         </div>
     </div>
 
     <!-- السجلات -->
-    <div class="card p-3">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5>📊 سجلات النشاط</h5>
-            <button class="btn btn-success btn-sm" onclick="exportToExcel()">تصدير Excel 📥</button>
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3>📊 السجلات</h3>
+            <button class="btn-excel" onclick="exportToExcel()">تصدير إكسل 📥</button>
         </div>
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped table-hover text-center align-middle">
-                <thead><tr><th>التاريخ</th><th>المسمع</th><th>الطالب</th><th>النوع</th><th>من</th><th>إلى</th><th>المقدار</th><th>أخطاء</th><th>تقييم</th><th>حذف</th></tr></thead>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>المسمع</th>
+                        <th>الطالب</th>
+                        <th>النوع</th>
+                        <th>من</th>
+                        <th>إلى</th>
+                        <th>المقدار</th>
+                        <th>أخطاء</th>
+                        <th>التقييم</th>
+                        <th>حذف</th>
+                    </tr>
+                </thead>
                 <tbody id="logTable"></tbody>
             </table>
         </div>
     </div>
 </div>
 
+<!-- لوحة إحصائيات الطالب الذكية -->
+<div class="card" id="studentStatsCard" style="display:none; background: #e3f2fd; border: 1px solid #90caf9;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: #1565c0; border-right-color: #1565c0;">📊 إحصائيات الطالب: <span id="statStudentName"></span></h3>
+        <button class="btn-del" id="deleteStudentBtn" style="width: auto; padding: 8px 15px;">حذف الطالب نهائياً 🗑️</button>
+    </div>
+    <div class="grid" style="margin-top: 15px;">
+        <div class="calc-box" style="background: #fff;">
+            <label>إجمالي الحفظ (هذا الشهر)</label>
+            <div id="totalHifz" style="font-size: 18px; color: #2e7d32;">0 صفحة</div>
+        </div>
+        <div class="calc-box" style="background: #fff;">
+            <label>إجمالي المراجعة</label>
+            <div id="totalMuraja" style="font-size: 18px; color: #1565c0;">0 صفحة</div>
+        </div>
+        <div class="calc-box" style="background: #fff;">
+            <label>متوسط الأخطاء</label>
+            <div id="avgErrors" style="font-size: 18px; color: #c62828;">0</div>
+        </div>
+        <div class="calc-box" style="background: #fff; border-top: 3px solid #f44336;">
+            <label>حالة الالتزام</label>
+            <div id="lastSeen" style="font-size: 16px; color: #546e7a; font-weight: bold;">جاري الفحص...</div>
+        </div>
+    </div>
+</div>
+    
+
+<!-- قائمة البحث الذكي (سيتم ملؤها من app.js) -->
 <datalist id="ayatList"></datalist>
-<script src="bootstrap.bundle.min.js"></script>    
+
+<!-- استدعاء ملفات البيانات والسكربت -->
 <script src="quran_data.js"></script>
-<script src="xlsx.full.min.js"></script>
+<script src="xlsx.full.min.js"></script>    
 <script src="app.js"></script>
 </body>
 </html>
