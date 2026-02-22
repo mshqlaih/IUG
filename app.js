@@ -214,17 +214,61 @@ function refreshAll() {
     displayRecords();
 }
 
+// أضف هذا السطر في window.onload لضبط تاريخ الفلترة التلقائي على اليوم
+document.getElementById('filterDate').valueAsDate = new Date();
+
 function displayRecords() {
-    const tbody = document.getElementById('logTable'); tbody.innerHTML = '';
-    db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
-        const c = e.target.result;
-        if(c) {
-            const r = c.value;
-            tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.teacher}</td><td>${r.student}</td><td>${r.type}</td><td>${r.fromRange}</td><td>${r.toRange}</td><td>${r.amount}</td><td>${r.errors}</td><td>${r.rating}</td><td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td></tr>`;
-            c.continue();
-        }
+    const tbody = document.getElementById('logTable');
+    tbody.innerHTML = '';
+    
+    const fDate = document.getElementById('filterDate').value;
+    const fID = document.getElementById('filterStudentID').value;
+
+    // جلب قائمة الطلاب أولاً لربط الهوية بالاسم في الفلترة
+    db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
+        const studentsMap = {};
+        e.target.result.forEach(s => {
+            const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
+            studentsMap[fullName] = s.id;
+        });
+
+        // البدء بقراءة السجلات
+        db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+                const r = cursor.value;
+                const studentID = studentsMap[r.student] || "";
+
+                // منطق الفلترة المزدوج
+                const matchesDate = !fDate || r.date === fDate;
+                const matchesID = !fID || studentID.includes(fID);
+
+                if (matchesDate && matchesID) {
+                    tbody.innerHTML += `<tr>
+                        <td>${r.date}</td>
+                        <td>${r.teacher}</td>
+                        <td><b>${r.student}</b> <br><small class="text-muted">(${studentID})</small></td>
+                        <td><span class="badge">${r.type}</span></td>
+                        <td style="font-size:11px">${r.fromRange}</td>
+                        <td style="font-size:11px">${r.toRange}</td>
+                        <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
+                        <td>${r.errors}</td>
+                        <td>${r.rating}</td>
+                        <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
+                    </tr>`;
+                }
+                cursor.continue();
+            }
+        };
     };
 }
+
+function resetFilters() {
+    document.getElementById('filterDate').valueAsDate = new Date();
+    document.getElementById('filterStudentID').value = "";
+    displayRecords();
+}
+
 
 function deleteRecord(id) { if(confirm("حذف؟")) db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); }
 function saveTeacherID() { localStorage.setItem('teacherID', document.getElementById('teacherID').value); alert("تم الحفظ"); }
@@ -258,3 +302,4 @@ function exportToExcel() {
         XLSX.writeFile(wb, "Quran_Report.xlsx");
     };
 }
+
