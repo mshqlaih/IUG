@@ -56,6 +56,21 @@ function initDB() {
     request.onsuccess = (e) => { db = e.target.result; refreshAll(); };
 }
 
+// ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
+function fillAyatSearchList() {
+    const list = document.getElementById('ayatList');
+    if (typeof QURAN_DATA === 'undefined') return;
+    
+    const fragment = document.createDocumentFragment();
+    QURAN_DATA.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.l; // النص: سورة... آية... ص...
+        fragment.appendChild(option);
+    });
+    list.innerHTML = "";
+    list.appendChild(fragment);
+}
+
 // 3. محرك البحث الذكي (بقرة 155)
 function handleSmartSearch(inputEl) {
     const val = inputEl.value.trim();
@@ -258,4 +273,5 @@ function exportToExcel() {
         XLSX.writeFile(wb, "Quran_Report.xlsx");
     };
 }
+
 
