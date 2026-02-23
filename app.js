@@ -320,10 +320,11 @@ function editStudent(id) {
     db.transaction("students").objectStore("students").get(id).onsuccess = (e) => {
         const s = e.target.result;
         ['stuID','fName','pName','gName','lName'].forEach(k => document.getElementById(k).value = s[k]);
-        document.getElementById('stuID').disabled = true;
+        //document.getElementById('stuID').disabled = true;
         window.scrollTo({ top: 0, behavior: 'smooth' }); // صعود للأعلى للتعديل
     };
 }
+
 
 
 
