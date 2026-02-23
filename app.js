@@ -319,13 +319,19 @@ function exportToExcel() {
 function editStudent(id) {
     db.transaction("students").objectStore("students").get(id).onsuccess = (e) => {
         const s = e.target.result;
-        console.log("Record keys:", Object.keys(s));
-console.log("Record content:", s);
-        ['stuID','fName','pName','gName','lName'].forEach(k => document.getElementById(k).value = s[k]);
-        //document.getElementById('stuID').disabled = true;
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // صعود للأعلى للتعديل
+
+        // تعبئة stuID من قيمة id
+        document.getElementById('stuID').value = s.id;
+
+        // باقي الحقول عادي
+        ['fName','pName','gName','lName'].forEach(k => {
+            document.getElementById(k).value = s[k];
+        });
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 }
+
 
 
 
