@@ -332,6 +332,26 @@ function editStudent(id) {
     };
 }
 
+function deleteStudentBtnClick(id) {
+    if (!confirm("هل أنت متأكد من حذف هذا الطالب؟")) return;
+
+    const tx = db.transaction("students", "readwrite");
+    const store = tx.objectStore("students");
+
+    const request = store.delete(id);
+
+    request.onsuccess = () => {
+        alert("تم حذف الطالب بنجاح.");
+        loadStudents(); // إعادة تحميل القائمة لو عندك دالة عرض
+    };
+
+    request.onerror = (e) => {
+        console.error("فشل الحذف:", e);
+        alert("حدث خطأ أثناء الحذف.");
+    };
+}
+
+
 
 
 
