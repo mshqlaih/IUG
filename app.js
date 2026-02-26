@@ -165,10 +165,13 @@ function calculateExactProgress() {
 // 6. حفظ النشاط
 function saveActivity() {
     const prog = calculateExactProgress();
+    const rawDate = document.getElementById('activityDate').value;
+    const onlyDate = new Date(rawDate).toISOString().split("T")[0]; // التاريخ فقط
+
     const record = {
         teacher: document.getElementById('teacherID').value || "---",
         student: document.getElementById('studentSelect').value,
-        date: document.getElementById('activityDate').value,
+        date: onlyDate, // هنا التاريخ فقط
         type: document.getElementById('activityType').value,
         flowDirection: document.getElementById('flowDirection').value,
         fromRange: document.getElementById('rangeFrom').value,
@@ -178,12 +181,22 @@ function saveActivity() {
         errors: document.getElementById('errors').value || 0,
         rating: document.getElementById('rating').value
     };
+
     if(!record.student || !record.fromRange) return alert("أكمل البيانات");
 
     const tx = db.transaction("records", "readwrite");
-    tx.objectStore("records").add(record).onsuccess = () => { refreshAll(); alert("تم الحفظ"); };
-}
+    const store = tx.objectStore("records");
+    const index = store.index("student_date_type");
 
+    const check = index.get([record.student, record.date, record.type]);
+    check.onsuccess = () => {
+        if (check.result) {
+            alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
+        } else {
+            store.add(record).onsuccess = () => { refreshAll(); alert("تم الحفظ"); };
+        }
+    };
+}
 // 7. الرادار والإحصائيات
 function updateStatsUI(hifz, muraja, errs, cnt, lastDateStr) {
     document.getElementById('totalHifz').innerText = hifz.toFixed(1);
@@ -350,6 +363,7 @@ function deleteStudentBtnClick(id) {
         alert("حدث خطأ أثناء الحذف.");
     };
 }
+
 
 
 
