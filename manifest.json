@@ -1,22 +1,31 @@
 {
-  "name": "الصفوة",
-  "short_name": "IUG",
-  "start_url": "/IUG/index.html",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
-  "icons": [
-    {
-      "src": "icon.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+"name": "الصفوة",
+"short_name": "الصفوة",
+"description": "تطبيق الصفوة",
+"start_url": "index.html",
+"scope": "./",
+"display": "standalone",
+"orientation": "portrait",
+"background_color": "#ffffff",
+"theme_color": "#000000",
+"icons": [
+{
+"src": "icon.png",
+"sizes": "144x144",
+"type": "image/png",
+"purpose": "any"
+},
+{
+"src": "icon.png",
+"sizes": "192x192",
+"type": "image/png",
+"purpose": "any"
+},
+{
+"src": "icon.png",
+"sizes": "512x512",
+"type": "image/png",
+"purpose": "any"
+}
+]
 }
