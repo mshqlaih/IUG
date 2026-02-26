@@ -48,18 +48,19 @@
         .calc-box { background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; margin: 10px 0; border: 1px solid #ffeeba; }
 
 .range-fields {
-  display: flex;        /* يجعل العناصر بجانب بعض */
-  gap: 10px;            /* مسافة بين الحقلين */
+  display: flex;
+  gap: 15px;          /* مسافة بين الحقلين */
+  width: 100%;        /* الحاوية تأخذ كامل العرض */
 }
 
 .input-with-clear {
-  flex: 1;              /* كل حقل يأخذ نصف العرض */
+  flex: 1;            /* كل حقل يأخذ نصف العرض */
   position: relative;
 }
 
 .input-with-clear input {
-  width: 100%;
-  padding-right: 25px;  /* مساحة للأيقونة */
+  width: 100%;        /* الحقل يمتد بكامل المساحة */
+  padding-right: 25px; /* مساحة للأيقونة ✖ */
 }
 
 .clear-btn {
@@ -237,6 +238,7 @@
     <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
