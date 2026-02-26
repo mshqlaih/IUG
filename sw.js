@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.55';
+const CACHE_NAME = 'quran-app-v1.56';
 const ASSETS = [
   './',
   './index.html',
@@ -36,6 +36,7 @@ self.addEventListener('activate', (e) => {
     })
   );
 });
+
 
 
 
