@@ -84,16 +84,17 @@
                     <div class="field"><label>اسم الطالب</label><select id="studentSelect"></select></div>
                     <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
                     <div class="field"><label>الاتجاه</label><select id="flowDirection"><option value="forward">تصاعدي (البقرة ⮕ الناس)</option><option value="backward">تنازلي (الناس ⮕ البقرة)</option></select></div>
-                    <div class="field">
+                    <div class="field" style="position:relative;">
   <label>من (بحث ذكي)</label>
-  <div style="display:flex; align-items:center; gap:5px;">
-    <input list="ayatList" id="rangeFrom" 
-           placeholder="مثلاً: بقرة 155" 
-           oninput="handleSmartSearch(this)">
-    <button type="button" onclick="document.getElementById('rangeFrom').value='';">
-      ✖
-    </button>
-  </div>
+  <input list="ayatList" id="rangeFrom" 
+         placeholder="مثلاً: بقرة 155" 
+         oninput="handleSmartSearch(this)" 
+         style="padding-right:25px;">
+  <span onclick="document.getElementById('rangeFrom').value='';" 
+        style="position:absolute; right:5px; top:50%; transform:translateY(-50%);
+               cursor:pointer; color:#888; font-weight:bold;">
+    ✖
+  </span>
 </div>
                     <div class="field"><label>إلى (بحث ذكي)</label><input list="ayatList" id="rangeTo" placeholder="مثلاً: ص 20" oninput="handleSmartSearch(this)"></div>
                     <div class="field"><label>النوع</label><select id="activityType"><option>تسميع</option><option>مراجعة</option></select></div>
@@ -203,5 +204,6 @@
     <script src="app.js"></script>
 </body>
 </html>
+
 
 
