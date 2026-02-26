@@ -1,38 +1,61 @@
 // استدعاء ملف Service Worker للعمل أوفلاين
+// --- 1. تسجيل الـ Service Worker وإدارة التحديثات ---
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
-        // التحقق مما إذا كان هناك تحديث ينتظر التفعيل
+        console.log("نظام العمل أوفلاين نشط");
+
         reg.onupdatefound = () => {
             const installingWorker = reg.installing;
             installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // هنا يظهر التنبيه الذكي للمستخدم
                     if (confirm("تم تحميل تحديثات جديدة للنظام (إحصائيات ورادار الغياب). هل تريد التفعيل الآن؟")) {
                         location.reload(); 
                     }
                 }
             };
         };
-        console.log("نظام العمل أوفلاين نشط");
-    }).catch(err => console.log("خطأ في التسجيل:", err));
+    }).catch(err => console.log("خطأ في تسجيل الـ SW:", err));
 }
 
+// --- 2. إدارة ظهور أيقونة (زر) تثبيت التطبيق PWA ---
+let deferredPrompt;
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').then((reg) => {
-    reg.onupdatefound = () => {
-      const installingWorker = reg.installing;
-      installingWorker.onstatechange = () => {
-        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          // إذا وجد تحديث جديد، يظهر تنبيه للمستخدم أو يحدث تلقائياً
-          if(confirm("يوجد تحديث جديد للبرنامج، هل تريد التحديث الآن؟")) {
-             location.reload();
-          }
-        }
-      };
-    };
-  });
-}
+window.addEventListener('beforeinstallprompt', (e) => {
+    // منع المتصفح من إظهار النافذة التلقائية
+    e.preventDefault();
+    // حفظ الحدث لاستخدامه عند النقر
+    deferredPrompt = e;
+
+    // ابحث عن زر التثبيت في الـ HTML الخاص بك (تأكد أن id="installBtn")
+    const installBtn = document.getElementById('installBtn');
+    
+    if (installBtn) {
+        // إظهار الزر للمستخدم
+        installBtn.style.display = 'block';
+
+        installBtn.onclick = async () => {
+            if (deferredPrompt) {
+                // إظهار نافذة التثبيت الأصلية للمتصفح
+                deferredPrompt.prompt();
+                
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`قرار المستخدم: ${outcome}`);
+                
+                // تنظيف المتغير وإخفاء الزر
+                deferredPrompt = null;
+                installBtn.style.display = 'none';
+            }
+        };
+    }
+});
+
+// إخفاء الزر إذا تم تثبيت التطبيق بالفعل
+window.addEventListener('appinstalled', () => {
+    console.log('تم تثبيت التطبيق بنجاح');
+    const installBtn = document.getElementById('installBtn');
+    if (installBtn) installBtn.style.display = 'none';
+});
+
 const DB_NAME = "QuranProjectDB";
 let db;
 
@@ -381,6 +404,7 @@ function deleteStudentBtnClick(id) {
         alert("حدث خطأ أثناء الحذف.");
     };
 }
+
 
 
 
