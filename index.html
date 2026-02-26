@@ -46,6 +46,36 @@
         .stat-item b { display: block; color: var(--primary); font-size: 13px; margin-top: 3px; }
 
         .calc-box { background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; margin: 10px 0; border: 1px solid #ffeeba; }
+
+        .range-fields {
+  display: flex;
+  gap: 10px; /* مسافة بين الحقلين */
+}
+
+.input-with-clear {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.input-with-clear input {
+  flex: 1;
+  padding-right: 25px; /* مساحة للأيقونة */
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  cursor: pointer;
+  color: #888;
+  font-weight: bold;
+  user-select: none;
+}
+
+.clear-btn:hover {
+  color: #000; /* يتغير اللون عند المرور */
+}
     </style>
 </head>
 <body>
@@ -208,6 +238,7 @@
     <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
