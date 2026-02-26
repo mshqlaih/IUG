@@ -47,13 +47,31 @@ window.onload = () => {
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 2); // غيّر رقم الإصدار ليتفعّل onupgradeneeded
     request.onupgradeneeded = (e) => {
         db = e.target.result;
-        if (!db.objectStoreNames.contains("students")) db.createObjectStore("students", { keyPath: "id" });
-        if (!db.objectStoreNames.contains("records")) db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
+
+        if (!db.objectStoreNames.contains("students")) {
+            db.createObjectStore("students", { keyPath: "id" });
+        }
+
+        let store;
+        if (!db.objectStoreNames.contains("records")) {
+            store = db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
+        } else {
+            store = e.target.transaction.objectStore("records");
+        }
+
+        // إنشاء الفهرس المركب إذا لم يكن موجود
+        if (!store.indexNames.contains("student_date_type")) {
+            store.createIndex("student_date_type", ["student", "date", "type"], { unique: true });
+        }
     };
-    request.onsuccess = (e) => { db = e.target.result; refreshAll(); };
+
+    request.onsuccess = (e) => {
+        db = e.target.result;
+        refreshAll();
+    };
 }
 
 // ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
@@ -363,6 +381,7 @@ function deleteStudentBtnClick(id) {
         alert("حدث خطأ أثناء الحذف.");
     };
 }
+
 
 
 
