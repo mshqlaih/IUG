@@ -117,23 +117,24 @@
                     <div class="field"><label>اسم الطالب</label><select id="studentSelect"></select></div>
                     <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
                     <div class="field"><label>الاتجاه</label><select id="flowDirection"><option value="forward">تصاعدي (البقرة ⮕ الناس)</option><option value="backward">تنازلي (الناس ⮕ البقرة)</option></select></div>
-                   <div class="field-group">
-  <label>النطاق (من – إلى)</label>
-  <div class="range-fields">
-    <div class="input-with-clear">
-      <input list="ayatList" id="rangeFrom" 
-             placeholder="مثلاً: بقرة 155" 
-             oninput="handleSmartSearch(this)">
-      <span class="clear-btn" onclick="document.getElementById('rangeFrom').value=''">✖</span>
-    </div>
-    <div class="input-with-clear">
-      <input list="ayatList" id="rangeTo" 
-             placeholder="مثلاً: ص 20" 
-             oninput="handleSmartSearch(this)">
-      <span class="clear-btn" onclick="document.getElementById('rangeTo').value=''">✖</span>
-    </div>
-  </div>
-</div>
+                  <div class="field">
+                    <label>االآية من</label>    
+                    <div class="input-with-clear">
+                      <input list="ayatList" id="rangeFrom" 
+                             placeholder="مثلاً: بقرة 155" 
+                             oninput="handleSmartSearch(this)">
+                      <span class="clear-btn" onclick="document.getElementById('rangeFrom').value=''">✖</span>
+                    </div>
+                  </div> 
+                <div class="field">  
+                <label>الآية إلى</label>    
+                <div class="input-with-clear">
+                  <input list="ayatList" id="rangeTo" 
+                         placeholder="مثلاً: ص 20" 
+                         oninput="handleSmartSearch(this)">
+                  <span class="clear-btn" onclick="document.getElementById('rangeTo').value=''">✖</span>
+                </div>
+              </div>
                     <div class="field"><label>النوع</label><select id="activityType"><option>تسميع</option><option>مراجعة</option></select></div>
                     <div class="field"><label>أخطاء</label><input type="number" id="errors" value="0"></div>
                     <div class="field"><label>التقييم</label><select id="rating"><option>ممتاز</option><option>جيد جداً</option><option>جيد</option><option>ضعيف</option></select></div>
