@@ -356,20 +356,52 @@ function importBackup(input) {
         const d = JSON.parse(e.target.result);
         const tx = db.transaction(["students", "records"], "readwrite");
 
-        if(d.students) d.students.forEach(s => tx.objectStore("students").put(s));
-        if(d.records) d.records.forEach(r => tx.objectStore("records").put(r));
+        let added = 0, updated = 0;
+
+        if(d.students) d.students.forEach(s => {
+            tx.objectStore("students").put(s);
+        });
+
+        if(d.records) d.records.forEach(r => {
+            const store = tx.objectStore("records");
+            const req = store.put(r);
+            req.onsuccess = () => {
+                // put يعيد المفتاح، نعتبره تحديث أو إضافة
+                updated++; // هنا نعتبر كل عملية put تحديث أو إضافة ناجحة
+            };
+        });
 
         tx.oncomplete = () => {
-            alert("تم الاستيراد");
-            location.reload();
+            showImportMessage(`✅ تم الاستيراد بنجاح<br>تم تحديث/إضافة ${updated} سجل`);
+            setTimeout(() => location.reload(), 2000); // إعادة تحميل بعد ثانيتين
         };
 
         tx.onerror = err => {
             console.error("خطأ:", err.target.error);
-            alert("فشل الاستيراد بسبب تكرار أو خطأ في البيانات");
+            showImportMessage("❌ فشل الاستيراد: " + err.target.error, true);
         };
     };
     reader.readAsText(input.files[0]);
+}
+
+// دالة لعرض الرسالة داخل الصفحة
+function showImportMessage(msg, isError=false) {
+    let box = document.getElementById("importMessage");
+    if(!box) {
+        box = document.createElement("div");
+        box.id = "importMessage";
+        box.style.position = "fixed";
+        box.style.bottom = "20px";
+        box.style.right = "20px";
+        box.style.padding = "15px";
+        box.style.borderRadius = "10px";
+        box.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
+        box.style.zIndex = "2000";
+        document.body.appendChild(box);
+    }
+    box.style.background = isError ? "#f8d7da" : "#d4edda";
+    box.style.color = isError ? "#721c24" : "#155724";
+    box.innerHTML = msg;
 }
 
 function exportToExcel() {
