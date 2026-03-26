@@ -14,6 +14,8 @@ self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
+  // إجبار الـ Service Worker الجديد على أخذ مكان القديم فورًا
+  self.skipWaiting();
 });
 
 // تشغيل التطبيق من الذاكرة حتى لو لا يوجد إنترنت
@@ -23,6 +25,7 @@ self.addEventListener('fetch', (e) => {
   );
 });
 
+// تفعيل النسخة الجديدة وحذف الكاش القديم
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -35,6 +38,9 @@ self.addEventListener('activate', (e) => {
         })
       );
     }).then(() => {
+      // السيطرة على الصفحات المفتوحة مباشرة
+      self.clients.claim();
+
       // إرسال تاريخ آخر تحديث لكل الصفحات المفتوحة
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {
@@ -47,18 +53,3 @@ self.addEventListener('activate', (e) => {
     })
   );
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
