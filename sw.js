@@ -34,6 +34,16 @@ self.addEventListener('activate', (e) => {
           }
         })
       );
+    }).then(() => {
+      // إرسال تاريخ آخر تحديث لكل الصفحات المفتوحة
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'LAST_UPDATE',
+            date: new Date().toLocaleString("ar-EG")
+          });
+        });
+      });
     })
   );
 });
