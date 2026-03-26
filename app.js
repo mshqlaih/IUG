@@ -227,21 +227,35 @@ function saveActivity() {
     const rawDate = document.getElementById('activityDate').value;
     const onlyDate = new Date(rawDate).toISOString().split("T")[0]; // التاريخ فقط
 
+    const teacher = document.getElementById('teacherID').value;
+    const student = document.getElementById('studentSelect').value;
+    const type = document.getElementById('activityType').value;
+    const fromRange = document.getElementById('rangeFrom').value;
+    const toRange = document.getElementById('rangeTo').value;
+
+    // تحقق من الحقول الأساسية
+    if (!teacher || !student || !type) {
+        return alert("يجب إدخال المعلم والطالب ونوع النشاط");
+    }
+
+    // تحقق من الحقول الإضافية إذا كان النوع تسميع أو مراجعة
+    if ((type === "تسميع" || type === "مراجعة") && (!fromRange || !toRange)) {
+        return alert("يجب إدخال من وإلى في حالة النشاط تسميع أو مراجعة");
+    }
+
     const record = {
-        teacher: document.getElementById('teacherID').value || "---",
-        student: document.getElementById('studentSelect').value,
-        date: onlyDate, // هنا التاريخ فقط
-        type: document.getElementById('activityType').value,
+        teacher: teacher || "---",
+        student: student,
+        date: onlyDate, // التاريخ فقط
+        type: type,
         flowDirection: document.getElementById('flowDirection').value,
-        fromRange: document.getElementById('rangeFrom').value,
-        toRange: document.getElementById('rangeTo').value,
+        fromRange: fromRange,
+        toRange: toRange,
         amount: prog ? prog.text : "---",
         part: prog ? prog.part : "---",
         errors: document.getElementById('errors').value || 0,
         rating: document.getElementById('rating').value
     };
-
-    if(!record.student || !record.fromRange) return alert("أكمل البيانات");
 
     const tx = db.transaction("records", "readwrite");
     const store = tx.objectStore("records");
@@ -252,7 +266,10 @@ function saveActivity() {
         if (check.result) {
             alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
         } else {
-            store.add(record).onsuccess = () => { refreshAll(); alert("تم الحفظ"); };
+            store.add(record).onsuccess = () => {
+                refreshAll();
+                alert("تم الحفظ");
+            };
         }
     };
 }
