@@ -8,12 +8,21 @@ if ('serviceWorker' in navigator) {
             const installingWorker = reg.installing;
             installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    if (confirm("تم تحميل تحديثات جديدة للنظام (إحصائيات ورادار الغياب). هل تريد التفعيل الآن؟")) {
+                    if (confirm("تم تحميل تحديثات جديدة للنظام. هل تريد التفعيل الآن؟")) {
                         location.reload(); 
                     }
                 }
             };
         };
+
+        // استقبال تاريخ آخر تحديث من الـ SW
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data.type === 'LAST_UPDATE') {
+                localStorage.setItem("lastUpdate", event.data.date);
+                document.getElementById("lastUpdateLabel").innerText = "📅 آخر تحديث: " + event.data.date;
+            }
+        });
+
     }).catch(err => console.log("خطأ في تسجيل الـ SW:", err));
 }
 
