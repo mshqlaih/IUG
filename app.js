@@ -338,7 +338,17 @@ function resetFilters() {
 }
 
 function deleteRecord(id) { if(confirm("حذف؟")) db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); }
-function saveTeacherID() { localStorage.setItem('teacherID', document.getElementById('teacherID').value); alert("تم الحفظ"); }
+function saveTeacherID() {
+    const id = document.getElementById('teacherID').value;
+    const result = checkIDNumber(id);
+
+    if (result === "Y") {
+        localStorage.setItem('teacherID', id);
+        alert("✅ تم الحفظ بنجاح");
+    } else {
+        alert("❌ " + result);
+    }
+}
 
 // 9. النسخ الاحتياطي
 async function exportBackup() {
@@ -445,6 +455,33 @@ function deleteStudentBtnClick(id) {
         console.error("فشل الحذف:", e);
         alert("حدث خطأ أثناء الحذف.");
     };
+}
+
+function checkIDNumber(id) {
+    const idStr = id.toString();
+
+    // يجب أن يكون 9 خانات
+    if (idStr.length !== 9) {
+        return "رقم الهوية يجب أن يتكون من 9 خانات";
+    }
+
+    let sum = 0;
+    for (let i = 0; i < 8; i++) {
+        let digit = parseInt(idStr[i], 10);
+        if ((i + 1) % 2 === 0) {
+            let doubled = digit * 2;
+            sum += Math.floor(doubled / 10) + (doubled % 10);
+        } else {
+            sum += digit;
+        }
+    }
+
+    let checkDigit = (10 - (sum % 10)) % 10;
+    if (parseInt(idStr[8], 10) !== checkDigit) {
+        return "تأكد من رقم الهوية المدخل";
+    }
+
+    return "Y";
 }
 
 
