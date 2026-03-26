@@ -266,8 +266,27 @@ function calculateWorkingDays(start, end) {
 
 // 8. الدوال العامة (حفظ طالب، تعديل، تصدير، حذف)
 function saveStudent() {
-    const s = { id: document.getElementById('stuID').value, fName: document.getElementById('fName').value, pName: document.getElementById('pName').value, gName: document.getElementById('gName').value, lName: document.getElementById('lName').value };
-    db.transaction("students", "readwrite").objectStore("students").put(s).onsuccess = () => { refreshAll(); alert("تم الحفظ"); };
+    const id = document.getElementById('stuID').value;
+    const result = checkIDNumber(id); // استدعاء دالة الفحص الموجودة
+
+    if (result === "Y") {
+        const s = {
+            id: id,
+            fName: document.getElementById('fName').value,
+            pName: document.getElementById('pName').value,
+            gName: document.getElementById('gName').value,
+            lName: document.getElementById('lName').value
+        };
+
+        db.transaction("students", "readwrite")
+          .objectStore("students")
+          .put(s).onsuccess = () => {
+              refreshAll();
+              alert("✅ تم الحفظ بنجاح");
+          };
+    } else {
+        alert("❌ " + result); // تعرض الرسالة التي ترجعها دالة الفحص
+    }
 }
 
 function refreshAll() {
