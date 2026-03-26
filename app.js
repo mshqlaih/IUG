@@ -26,6 +26,15 @@ if ('serviceWorker' in navigator) {
     }).catch(err => console.log("خطأ في تسجيل الـ SW:", err));
 }
 
+window.addEventListener("DOMContentLoaded", () => {
+    const lastUpdate = localStorage.getItem("lastUpdate");
+    if (lastUpdate) {
+        const label = document.getElementById("lastUpdateLabel");
+        if (label) {
+            label.innerText = "📅 آخر تحديث: " + lastUpdate;
+        }
+    }
+});
 // --- 2. إدارة ظهور أيقونة (زر) تثبيت التطبيق PWA ---
 let deferredPrompt;
 
