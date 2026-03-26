@@ -267,28 +267,35 @@ function calculateWorkingDays(start, end) {
 // 8. الدوال العامة (حفظ طالب، تعديل، تصدير، حذف)
 function saveStudent() {
     const id = document.getElementById('stuID').value;
-    const result = checkIDNumber(id); // استدعاء دالة الفحص الموجودة
+    const fName = document.getElementById('fName').value.trim();
+    const pName = document.getElementById('pName').value.trim();
+    const gName = document.getElementById('gName').value.trim();
+    const lName = document.getElementById('lName').value.trim();
 
-    if (result === "Y") {
-        const s = {
-            id: id,
-            fName: document.getElementById('fName').value,
-            pName: document.getElementById('pName').value,
-            gName: document.getElementById('gName').value,
-            lName: document.getElementById('lName').value
-        };
+    // فحص رقم الهوية باستخدام الدالة الموجودة لديك
+    const result = checkIDNumber(id);
 
-        db.transaction("students", "readwrite")
-          .objectStore("students")
-          .put(s).onsuccess = () => {
-              refreshAll();
-              alert("✅ تم الحفظ بنجاح");
-          };
-    } else {
-        alert("❌ " + result); // تعرض الرسالة التي ترجعها دالة الفحص
+    if (result !== "Y") {
+        alert("❌ " + result);
+        return;
     }
-}
 
+    // فحص أن الاسم غير فارغ
+    if (!fName || !pName || !gName || !lName) {
+        alert("❌ يجب إدخال جميع أجزاء الاسم (الاسم الأول، الأب، الجد، العائلة)");
+        return;
+    }
+
+    // إذا كان كل شيء صحيح يتم الحفظ
+    const s = { id, fName, pName, gName, lName };
+
+    db.transaction("students", "readwrite")
+      .objectStore("students")
+      .put(s).onsuccess = () => {
+          refreshAll();
+          alert("✅ تم الحفظ بنجاح");
+      };
+}
 function refreshAll() {
     const sel = document.getElementById('studentSelect'); sel.innerHTML = '<option value="">-- اختر --</option>';
     const list = document.getElementById('studentsList'); list.innerHTML = '';
