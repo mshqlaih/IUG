@@ -1,7 +1,8 @@
-const CACHE_NAME = 'quran-app-v1.61';
+const CACHE_NAME = 'quran-app-v1.62';
 const ASSETS = [
   './',
   './index.html',
+  './app.css',
   './quran_data.js',
   './app.js',
   './xlsx.full.min.js',
