@@ -355,9 +355,19 @@ function importBackup(input) {
     reader.onload = e => {
         const d = JSON.parse(e.target.result);
         const tx = db.transaction(["students", "records"], "readwrite");
+
         if(d.students) d.students.forEach(s => tx.objectStore("students").put(s));
-        if(d.records) d.records.forEach(r => tx.objectStore("records").add(r));
-        tx.oncomplete = () => { alert("تم الاستيراد"); location.reload(); };
+        if(d.records) d.records.forEach(r => tx.objectStore("records").put(r));
+
+        tx.oncomplete = () => {
+            alert("تم الاستيراد");
+            location.reload();
+        };
+
+        tx.onerror = err => {
+            console.error("خطأ:", err.target.error);
+            alert("فشل الاستيراد بسبب تكرار أو خطأ في البيانات");
+        };
     };
     reader.readAsText(input.files[0]);
 }
