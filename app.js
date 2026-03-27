@@ -118,6 +118,22 @@ function initDB() {
 function fillAyatSearchList() {
     const list = document.getElementById('ayatList');
     if (typeof QURAN_DATA === 'undefined') return;
+
+    const fragment = document.createDocumentFragment();
+    QURAN_DATA.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.id; // القيمة المخزنة هي رقم الآية الفريد
+        option.textContent = `${item.surah} ${item.ayah} (جزء ${item.juz}، صفحة ${item.page})`; 
+        fragment.appendChild(option);
+    });
+
+    list.innerHTML = "";
+    list.appendChild(fragment);
+}
+/*
+function fillAyatSearchList() {
+    const list = document.getElementById('ayatList');
+    if (typeof QURAN_DATA === 'undefined') return;
     
     const fragment = document.createDocumentFragment();
     QURAN_DATA.forEach(item => {
@@ -128,7 +144,7 @@ function fillAyatSearchList() {
     list.innerHTML = "";
     list.appendChild(fragment);
 }
-
+*/
 // 3. محرك البحث الذكي (بقرة 155)
 function handleSmartSearch(inputEl) {
     const val = inputEl.value.trim();
