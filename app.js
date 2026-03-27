@@ -613,12 +613,19 @@ function formatAyah(id) {
     return AYAH_REVERSE[id] || id;
 }
 
-function enforceValidAyah(inputEl) {
-    const id = parseInt(inputEl.value);
+function syncAyahID(textInput, hiddenID) {
+    const val = textInput.value.trim();
+    const opts = document.querySelectorAll('#ayatList option');
 
-    if (isNaN(id)) {
-        inputEl.value = ""; // ✅ يمسح فورًا أي قيمة ليست رقم الآية
-    }
+    let foundID = null;
+
+    opts.forEach(opt => {
+        if (opt.value === val) {
+            foundID = opt.dataset.id;
+        }
+    });
+
+    document.getElementById(hiddenID).value = foundID || "";
 }
 
 
