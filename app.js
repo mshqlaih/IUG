@@ -338,7 +338,7 @@ function refreshAll() {
     db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
         e.target.result.forEach(s => {
             const full = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
-            sel.innerHTML += `<option value="${full}">${full}</option>`;
+            sel.innerHTML += `<option value="${s.id}">${full}</option>`;
             list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td><td><button onclick="editStudent('${s.id}')">✏️</button></td></tr>`;
         });
     };
