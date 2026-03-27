@@ -120,6 +120,34 @@ function fillAyatSearchList() {
     if (typeof QURAN_DATA === 'undefined') return;
 
     const fragment = document.createDocumentFragment();
+
+    // قاموس lookup: النص → id
+    window.AYAH_LOOKUP = {};
+    // عكسه: id → النص (مفيد عند العرض)
+    window.AYAH_REVERSE = {};
+
+    QURAN_DATA.forEach(item => {
+        const text = `${item.surah} ${item.ayah} (جزء ${item.juz}، صفحة ${item.page})`;
+
+        const option = document.createElement('option');
+        option.value = text;
+
+        // تخزين lookup
+        AYAH_LOOKUP[text] = item.id;
+        AYAH_REVERSE[item.id] = text;
+
+        fragment.appendChild(option);
+    });
+
+    list.innerHTML = "";
+    list.appendChild(fragment);
+}
+/*
+function fillAyatSearchList() {
+    const list = document.getElementById('ayatList');
+    if (typeof QURAN_DATA === 'undefined') return;
+
+    const fragment = document.createDocumentFragment();
     QURAN_DATA.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id; // القيمة المخزنة هي رقم الآية الفريد
@@ -130,6 +158,7 @@ function fillAyatSearchList() {
     list.innerHTML = "";
     list.appendChild(fragment);
 }
+*/
 /*
 function fillAyatSearchList() {
     const list = document.getElementById('ayatList');
@@ -237,6 +266,7 @@ function calculateExactProgress() {
 }
 
 // 6. حفظ النشاط
+/*
 function saveActivity() {
     const prog = calculateExactProgress();
     const rawDate = document.getElementById('activityDate').value;
@@ -283,6 +313,69 @@ function saveActivity() {
                 refreshAll();
                 alert("تم الحفظ");
                 // تسجيل مهمة مزامنة في الـ Service Worker
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.sync.register('sync-records');
+                });
+            };
+        }
+    };
+}
+*/
+function saveActivity() {
+    const prog = calculateExactProgress();
+    const rawDate = document.getElementById('activityDate').value;
+    const onlyDate = new Date(rawDate).toISOString().split("T")[0];
+
+    const teacher = document.getElementById('teacherID').value;
+    const student = document.getElementById('studentSelect').value;
+    const type = document.getElementById('activityType').value;
+
+    // النص الذي أدخله المستخدم
+    const fromText = document.getElementById('rangeFrom').value;
+    const toText = document.getElementById('rangeTo').value;
+
+    // استخراج ID الحقيقي
+    const fromRange = AYAH_LOOKUP[fromText] || null;
+    const toRange = AYAH_LOOKUP[toText] || null;
+
+    if (!teacher || !student || !type) {
+        return alert("يجب إدخال المعلم والطالب ونوع النشاط");
+    }
+    if ((type === "تسميع" || type === "مراجعة") && (!fromRange || !toRange)) {
+        return alert("يجب اختيار آيات صحيحة من القائمة");
+    }
+
+    const record = {
+        teacher: teacher || "---",
+        student: student,
+        date: onlyDate,
+        type: type,
+        flowDirection: document.getElementById('flowDirection').value,
+
+        // ✅ حفظ الـ ID وليس النص
+        fromRange: fromRange,
+        toRange: toRange,
+
+        amount: prog ? prog.text : "---",
+        part: prog ? prog.part : "---",
+        errors: document.getElementById('errors').value || 0,
+        rating: document.getElementById('rating').value,
+        synced: false
+    };
+
+    const tx = db.transaction("records", "readwrite");
+    const store = tx.objectStore("records");
+    const index = store.index("student_date_type");
+
+    const check = index.get([record.student, record.date, record.type]);
+    check.onsuccess = () => {
+        if (check.result) {
+            alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
+        } else {
+            store.add(record).onsuccess = () => {
+                refreshAll();
+                alert("تم الحفظ");
+
                 navigator.serviceWorker.ready.then(reg => {
                     reg.sync.register('sync-records');
                 });
