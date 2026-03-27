@@ -52,10 +52,9 @@
                   <div class="field">
                     <label>االآية من</label>    
                     <div class="input-with-clear">
-                      <input list="ayatList" id="rangeFrom" 
-                             placeholder="مثلاً: بقرة 155" 
-                             oninput="handleSmartSearch(this);enforceValidAyah(this)">
-                      <span class="clear-btn" onclick="document.getElementById('rangeFrom').value=''">✖</span>
+                       <input list="ayatList" id="rangeFromText" placeholder="مثلاً: بقرة 155" oninput="handleSmartSearch(this); syncAyahID(this, 'rangeFrom')">
+                       <span class="clear-btn" onclick="document.getElementById('rangeFrom').value=''">✖</span> 
+                       <input type="hidden" id="rangeFrom">                       
                     </div>
                   </div> 
                 <div class="field">  
