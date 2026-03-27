@@ -648,7 +648,9 @@ function checkIDNumber(id) {
 }
 
 
-
+function formatAyah(id) {
+    return AYAH_REVERSE[id] || id;
+}
 
 
 
