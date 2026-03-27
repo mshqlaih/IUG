@@ -55,32 +55,47 @@ self.addEventListener('activate', (e) => {
 });
 
 function syncRecords() {
-  const tx = db.transaction("records", "readonly");
-  const store = tx.objectStore("records");
-  const getAll = store.getAll();
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("QuranProjectDB", 3); // افتح قاعدة البيانات بنفسك
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const tx = db.transaction("records", "readonly");
+      const store = tx.objectStore("records");
+      const getAll = store.getAll();
 
-  getAll.onsuccess = () => {
-    const unsynced = getAll.result.filter(r => !r.synced);
+      getAll.onsuccess = () => {
+        const unsynced = getAll.result.filter(r => !r.synced);
 
-    unsynced.forEach(record => {
-      fetch("https://<your-apex-server>/ords/<schema>/activities/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(record)
-      })
-      .then(res => {
-        if (res.ok) {
-          const txUpdate = db.transaction("records", "readwrite");
-          const storeUpdate = txUpdate.objectStore("records");
-          record.synced = true;
-          storeUpdate.put(record);
-          console.log("✅ تم رفع النشاط:", record);
-        }
-      })
-      .catch(err => console.error("⚠️ لم يتم الاتصال بالسيرفر:", err));
-    });
-  };
+        Promise.all(
+          unsynced.map(record =>
+            fetch("https://<your-apex-server>/ords/<schema>/activities/", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(record)
+            })
+            .then(res => {
+              if (res.ok) {
+                const txUpdate = db.transaction("records", "readwrite");
+                const storeUpdate = txUpdate.objectStore("records");
+                record.synced = true;
+                storeUpdate.put(record);
+                console.log("✅ تم رفع النشاط:", record);
+              }
+            })
+          )
+        ).then(resolve).catch(reject);
+      };
+    };
+
+    request.onerror = (err) => reject(err);
+  });
 }
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-records') {
+    event.waitUntil(syncRecords());
+  }
+});
 
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-records') {
