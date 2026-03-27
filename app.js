@@ -201,6 +201,22 @@ function handleSmartSearch(inputEl) {
     renderOptions(filtered);
 }
 */
+
+function renderOptions(listData) {
+    const list = document.getElementById('ayatList');
+    list.innerHTML = "";
+
+    listData.forEach(item => {
+        const option = document.createElement('option');
+        const text = item.l; // TEXT كامل
+
+        option.value = item.id;      // ✅ ID فقط
+        option.textContent = text;   // ✅ وصف للعرض
+
+        list.appendChild(option);
+    });
+}
+/*
 function renderOptions(data) {
     const list = document.getElementById('ayatList');
     list.innerHTML = "";
@@ -210,6 +226,7 @@ function renderOptions(data) {
         list.appendChild(opt);
     });
 }
+*/
 
 // 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
 document.getElementById('studentSelect').addEventListener('change', function() {
