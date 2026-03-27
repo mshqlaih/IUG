@@ -15,6 +15,7 @@ if ('serviceWorker' in navigator) {
             };
         };
 
+        
         // استقبال تاريخ آخر تحديث من الـ SW
         navigator.serviceWorker.addEventListener('message', (event) => {
             if (event.data.type === 'LAST_UPDATE') {
