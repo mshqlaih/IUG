@@ -121,6 +121,25 @@ function fillAyatSearchList() {
     if (typeof QURAN_DATA === 'undefined') return;
     
     const fragment = document.createDocumentFragment();
+
+    QURAN_DATA.forEach(item => {
+        const option = document.createElement('option');
+
+        option.value = item.l;         // النص الظاهر للمستخدم
+        option.dataset.id = item.id;   // ✅ رقم الآية الحقيقي (هذا أهم شيء)
+
+        fragment.appendChild(option);
+    });
+
+    list.innerHTML = "";
+    list.appendChild(fragment);
+}
+/*
+function fillAyatSearchList() {
+    const list = document.getElementById('ayatList');
+    if (typeof QURAN_DATA === 'undefined') return;
+    
+    const fragment = document.createDocumentFragment();
     QURAN_DATA.forEach(item => {
         const option = document.createElement('option');
         option.value = item.l; // النص: سورة... آية... ص...
@@ -129,7 +148,7 @@ function fillAyatSearchList() {
     list.innerHTML = "";
     list.appendChild(fragment);
 }
-
+*/
 // 3. محرك البحث الذكي (بقرة 155)
 
 function handleSmartSearch(inputEl) {
@@ -617,7 +636,7 @@ function syncAyahID(textInput, hiddenID) {
     const val = textInput.value.trim();
     const opts = document.querySelectorAll('#ayatList option');
 
-    let foundID = null;
+    let foundID = "";
 
     opts.forEach(opt => {
         if (opt.value === val) {
@@ -625,7 +644,7 @@ function syncAyahID(textInput, hiddenID) {
         }
     });
 
-    document.getElementById(hiddenID).value = foundID || "";
+    document.getElementById(hiddenID).value = foundID;
 }
 
 
