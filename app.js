@@ -176,6 +176,23 @@ function fillAyatSearchList() {
 function handleSmartSearch(inputEl) {
     const val = inputEl.value.trim();
     if (val.length < 1) return;
+
+    const searchTerms = val.replace("ال", "").split(" ");
+
+    const filtered = QURAN_DATA.filter(item => {
+        const cleanLabel = item.l.replace("سورة ", "").replace("آية ", "").replace("ال", "");
+        return searchTerms.every(term =>
+            cleanLabel.includes(term) ||
+            item.l.includes(term)
+        );
+    }).slice(0, 30);
+
+    renderOptions(filtered);
+}
+/*
+function handleSmartSearch(inputEl) {
+    const val = inputEl.value.trim();
+    if (val.length < 1) return;
     const searchTerms = val.replace("ال", "").split(" ");
     const filtered = QURAN_DATA.filter(item => {
         const cleanLabel = item.l.replace("سورة ", "").replace("آية ", "").replace("ال", "");
@@ -183,7 +200,7 @@ function handleSmartSearch(inputEl) {
     }).slice(0, 30);
     renderOptions(filtered);
 }
-
+*/
 function renderOptions(data) {
     const list = document.getElementById('ayatList');
     list.innerHTML = "";
