@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.73';
+const CACHE_NAME = 'quran-app-v1.74';
 const ASSETS = [
   './',
   './index.html',
@@ -52,4 +52,10 @@ self.addEventListener('activate', (e) => {
       });
     })
   );
+});
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-records') {
+    event.waitUntil(syncRecords()); // استدعاء الدالة عند توفر الإنترنت
+  }
 });
