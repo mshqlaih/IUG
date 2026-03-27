@@ -130,6 +130,8 @@ function fillAyatSearchList() {
         option.value = item.l;         // النص الظاهر للمستخدم
         option.dataset.id = item.id;   // ✅ رقم الآية الحقيقي (هذا أهم شيء)
 
+         AYAH_REVERSE[item.id] = item.l;
+
         fragment.appendChild(option);
     });
 
@@ -173,6 +175,8 @@ function renderOptions(data) {
         const opt = document.createElement('option');
         opt.value = item.l;          // النص الظاهر للمستخدم
         opt.dataset.id = item.id;    // ✅ رقم الآية الحقيقي
+
+         AYAH_REVERSE[item.id] = item.l;
         list.appendChild(opt);
     });
 }
