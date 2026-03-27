@@ -119,48 +119,6 @@ function initDB() {
 function fillAyatSearchList() {
     const list = document.getElementById('ayatList');
     if (typeof QURAN_DATA === 'undefined') return;
-
-    const fragment = document.createDocumentFragment();
-
-    // lookup: ID → TEXT
-    window.AYAH_REVERSE = {};
-
-    QURAN_DATA.forEach(item => {
-        const option = document.createElement('option');
-        const text = `${item.surah} ${item.ayah} (جزء ${item.juz}، صفحة ${item.page})`;
-
-        option.value = item.id;      // ✅ القيمة ID فقط
-        option.textContent = text;   // ✅ النص للمستخدم فقط
-
-        AYAH_REVERSE[item.id] = text;
-
-        fragment.appendChild(option);
-    });
-
-    list.innerHTML = "";
-    list.appendChild(fragment);
-}
-/*
-function fillAyatSearchList() {
-    const list = document.getElementById('ayatList');
-    if (typeof QURAN_DATA === 'undefined') return;
-
-    const fragment = document.createDocumentFragment();
-    QURAN_DATA.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.id; // القيمة المخزنة هي رقم الآية الفريد
-        option.textContent = `${item.surah} ${item.ayah} (جزء ${item.juz}، صفحة ${item.page})`; 
-        fragment.appendChild(option);
-    });
-
-    list.innerHTML = "";
-    list.appendChild(fragment);
-}
-*/
-/*
-function fillAyatSearchList() {
-    const list = document.getElementById('ayatList');
-    if (typeof QURAN_DATA === 'undefined') return;
     
     const fragment = document.createDocumentFragment();
     QURAN_DATA.forEach(item => {
@@ -171,25 +129,9 @@ function fillAyatSearchList() {
     list.innerHTML = "";
     list.appendChild(fragment);
 }
-*/
+
 // 3. محرك البحث الذكي (بقرة 155)
-function handleSmartSearch(inputEl) {
-    const val = inputEl.value.trim();
-    if (val.length < 1) return;
 
-    const searchTerms = val.replace("ال", "").split(" ");
-
-    const filtered = QURAN_DATA.filter(item => {
-        const cleanLabel = item.l.replace("سورة ", "").replace("آية ", "").replace("ال", "");
-        return searchTerms.every(term =>
-            cleanLabel.includes(term) ||
-            item.l.includes(term)
-        );
-    }).slice(0, 30);
-
-    renderOptions(filtered);
-}
-/*
 function handleSmartSearch(inputEl) {
     const val = inputEl.value.trim();
     if (val.length < 1) return;
@@ -200,23 +142,7 @@ function handleSmartSearch(inputEl) {
     }).slice(0, 30);
     renderOptions(filtered);
 }
-*/
 
-function renderOptions(listData) {
-    const list = document.getElementById('ayatList');
-    list.innerHTML = "";
-
-    listData.forEach(item => {
-        const option = document.createElement('option');
-        const text = item.l; // TEXT كامل
-
-        option.value = item.id;      // ✅ ID فقط
-        option.textContent = text;   // ✅ وصف للعرض
-
-        list.appendChild(option);
-    });
-}
-/*
 function renderOptions(data) {
     const list = document.getElementById('ayatList');
     list.innerHTML = "";
@@ -226,7 +152,7 @@ function renderOptions(data) {
         list.appendChild(opt);
     });
 }
-*/
+
 
 // 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
 document.getElementById('studentSelect').addEventListener('change', function() {
