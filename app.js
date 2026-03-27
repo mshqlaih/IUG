@@ -327,13 +327,9 @@ function saveActivity() {
     const student = document.getElementById('studentSelect').value;
     const type = document.getElementById('activityType').value;
 
-    // النص الذي أدخله المستخدم
-    const fromText = document.getElementById('rangeFrom').value;
-    const toText = document.getElementById('rangeTo').value;
-
-    // استخراج ID الحقيقي
-    const fromRange = AYAH_LOOKUP[fromText] || null;
-    const toRange = AYAH_LOOKUP[toText] || null;
+    // ✅ الآن القيمة هي ID مباشرة (رقم صحيح)
+    const fromRange = parseInt(document.getElementById('rangeFrom').value) || null;
+    const toRange   = parseInt(document.getElementById('rangeTo').value) || null;
 
     if (!teacher || !student || !type) {
         return alert("يجب إدخال المعلم والطالب ونوع النشاط");
@@ -349,9 +345,8 @@ function saveActivity() {
         type: type,
         flowDirection: document.getElementById('flowDirection').value,
 
-        // ✅ حفظ الـ ID وليس النص
-        fromRange: fromRange,
-        toRange: toRange,
+        fromRange: fromRange,     // ✅ ID
+        toRange: toRange,         // ✅ ID
 
         amount: prog ? prog.text : "---",
         part: prog ? prog.part : "---",
