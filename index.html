@@ -53,7 +53,7 @@
                     <div class="input-with-clear">
                       <input list="ayatList" id="rangeFrom" 
                              placeholder="مثلاً: بقرة 155" 
-                             oninput="handleSmartSearch(this)">
+                             oninput="handleSmartSearch(this);enforceValidAyah(this)">
                       <span class="clear-btn" onclick="document.getElementById('rangeFrom').value=''">✖</span>
                     </div>
                   </div> 
@@ -62,7 +62,7 @@
                 <div class="input-with-clear">
                   <input list="ayatList" id="rangeTo" 
                          placeholder="مثلاً: ص 20" 
-                         oninput="handleSmartSearch(this)">
+                         oninput="handleSmartSearch(this);enforceValidAyah(this)">
                   <span class="clear-btn" onclick="document.getElementById('rangeTo').value=''">✖</span>
                 </div>
               </div>
