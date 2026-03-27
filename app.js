@@ -362,7 +362,7 @@ function saveActivity() {
     const student = document.getElementById('studentSelect').value;
     const type = document.getElementById('activityType').value;
 
-    // ✅ الآن القيمة هي ID مباشرة (رقم صحيح)
+    // ✅ الآن القيمة رقم ID فقط
     const fromRange = parseInt(document.getElementById('rangeFrom').value) || null;
     const toRange   = parseInt(document.getElementById('rangeTo').value) || null;
 
@@ -380,8 +380,8 @@ function saveActivity() {
         type: type,
         flowDirection: document.getElementById('flowDirection').value,
 
-        fromRange: fromRange,     // ✅ ID
-        toRange: toRange,         // ✅ ID
+        fromRange: fromRange,  
+        toRange: toRange,
 
         amount: prog ? prog.text : "---",
         part: prog ? prog.part : "---",
@@ -686,6 +686,15 @@ function checkIDNumber(id) {
 function formatAyah(id) {
     return AYAH_REVERSE[id] || id;
 }
+
+function enforceValidAyah(inputEl) {
+    const id = parseInt(inputEl.value);
+
+    if (isNaN(id)) {
+        inputEl.value = ""; // ✅ يمسح فورًا أي قيمة ليست رقم الآية
+    }
+}
+
 
 
 
