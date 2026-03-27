@@ -121,19 +121,16 @@ function fillAyatSearchList() {
 
     const fragment = document.createDocumentFragment();
 
-    // قاموس lookup: النص → id
-    window.AYAH_LOOKUP = {};
-    // عكسه: id → النص (مفيد عند العرض)
+    // lookup: ID → TEXT
     window.AYAH_REVERSE = {};
 
     QURAN_DATA.forEach(item => {
         const text = `${item.surah} ${item.ayah} (جزء ${item.juz}، صفحة ${item.page})`;
 
         const option = document.createElement('option');
-        option.value = text;
+        option.value = item.id;      // ✅ القيمة ثابتة لا تتغير
+        option.textContent = text;   // ✅ الوصف فقط للعرض
 
-        // تخزين lookup
-        AYAH_LOOKUP[text] = item.id;
         AYAH_REVERSE[item.id] = text;
 
         fragment.appendChild(option);
