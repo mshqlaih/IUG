@@ -68,7 +68,7 @@ function syncRecords() {
 
         Promise.all(
           unsynced.map(record =>
-            fetch("https://<your-apex-server>/ords/<schema>/activities/", {
+            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(record)
