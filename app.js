@@ -77,6 +77,7 @@ window.addEventListener('appinstalled', () => {
 
 const DB_NAME = "QuranProjectDB";
 let db;
+window.AYAH_REVERSE = {};
 
 // 1. تشغيل النظام عند التحميل
 window.onload = () => {
@@ -118,6 +119,7 @@ function initDB() {
 // ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
 function fillAyatSearchList() {
     const list = document.getElementById('ayatList');
+    window.AYAH_REVERSE = {};
     if (typeof QURAN_DATA === 'undefined') return;
     
     const fragment = document.createDocumentFragment();
@@ -164,6 +166,7 @@ function handleSmartSearch(inputEl) {
 
 function renderOptions(data) {
     const list = document.getElementById('ayatList');
+    window.AYAH_REVERSE = {};
     list.innerHTML = "";
 
     data.forEach(item => {
