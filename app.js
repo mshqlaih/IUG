@@ -126,11 +126,11 @@ function fillAyatSearchList() {
     window.AYAH_REVERSE = {};
 
     QURAN_DATA.forEach(item => {
+        const option = document.createElement('option');
         const text = `${item.surah} ${item.ayah} (جزء ${item.juz}، صفحة ${item.page})`;
 
-        const option = document.createElement('option');
-        option.value = item.id;      // ✅ القيمة ثابتة لا تتغير
-        option.textContent = text;   // ✅ الوصف فقط للعرض
+        option.value = item.id;      // ✅ القيمة ID فقط
+        option.textContent = text;   // ✅ النص للمستخدم فقط
 
         AYAH_REVERSE[item.id] = text;
 
