@@ -165,12 +165,25 @@ function handleSmartSearch(inputEl) {
 function renderOptions(data) {
     const list = document.getElementById('ayatList');
     list.innerHTML = "";
+
+    data.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.l;          // النص الظاهر للمستخدم
+        opt.dataset.id = item.id;    // ✅ رقم الآية الحقيقي
+        list.appendChild(opt);
+    });
+}
+/*
+function renderOptions(data) {
+    const list = document.getElementById('ayatList');
+    list.innerHTML = "";
     data.forEach(item => {
         const opt = document.createElement('option');
         opt.value = item.l;
         list.appendChild(opt);
     });
 }
+*/
 
 
 // 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
