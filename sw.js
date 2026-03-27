@@ -97,8 +97,3 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-records') {
-    event.waitUntil(syncRecords()); // استدعاء الدالة عند توفر الإنترنت
-  }
-});
