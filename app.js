@@ -354,12 +354,12 @@ function displayRecords() {
     const fDate = document.getElementById('filterDate').value;
     const fID = document.getElementById('filterStudentID').value;
 
-    // جلب قائمة الطلاب أولاً لربط الهوية بالاسم في الفلترة
+    // جلب قائمة الطلاب أولاً لربط الهوية بالاسم
     db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
         const studentsMap = {};
         e.target.result.forEach(s => {
             const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
-            studentsMap[fullName] = s.id;
+            studentsMap[s.id] = fullName; // المفتاح هو الهوية
         });
 
         // البدء بقراءة السجلات
@@ -367,17 +367,17 @@ function displayRecords() {
             const cursor = e.target.result;
             if (cursor) {
                 const r = cursor.value;
-                const studentID = studentsMap[r.student] || "";
+                const studentName = studentsMap[r.student] || ""; // استرجاع الاسم من الهوية
 
-                // منطق الفلترة المزدوج
+                // منطق الفلترة
                 const matchesDate = !fDate || r.date === fDate;
-                const matchesID = !fID || studentID.includes(fID);
+                const matchesID = !fID || r.student.includes(fID);
 
                 if (matchesDate && matchesID) {
                     tbody.innerHTML += `<tr>
                         <td>${r.date}</td>
                         <td>${r.teacher}</td>
-                        <td><b>${r.student}</b> <br><small class="text-muted">(${studentID})</small></td>
+                        <td><b>${studentName}</b> <br><small class="text-muted">(${r.student})</small></td>
                         <td><span class="badge">${r.type}</span></td>
                         <td style="font-size:11px">${r.fromRange}</td>
                         <td style="font-size:11px">${r.toRange}</td>
