@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.80';
+const CACHE_NAME = 'quran-app-v1.81';
 const ASSETS = [
   './',
   './index.html',
@@ -14,11 +14,10 @@ self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
-  // إجبار الـ Service Worker الجديد على أخذ مكان القديم فورًا
   self.skipWaiting();
 });
 
-// تشغيل التطبيق من الذاكرة حتى لو لا يوجد إنترنت
+// تشغيل التطبيق من الكاش
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((res) => res || fetch(e.request))
@@ -38,10 +37,7 @@ self.addEventListener('activate', (e) => {
         })
       );
     }).then(() => {
-      // السيطرة على الصفحات المفتوحة مباشرة
       self.clients.claim();
-
-      // إرسال تاريخ آخر تحديث لكل الصفحات المفتوحة
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {
           client.postMessage({
@@ -54,9 +50,11 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// دالة المزامنة مع Debug + postMessage
 function syncRecords() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("QuranProjectDB", 3); // افتح قاعدة البيانات بنفسك
+    console.log("🔄 بدأ تشغيل syncRecords");
+    const request = indexedDB.open("QuranProjectDB", 3);
     request.onsuccess = (event) => {
       const db = event.target.result;
       const tx = db.transaction("records", "readonly");
@@ -65,6 +63,7 @@ function syncRecords() {
 
       getAll.onsuccess = () => {
         const unsynced = getAll.result.filter(r => !r.synced);
+        console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
 
         Promise.all(
           unsynced.map(record =>
@@ -79,21 +78,36 @@ function syncRecords() {
                 const storeUpdate = txUpdate.objectStore("records");
                 record.synced = true;
                 storeUpdate.put(record);
+
                 console.log("✅ تم رفع النشاط:", record);
+
+                // إرسال رسالة للصفحة
+                self.clients.matchAll().then(clients => {
+                  clients.forEach(client => {
+                    client.postMessage({
+                      type: 'SYNC_LOG',
+                      message: "✅ تم رفع النشاط: " + JSON.stringify(record)
+                    });
+                  });
+                });
+              } else {
+                console.log("❌ فشل رفع النشاط:", record);
               }
+            })
+            .catch(err => {
+              console.error("⚠️ خطأ في الاتصال:", err);
             })
           )
         ).then(resolve).catch(reject);
       };
     };
-
     request.onerror = (err) => reject(err);
   });
 }
 
+// حدث المزامنة
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-records') {
     event.waitUntil(syncRecords());
   }
 });
-
