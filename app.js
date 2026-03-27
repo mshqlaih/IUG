@@ -88,7 +88,7 @@ window.onload = () => {
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 2); // غيّر رقم الإصدار ليتفعّل onupgradeneeded
+    const request = indexedDB.open(DB_NAME, 3); // الإصدار الجديد
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
@@ -103,7 +103,6 @@ function initDB() {
             store = e.target.transaction.objectStore("records");
         }
 
-        // إنشاء الفهرس المركب إذا لم يكن موجود
         if (!store.indexNames.contains("student_date_type")) {
             store.createIndex("student_date_type", ["student", "date", "type"], { unique: true });
         }
@@ -225,7 +224,7 @@ function calculateExactProgress() {
 function saveActivity() {
     const prog = calculateExactProgress();
     const rawDate = document.getElementById('activityDate').value;
-    const onlyDate = new Date(rawDate).toISOString().split("T")[0]; // التاريخ فقط
+    const onlyDate = new Date(rawDate).toISOString().split("T")[0];
 
     const teacher = document.getElementById('teacherID').value;
     const student = document.getElementById('studentSelect').value;
@@ -233,12 +232,9 @@ function saveActivity() {
     const fromRange = document.getElementById('rangeFrom').value;
     const toRange = document.getElementById('rangeTo').value;
 
-    // تحقق من الحقول الأساسية
     if (!teacher || !student || !type) {
         return alert("يجب إدخال المعلم والطالب ونوع النشاط");
     }
-
-    // تحقق من الحقول الإضافية إذا كان النوع تسميع أو مراجعة
     if ((type === "تسميع" || type === "مراجعة") && (!fromRange || !toRange)) {
         return alert("يجب إدخال من وإلى في حالة النشاط تسميع أو مراجعة");
     }
@@ -246,7 +242,7 @@ function saveActivity() {
     const record = {
         teacher: teacher || "---",
         student: student,
-        date: onlyDate, // التاريخ فقط
+        date: onlyDate,
         type: type,
         flowDirection: document.getElementById('flowDirection').value,
         fromRange: fromRange,
@@ -254,7 +250,8 @@ function saveActivity() {
         amount: prog ? prog.text : "---",
         part: prog ? prog.part : "---",
         errors: document.getElementById('errors').value || 0,
-        rating: document.getElementById('rating').value
+        rating: document.getElementById('rating').value,
+        synced: false // جديد
     };
 
     const tx = db.transaction("records", "readwrite");
@@ -269,6 +266,10 @@ function saveActivity() {
             store.add(record).onsuccess = () => {
                 refreshAll();
                 alert("تم الحفظ");
+                // تسجيل مهمة مزامنة في الـ Service Worker
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.sync.register('sync-records');
+                });
             };
         }
     };
@@ -545,6 +546,33 @@ function checkIDNumber(id) {
     return "Y";
 }
 
+function syncRecords() {
+  const tx = db.transaction("records", "readonly");
+  const store = tx.objectStore("records");
+  const getAll = store.getAll();
+
+  getAll.onsuccess = () => {
+    const unsynced = getAll.result.filter(r => !r.synced);
+
+    unsynced.forEach(record => {
+      fetch("https://<your-apex-server>/ords/<schema>/activities/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(record)
+      })
+      .then(res => {
+        if (res.ok) {
+          const txUpdate = db.transaction("records", "readwrite");
+          const storeUpdate = txUpdate.objectStore("records");
+          record.synced = true;
+          storeUpdate.put(record);
+          console.log("✅ تم رفع النشاط:", record);
+        }
+      })
+      .catch(err => console.error("⚠️ لم يتم الاتصال بالسيرفر:", err));
+    });
+  };
+}
 
 
 
