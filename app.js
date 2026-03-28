@@ -560,7 +560,7 @@ function displayRecords() {
   ${r.synced 
     ? '<span style="color:green">✔ تم الرفع</span>' 
     : '<span style="color:red">✘ لم يُرفع</span>'}
-  ${r.syncError ? '<br><small style="color:darkred">' + r.syncError + '</small>' : ''}
+  ${r.syncError ? '<br><small style="color:darkred">' + extractArabicError(r.syncError) + '</small>' : ''}
 </td>
                             <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
                         </tr>`;
@@ -744,6 +744,24 @@ function syncAyahID(textInput, hiddenID) {
 
     document.getElementById(hiddenID).value = foundID;
 }
+
+/**
+ * دالة لاستخراج النص العربي من رسالة الخطأ
+ * إذا وُجد نص عربي تُرجعه، وإذا لم يوجد تُرجع النص كامل كما هو
+ */
+function extractArabicError(errorText) {
+  if (!errorText) return "";
+
+  // 🔎 البحث عن أي نص عربي باستخدام Unicode للنطاق العربي
+  const match = errorText.match(/[\u0600-\u06FF\s]+/);
+
+  if (match) {
+    return match[0].trim(); // إرجاع النص العربي فقط
+  } else {
+    return errorText; // إذا لم يوجد نص عربي، إرجاع النص كامل
+  }
+}
+
 
 
 
