@@ -214,40 +214,7 @@ document.getElementById('studentSelect').addEventListener('change', function() {
         }
     };
 });
-/*
-document.getElementById('studentSelect').addEventListener('change', function() {
-    const name = this.value;
-    if (!name) { document.getElementById('studentStatsCard').style.display = 'none'; return; }
-    
-    document.getElementById('statStudentName').innerText = name;
-    document.getElementById('studentStatsCard').style.display = 'block';
 
-    const tx = db.transaction(["records"], "readonly");
-    const store = tx.objectStore("records");
-    let hifz = 0, muraja = 0, errs = 0, cnt = 0, lastDate = null;
-
-    store.openCursor(null, 'prev').onsuccess = (e) => {
-        const cursor = e.target.result;
-        if (cursor) {
-            if (cursor.value.student === name) {
-                if (!lastDate) {
-                    lastDate = cursor.value.date;
-                    // تنفيذ القفزة الذكية
-                    jumpToNext(cursor.value.toRange, cursor.value.flowDirection || "forward");
-                }
-                const p = parseFloat(cursor.value.amount) || 0;
-                if (cursor.value.type === "تسميع") hifz += p;
-                else if (cursor.value.type === "مراجعة") muraja += p;
-                errs += parseInt(cursor.value.errors) || 0;
-                cnt++;
-            }
-            cursor.continue();
-        } else {
-            updateStatsUI(hifz, muraja, errs, cnt, lastDate);
-        }
-    };
-});
-*/
 function jumpToNext(lastPos, dir) {
     const lastObj = QURAN_DATA.find(i => i.l === lastPos);
     if (lastObj) {
@@ -481,7 +448,7 @@ function displayRecords() {
                     // ✅ تحويل ID → نص باستخدام AYAH_REVERSE
                     const fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
                     const toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
-
+                    const errorText = extractArabicError(r.syncError);
                     tbody.innerHTML += `
                         <tr>
                             <td>${r.date}</td>
@@ -496,11 +463,12 @@ function displayRecords() {
                             <td>${r.errors}</td>
                             <td>${r.rating}</td>
                             <td>
-  ${r.synced 
-    ? '<span style="color:green">✔ تم الرفع</span>' 
-    : '<span style="color:red">✘ لم يُرفع</span>'}
-  ${r.syncError ? '<br><small style="color:darkred">' + extractArabicError(r.syncError) + '</small>' : ''}
-</td>
+                                  ${r.synced 
+                                    ? '<span style="color:green">✔ تم الرفع</span>' 
+                                    : '<span style="color:red">✘ لم يُرفع</span>'
+                                  }</br>
+                                  ${errorText}
+                            </td>
                             <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
                         </tr>`;
                 }
