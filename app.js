@@ -659,11 +659,11 @@ function syncAyahID(textInput, hiddenID) {
 function extractArabicError(errorText) {
   if (!errorText) return "";
 
-  // 🔎 البحث عن أي نص عربي باستخدام Unicode للنطاق العربي
-  const match = errorText.match(/[\u0600-\u06FF\s]+/);
+  // 🔎 البحث عن جميع النصوص العربية (مع الترقيم)
+  const matches = errorText.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
 
-  if (match) {
-    return match[0].trim(); // إرجاع النص العربي فقط
+  if (matches && matches.length > 0) {
+    return matches.join(" ").trim(); // إرجاع كل النصوص العربية مجمعة
   } else {
     return errorText; // إذا لم يوجد نص عربي، إرجاع النص كامل
   }
