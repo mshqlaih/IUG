@@ -317,68 +317,7 @@ function progressToText(value) {
     return text.trim();
 }
 
-/*
-function calculateExactProgress() {
-    const fromID = parseInt(document.getElementById('rangeFrom').value);
-    const toID   = parseInt(document.getElementById('rangeTo').value);
 
-    // يجب توفر قيم صحيحة
-    if (!fromID || !toID) return;
-
-    // البحث عن الكائنات بناءً على ID
-    const fromObj = QURAN_DATA.find(i => i.id === fromID);
-    const toObj   = QURAN_DATA.find(i => i.id === toID);
-
-    if (!fromObj || !toObj) return;
-
-    // تحديد البداية والنهاية
-    const start = (fromObj.id <= toObj.id) ? fromObj : toObj;
-    const end   = (fromObj.id <= toObj.id) ? toObj   : fromObj;
-
-    // حساب الأسطر
-    let lines = (start.p === end.p)
-        ? (end.le - start.ls + 1)
-        : (15 - start.ls + 1) + end.le + ((end.p - start.p - 1) * 15);
-
-    // تحويل السطور إلى صفحات
-    let pgs = Math.floor(lines / 15),
-        rem = lines % 15,
-        frac = "";
-
-    if (rem >= 1 && rem <= 4) frac = "وربع";
-    else if (rem >= 5 && rem <= 8) frac = "ونصف";
-    else if (rem >= 9 && rem <= 12) frac = "وثلاثة أرباع";
-    else if (rem >= 13) { pgs++; rem = 0; }
-
-    let res = pgs > 0 ? `${pgs} صفحة ${frac}` : (frac.replace("و", "") || "أقل من ربع");
-
-    document.getElementById('pagesResult').innerText = "المقدار: " + res.trim();
-    document.getElementById('partNumber').innerText  = end.j;
-
-    return { text: res.trim(), part: end.j };
-}
-/*
-function calculateExactProgress() {
-    const fromObj = QURAN_DATA.find(i => i.l === document.getElementById('rangeFrom').value);
-    const toObj = QURAN_DATA.find(i => i.l === document.getElementById('rangeTo').value);
-    if (!fromObj || !toObj) return;
-
-    const start = (fromObj.id <= toObj.id) ? fromObj : toObj;
-    const end = (fromObj.id <= toObj.id) ? toObj : fromObj;
-    let lines = (start.p === end.p) ? (end.le - start.ls + 1) : (15 - start.ls + 1) + end.le + ((end.p - start.p - 1) * 15);
-
-    let pgs = Math.floor(lines / 15), rem = lines % 15, frac = "";
-    if (rem >= 1 && rem <= 4) frac = "وربع";
-    else if (rem >= 5 && rem <= 8) frac = "ونصف";
-    else if (rem >= 9 && rem <= 12) frac = "وثلاثة أرباع";
-    else if (rem >= 13) { pgs++; rem = 0; }
-
-    let res = pgs > 0 ? `${pgs} صفحة ${frac}` : (frac.replace("و","") || "أقل من ربع");
-    document.getElementById('pagesResult').innerText = "المقدار: " + res.trim();
-    document.getElementById('partNumber').innerText = toObj.j;
-    return { text: res.trim(), part: toObj.j };
-}
-*/
 // 6. حفظ النشاط
 
 function saveActivity() {
