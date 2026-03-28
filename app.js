@@ -170,6 +170,54 @@ function renderOptions(data) {
 // 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
 document.getElementById('studentSelect').addEventListener('change', function() {
     const name = this.value;
+    if (!name) { 
+        document.getElementById('studentStatsCard').style.display = 'none'; 
+        return; 
+    }
+    
+    document.getElementById('statStudentName').innerText = name;
+    document.getElementById('studentStatsCard').style.display = 'block';
+
+    const tx = db.transaction(["records"], "readonly");
+    const store = tx.objectStore("records");
+    let hifz = 0, muraja = 0, errs = 0, cnt = 0, lastDate = null;
+
+    store.openCursor(null, 'prev').onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+            if (cursor.value.student === name) {
+                if (!lastDate) {
+                    lastDate = cursor.value.date;
+                    // تنفيذ القفزة الذكية
+                    jumpToNext(cursor.value.toRange, cursor.value.flowDirection || "forward");
+                }
+
+                // الآن amount يجب أن يكون رقمًا (ناتج الدالة calculateExactProgress)
+                const p = parseFloat(cursor.value.amount) || 0;
+
+                if (cursor.value.type === "تسميع") hifz += p;
+                else if (cursor.value.type === "مراجعة") muraja += p;
+
+                errs += parseInt(cursor.value.errors) || 0;
+                cnt++;
+            }
+            cursor.continue();
+        } else {
+            // هنا يمكنك عرض النص باستخدام progressToText إذا أردت
+            const hifzText   = progressToText(hifz);
+            const murajaText = progressToText(muraja);
+
+            updateStatsUI(hifz, muraja, errs, cnt, lastDate);
+
+            // مثال: لو أردت عرض النصوص بجانب الأرقام
+            document.getElementById('hifzText').innerText   = hifzText;
+            document.getElementById('murajaText').innerText = murajaText;
+        }
+    };
+});
+/*
+document.getElementById('studentSelect').addEventListener('change', function() {
+    const name = this.value;
     if (!name) { document.getElementById('studentStatsCard').style.display = 'none'; return; }
     
     document.getElementById('statStudentName').innerText = name;
@@ -200,7 +248,7 @@ document.getElementById('studentSelect').addEventListener('change', function() {
         }
     };
 });
-
+*/
 function jumpToNext(lastPos, dir) {
     const lastObj = QURAN_DATA.find(i => i.l === lastPos);
     if (lastObj) {
@@ -216,6 +264,61 @@ function jumpToNext(lastPos, dir) {
 
 // 5. حساب المقدار الدقيق (أرباع وصفحات)
 
+// دالة الحساب وإرجاع القيمة الرقمية
+function calculateExactProgress() {
+    const fromID = parseInt(document.getElementById('rangeFrom').value);
+    const toID   = parseInt(document.getElementById('rangeTo').value);
+
+    if (!fromID || !toID) return;
+
+    const fromObj = QURAN_DATA.find(i => i.id === fromID);
+    const toObj   = QURAN_DATA.find(i => i.id === toID);
+
+    if (!fromObj || !toObj) return;
+
+    const start = (fromObj.id <= toObj.id) ? fromObj : toObj;
+    const end   = (fromObj.id <= toObj.id) ? toObj   : fromObj;
+
+    let lines = (start.p === end.p)
+        ? (end.le - start.ls + 1)
+        : (15 - start.ls + 1) + end.le + ((end.p - start.p - 1) * 15);
+
+    let pgs = Math.floor(lines / 15),
+        rem = lines % 15,
+        frac = 0;
+
+    if (rem >= 1 && rem <= 4) frac = 0.25;
+    else if (rem >= 5 && rem <= 8) frac = 0.5;
+    else if (rem >= 9 && rem <= 12) frac = 0.75;
+    else if (rem >= 13) { pgs++; rem = 0; }
+
+    let numericValue = pgs + frac;
+
+    // عرض القيمة الرقمية فقط
+    document.getElementById('pagesResult').innerText = "المقدار: " + numericValue;
+    document.getElementById('partNumber').innerText  = end.j;
+
+    return { value: numericValue, part: end.j };
+}
+
+// دالة لتحويل القيمة الرقمية إلى نص عربي
+function progressToText(value) {
+    let pgs = Math.floor(value);
+    let frac = value - pgs;
+    let text = "";
+
+    if (pgs > 0) text += pgs + " صفحة";
+
+    if (frac === 0.25) text += (pgs > 0 ? " وربع" : "ربع صفحة");
+    else if (frac === 0.5) text += (pgs > 0 ? " ونصف" : "نصف صفحة");
+    else if (frac === 0.75) text += (pgs > 0 ? " وثلاثة أرباع" : "ثلاثة أرباع صفحة");
+
+    if (text === "") text = "أقل من ربع";
+
+    return text.trim();
+}
+
+/*
 function calculateExactProgress() {
     const fromID = parseInt(document.getElementById('rangeFrom').value);
     const toID   = parseInt(document.getElementById('rangeTo').value);
@@ -278,61 +381,7 @@ function calculateExactProgress() {
 }
 */
 // 6. حفظ النشاط
-/*
-function saveActivity() {
-    const prog = calculateExactProgress();
-    const rawDate = document.getElementById('activityDate').value;
-    const onlyDate = new Date(rawDate).toISOString().split("T")[0];
 
-    const teacher = document.getElementById('teacherID').value;
-    const student = document.getElementById('studentSelect').value;
-    const type = document.getElementById('activityType').value;
-    const fromRange = document.getElementById('rangeFrom').value;
-    const toRange = document.getElementById('rangeTo').value;
-
-    if (!teacher || !student || !type) {
-        return alert("يجب إدخال المعلم والطالب ونوع النشاط");
-    }
-    if ((type === "تسميع" || type === "مراجعة") && (!fromRange || !toRange)) {
-        return alert("يجب إدخال من وإلى في حالة النشاط تسميع أو مراجعة");
-    }
-
-    const record = {
-        teacher: teacher || "---",
-        student: student,
-        date: onlyDate,
-        type: type,
-        flowDirection: document.getElementById('flowDirection').value,
-        fromRange: fromRange,
-        toRange: toRange,
-        amount: prog ? prog.text : "---",
-        part: prog ? prog.part : "---",
-        errors: document.getElementById('errors').value || 0,
-        rating: document.getElementById('rating').value,
-        synced: false // جديد
-    };
-
-    const tx = db.transaction("records", "readwrite");
-    const store = tx.objectStore("records");
-    const index = store.index("student_date_type");
-
-    const check = index.get([record.student, record.date, record.type]);
-    check.onsuccess = () => {
-        if (check.result) {
-            alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
-        } else {
-            store.add(record).onsuccess = () => {
-                refreshAll();
-                alert("تم الحفظ");
-                // تسجيل مهمة مزامنة في الـ Service Worker
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.sync.register('sync-records');
-                });
-            };
-        }
-    };
-}
-*/
 function saveActivity() {
     const prog = calculateExactProgress();
     const rawDate = document.getElementById('activityDate').value;
