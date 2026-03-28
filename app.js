@@ -581,20 +581,23 @@ function exportToExcel() {
         const fromInfo = QURAN_DATA.find(a => a.id === record.fromRange);
         const toInfo   = QURAN_DATA.find(a => a.id === record.toRange);
 
-        const ayahRangeText = (fromInfo && toInfo)
-          ? `من سورة رقم ${fromInfo.s} (جزء ${fromInfo.j}, صفحة ${fromInfo.p}) آية ${fromInfo.a}
-             إلى سورة رقم ${toInfo.s} (جزء ${toInfo.j}, صفحة ${toInfo.p}) آية ${toInfo.a}`
-          : `من الآية ${record.fromRange} إلى الآية ${record.toRange}`;
+        // استخراج اسم السورة من النص الكامل (l) أو من جدول أسماء السور
+        const fromSurahName = fromInfo ? fromInfo.l.split(" ")[1] : "";
+        const toSurahName   = toInfo   ? toInfo.l.split(" ")[1]   : "";
+
+        const fromText = fromInfo ? `${fromSurahName} (${fromInfo.a})` : record.fromRange;
+        const toText   = toInfo   ? `${toSurahName} (${toInfo.a})`     : record.toRange;
 
         return {
           "رقم السجل": record.id,
           "اسم الطالب": studentName,
-          "المحفظ": record.teacher,
+          "المعلم": record.teacher,
           "التاريخ": record.date,
           "النوع": record.type,
           "الاتجاه": record.flowDirection,
           "الجزء": record.part,
-          "تفاصيل الآيات": ayahRangeText,
+          "من الآية": fromText,
+          "إلى الآية": toText,
           "التقييم": record.rating,
           "المقدار": record.amount,
           "الأخطاء": record.errors,
