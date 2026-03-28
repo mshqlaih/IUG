@@ -571,12 +571,20 @@ function exportToExcel() {
     txStudents.onsuccess = s => {
       const students = s.target.result;
 
-      // ✨ دمج البيانات: ربط كل سجل بالطالب المناسب
       const mergedData = records.map(record => {
         const student = students.find(st => st.id === record.student);
         const studentName = student
           ? `${student.fName} ${student.pName} ${student.gName} ${student.lName}`
           : "غير معروف";
+
+        // ✨ جلب تفاصيل الآيات من QURAN_DATA
+        const fromInfo = QURAN_DATA.find(a => a.id === record.fromRange);
+        const toInfo   = QURAN_DATA.find(a => a.id === record.toRange);
+
+        const ayahRangeText = (fromInfo && toInfo)
+          ? `من سورة رقم ${fromInfo.s} (جزء ${fromInfo.j}, صفحة ${fromInfo.p}) آية ${fromInfo.a}
+             إلى سورة رقم ${toInfo.s} (جزء ${toInfo.j}, صفحة ${toInfo.p}) آية ${toInfo.a}`
+          : `من الآية ${record.fromRange} إلى الآية ${record.toRange}`;
 
         return {
           "رقم السجل": record.id,
@@ -585,15 +593,17 @@ function exportToExcel() {
           "التاريخ": record.date,
           "النوع": record.type,
           "الاتجاه": record.flowDirection,
-          "من الآية": record.fromRange,
-          "إلى الآية": record.toRange,
           "الجزء": record.part,
+          "تفاصيل الآيات": ayahRangeText,
           "التقييم": record.rating,
-          "المقدار": record.amount
+          "المقدار": record.amount,
+          "الأخطاء": record.errors,
+          "الحالة": record.synced 
+            ? "✔ تم الرفع" 
+            : "✘ لم يُرفع"
         };
       });
 
-      // تحويل إلى ورقة Excel
       const ws = XLSX.utils.json_to_sheet(mergedData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Records");
