@@ -563,6 +563,47 @@ function showImportMessage(msg, isError=false) {
 }
 
 function exportToExcel() {
+  const txRecords = db.transaction("records", "readonly").objectStore("records").getAll();
+  txRecords.onsuccess = e => {
+    const records = e.target.result;
+
+    const txStudents = db.transaction("students", "readonly").objectStore("students").getAll();
+    txStudents.onsuccess = s => {
+      const students = s.target.result;
+
+      // ✨ دمج البيانات: ربط كل سجل بالطالب المناسب
+      const mergedData = records.map(record => {
+        const student = students.find(st => st.id === record.student);
+        const studentName = student
+          ? `${student.fName} ${student.pName} ${student.gName} ${student.lName}`
+          : "غير معروف";
+
+        return {
+          "رقم السجل": record.id,
+          "اسم الطالب": studentName,
+          "المحفظ": record.teacher,
+          "التاريخ": record.date,
+          "النوع": record.type,
+          "الاتجاه": record.flowDirection,
+          "من الآية": record.fromRange,
+          "إلى الآية": record.toRange,
+          "الجزء": record.part,
+          "التقييم": record.rating,
+          "المقدار": record.amount
+        };
+      });
+
+      // تحويل إلى ورقة Excel
+      const ws = XLSX.utils.json_to_sheet(mergedData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Records");
+
+      XLSX.writeFile(wb, "Quran_Report.xlsx");
+    };
+  };
+}
+
+function exportToExcel01() {
     db.transaction("records").objectStore("records").getAll().onsuccess = e => {
         const ws = XLSX.utils.json_to_sheet(e.target.result);
         const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Records");
