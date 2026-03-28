@@ -138,21 +138,7 @@ function fillAyatSearchList() {
     list.innerHTML = "";
     list.appendChild(fragment);
 }
-/*
-function fillAyatSearchList() {
-    const list = document.getElementById('ayatList');
-    if (typeof QURAN_DATA === 'undefined') return;
-    
-    const fragment = document.createDocumentFragment();
-    QURAN_DATA.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.l; // النص: سورة... آية... ص...
-        fragment.appendChild(option);
-    });
-    list.innerHTML = "";
-    list.appendChild(fragment);
-}
-*/
+
 // 3. محرك البحث الذكي (بقرة 155)
 
 function handleSmartSearch(inputEl) {
@@ -180,18 +166,6 @@ function renderOptions(data) {
         list.appendChild(opt);
     });
 }
-/*
-function renderOptions(data) {
-    const list = document.getElementById('ayatList');
-    list.innerHTML = "";
-    data.forEach(item => {
-        const opt = document.createElement('option');
-        opt.value = item.l;
-        list.appendChild(opt);
-    });
-}
-*/
-
 
 // 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
 document.getElementById('studentSelect').addEventListener('change', function() {
