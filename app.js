@@ -412,7 +412,7 @@ function saveActivity() {
         fromRange: fromRange,  
         toRange: toRange,
 
-        amount: prog ? prog.text : "---",
+        amount: prog ? prog.value : 0,   // ✅ نخزن الرقم
         part: prog ? prog.part : "---",
         errors: document.getElementById('errors').value || 0,
         rating: document.getElementById('rating').value,
