@@ -557,6 +557,12 @@ function displayRecords() {
                             <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
                             <td>${r.errors}</td>
                             <td>${r.rating}</td>
+                            <td>
+  ${r.synced 
+    ? '<span style="color:green">✔ تم الرفع</span>' 
+    : '<span style="color:red">✘ لم يُرفع</span>'}
+  ${r.syncError ? '<br><small style="color:darkred">' + r.syncError + '</small>' : ''}
+</td>
                             <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
                         </tr>`;
                 }
