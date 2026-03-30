@@ -411,8 +411,8 @@ function refreshAll() {
             sel.innerHTML += `<option value="${s.id}">${full}</option>`;
             list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td>
             <td>
-            <button onclick="editStudent('${s.id}')">✏️</button>
-             <button onclick="deleteStudent('${s.id}', '${full}')">🗑️</button>
+            <button onclick="editStudent(${s.id})">✏️</button>
+             <button onclick="deleteStudent(${s.id}, '${full}')">🗑️</button>
             </td>
             </tr>`;
         });
