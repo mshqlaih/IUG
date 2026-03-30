@@ -48,8 +48,7 @@
             <div class="card">
                 <div class="grid">
                     <div class="field"><label>اسم الطالب</label><select id="studentSelect"></select></div>
-                    <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>
-                    <div class="field"><label>الاتجاه</label><select id="flowDirection"><option value="forward">تصاعدي (البقرة ⮕ الناس)</option><option value="backward">تنازلي (الناس ⮕ البقرة)</option></select></div>
+                    <div class="field"><label>التاريخ</label><input type="date" id="activityDate"></div>                   
                   <div class="field">
                     <label>االآية من</label>    
                     <div class="input-with-clear">
@@ -173,11 +172,11 @@
 <div id="studentsListTab" class="tab-content">
   <div class="card">
     <h3>📋 قائمة الطلاب</h3>
-    <p style="font-size:12px; color:#888">اضغط على أي صف لإضافته إلى قاعدة البيانات</p>  
     <div class="students-table-wrapper">
       <table id="studentsTable">
         <thead>
           <tr>
+            <th style="width:40px;">➕</th>
             <th>رقم الهوية</th>
             <th>الاسم الأول</th>
             <th>اسم الأب</th>
