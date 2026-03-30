@@ -409,7 +409,12 @@ function refreshAll() {
         e.target.result.forEach(s => {
             const full = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
             sel.innerHTML += `<option value="${s.id}">${full}</option>`;
-            list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td><td><button onclick="editStudent('${s.id}')">✏️</button></td></tr>`;
+            list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td>
+            <td>
+            <button onclick="editStudent('${s.id}')">✏️</button>
+             <button onclick="deleteStudent('${s.id}', '${full}')">🗑️</button>
+            </td>
+            </tr>`;
         });
     };
     displayRecords();
@@ -640,23 +645,15 @@ function editStudent(id) {
     };
 }
 
-function deleteStudentBtnClick(id) {
-    if (!confirm("هل أنت متأكد من حذف هذا الطالب؟")) return;
-
-    const tx = db.transaction("students", "readwrite");
-    const store = tx.objectStore("students");
-
-    const request = store.delete(id);
-
-    request.onsuccess = () => {
-        alert("تم حذف الطالب بنجاح.");
-        loadStudents(); // إعادة تحميل القائمة لو عندك دالة عرض
-    };
-
-    request.onerror = (e) => {
-        console.error("فشل الحذف:", e);
-        alert("حدث خطأ أثناء الحذف.");
-    };
+function deleteStudent(id, fullName) {
+    if (confirm(`هل أنت متأكد أنك تريد حذف الطالب: ${fullName} ؟`)) {
+        const tx = db.transaction("students", "readwrite");
+        const store = tx.objectStore("students");
+        store.delete(id);
+        tx.oncomplete = () => {
+            refreshAll(); // إعادة تحديث القائمة بعد الحذف
+        };
+    }
 }
 
 function checkIDNumber(id) {
