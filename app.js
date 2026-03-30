@@ -763,7 +763,7 @@ async function loadStudentsTable() {
 
     tbody.appendChild(tr);
   });
-    refreshAll();
+    
 }
 
 function addStudent(student) {
@@ -771,4 +771,5 @@ function addStudent(student) {
   const store = tx.objectStore("students");
   store.put(student);
   tx.oncomplete = () => console.log("تمت إضافة الطالب:", student);
+  refreshAll();   
 }
