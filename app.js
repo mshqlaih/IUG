@@ -724,7 +724,7 @@ function extractArabicError(errorText) {
 }
 
 async function loadStudentsTable() {
-  const response = await fetch("students.json"); // ملف JSON الذي يحتوي على الطلاب
+  const response = await fetch("students.json"); // ملف JSON
   const data = await response.json();
 
   const tbody = document.querySelector("#studentsTable tbody");
@@ -733,14 +733,20 @@ async function loadStudentsTable() {
   data.forEach(student => {
     const tr = document.createElement("tr");
 
-    ["id","fName","pName","gName","lName"].forEach(key => {
+    ["ID_NO","FIRST_NAME","FATHER_NAME","GFATHER_NAME","FAMILY_NAME"].forEach(key => {
       const td = document.createElement("td");
       td.textContent = student[key];
       tr.appendChild(td);
     });
 
     // عند الضغط على الصف يتم إضافته إلى IndexedDB
-    tr.addEventListener("click", () => addStudent(student));
+    tr.addEventListener("click", () => addStudent({
+      id: student.ID_NO,
+      fName: student.FIRST_NAME,
+      pName: student.FATHER_NAME,
+      gName: student.GFATHER_NAME,
+      lName: student.FAMILY_NAME
+    }));
 
     tbody.appendChild(tr);
   });
