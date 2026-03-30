@@ -723,6 +723,36 @@ function extractArabicError(errorText) {
   }
 }
 
+async function loadStudentsTable() {
+  const response = await fetch("students.json"); // ملف JSON الذي يحتوي على الطلاب
+  const data = await response.json();
+
+  const tbody = document.querySelector("#studentsTable tbody");
+  tbody.innerHTML = ""; // تفريغ الجدول قبل إعادة تعبئته
+
+  data.forEach(student => {
+    const tr = document.createElement("tr");
+
+    ["id","fName","pName","gName","lName"].forEach(key => {
+      const td = document.createElement("td");
+      td.textContent = student[key];
+      tr.appendChild(td);
+    });
+
+    // عند الضغط على الصف يتم إضافته إلى IndexedDB
+    tr.addEventListener("click", () => addStudent(student));
+
+    tbody.appendChild(tr);
+  });
+}
+
+function addStudent(student) {
+  const tx = db.transaction("students", "readwrite");
+  const store = tx.objectStore("students");
+  store.put(student); // يخزن أو يحدث حسب المفتاح id
+  tx.oncomplete = () => console.log("تمت إضافة الطالب:", student);
+}
+
 
 
 
