@@ -237,23 +237,19 @@ th {
   color: #000;
 }
 
+.students-table-wrapper {
+  width: 100%;
+  overflow-x: auto; /* يسمح بالتمرير الأفقي */
+}
+
 #studentsTable {
   width: 100%;
   border-collapse: collapse;
+  min-width: 600px; /* يضمن أن الجدول لا ينضغط أكثر من اللازم */
 }
 
 #studentsTable th, #studentsTable td {
   padding: 8px;
   border: 1px solid #ccc;
   text-align: center;
-}
-
-/* عند الشاشات الصغيرة */
-@media (max-width: 600px) {
-  .card {
-    overflow-x: auto;
-  }
-  #studentsTable {
-    min-width: 500px; /* يسمح بالتمرير الأفقي */
-  }
 }
