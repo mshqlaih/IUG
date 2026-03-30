@@ -236,3 +236,24 @@ th {
 .clear-btn:hover {
   color: #000;
 }
+
+#studentsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#studentsTable th, #studentsTable td {
+  padding: 8px;
+  border: 1px solid #ccc;
+  text-align: center;
+}
+
+/* عند الشاشات الصغيرة */
+@media (max-width: 600px) {
+  .card {
+    overflow-x: auto;
+  }
+  #studentsTable {
+    min-width: 500px; /* يسمح بالتمرير الأفقي */
+  }
+}
