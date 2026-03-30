@@ -751,18 +751,9 @@ async function loadStudentsTable() {
     tbody.appendChild(tr);
   });
 }
-
 function addStudent(student) {
   const tx = db.transaction("students", "readwrite");
   const store = tx.objectStore("students");
   store.put(student); // يخزن أو يحدث حسب المفتاح id
   tx.oncomplete = () => console.log("تمت إضافة الطالب:", student);
 }
-
-
-
-
-
-
-
-
