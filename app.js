@@ -312,7 +312,7 @@ function saveActivity() {
         student: student,
         date: onlyDate,
         type: type,
-        flowDirection: document.getElementById('flowDirection').value,
+   //     flowDirection: document.getElementById('flowDirection').value,
 
         fromRange: fromRange,  
         toRange: toRange,
