@@ -205,6 +205,10 @@
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
             window.scrollTo(0,0);
+             if(tabId === "studentsListTab") {
+    loadStudentsTable();
+  }
+
         }
     </script>
     <script src="app.js"></script>
