@@ -763,6 +763,7 @@ async function loadStudentsTable() {
 
     tbody.appendChild(tr);
   });
+    refreshAll();
 }
 
 function addStudent(student) {
