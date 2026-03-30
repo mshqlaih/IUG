@@ -724,23 +724,26 @@ function extractArabicError(errorText) {
 }
 
 async function loadStudentsTable() {
-  const response = await fetch("students.json"); // ملف JSON
+  const response = await fetch("students.json");
   const data = await response.json();
 
   const tbody = document.querySelector("#studentsTable tbody");
-  tbody.innerHTML = ""; // تفريغ الجدول قبل إعادة تعبئته
+  tbody.innerHTML = "";
 
   data.forEach(student => {
     const tr = document.createElement("tr");
 
-    ["ID_NO","FIRST_NAME","FATHER_NAME","GFATHER_NAME","FAMILY_NAME"].forEach(key => {
-      const td = document.createElement("td");
-      td.textContent = student[key];
-      tr.appendChild(td);
-    });
+    // أول عمود: زر الإضافة
+    const addTd = document.createElement("td");
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "➕";
+    addBtn.style.cursor = "pointer";
+    addBtn.style.background = "none";
+    addBtn.style.border = "none";
+    addBtn.style.fontSize = "18px"; // حجم الأيقونة فقط
+    addBtn.style.color = "var(--primary)";
 
-    // عند الضغط على الصف يتم إضافته إلى IndexedDB
-    tr.addEventListener("click", () => addStudent({
+    addBtn.addEventListener("click", () => addStudent({
       id: student.ID_NO,
       fName: student.FIRST_NAME,
       pName: student.FATHER_NAME,
@@ -748,12 +751,23 @@ async function loadStudentsTable() {
       lName: student.FAMILY_NAME
     }));
 
+    addTd.appendChild(addBtn);
+    tr.appendChild(addTd);
+
+    // باقي الأعمدة
+    ["ID_NO","FIRST_NAME","FATHER_NAME","GFATHER_NAME","FAMILY_NAME"].forEach(key => {
+      const td = document.createElement("td");
+      td.textContent = student[key];
+      tr.appendChild(td);
+    });
+
     tbody.appendChild(tr);
   });
 }
+
 function addStudent(student) {
   const tx = db.transaction("students", "readwrite");
   const store = tx.objectStore("students");
-  store.put(student); // يخزن أو يحدث حسب المفتاح id
+  store.put(student);
   tx.oncomplete = () => console.log("تمت إضافة الطالب:", student);
 }
