@@ -691,18 +691,20 @@ function exportToExcel() {
         const fromText = fromInfo ? `${fromSurahName} (${fromInfo.a})` : record.fromRange;
         const toText   = toInfo   ? `${toSurahName} (${toInfo.a})`     : record.toRange;
 
+        const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", record.type);
+        const ratingName = translateLookup("ACTIVITY_GRADE",record.rating);  
+
         return {
           "رقم السجل": record.id,
           "اسم الطالب": studentName,
-          "المعلم": record.teacher,
+          "المحفظ": record.teacher,
           "التاريخ": record.date,
-          "النوع": record.type,
-          "الاتجاه": record.flowDirection,
+          "النوع": activityName,
           "الجزء": record.part,
           "من الآية": fromText,
           "إلى الآية": toText,
-          "التقييم": record.rating,
-          "المقدار": record.amount,
+          "التقييم": ratingName,
+          "عدد الصفحات": record.amount,
           "الأخطاء": record.errors,
           "الحالة": record.synced 
             ? "✔ تم الرفع" 
