@@ -372,27 +372,25 @@ function calculateWorkingDays(start, end) {
 
 // 8. الدوال العامة (حفظ طالب، تعديل، تصدير، حذف)
 function saveStudent() {
-    const id = document.getElementById('stuID').value;
+    let id = document.getElementById('stuID').value; // استخدم let
     const fName = document.getElementById('fName').value.trim();
     const pName = document.getElementById('pName').value.trim();
     const gName = document.getElementById('gName').value.trim();
     const lName = document.getElementById('lName').value.trim();
 
-    // فحص رقم الهوية باستخدام الدالة الموجودة لديك
     const result = checkIDNumber(id);
-
     if (result !== "Y") {
         alert("❌ " + result);
         return;
     }
 
-    // فحص أن الاسم غير فارغ
     if (!fName || !pName || !gName || !lName) {
         alert("❌ يجب إدخال جميع أجزاء الاسم (الاسم الأول، الأب، الجد، العائلة)");
         return;
     }
-   id = parseInt(id, 10);
-    // إذا كان كل شيء صحيح يتم الحفظ
+
+    id = parseInt(id, 10); // الآن مسموح لأن id مهيأ بـ let
+
     const s = { id, fName, pName, gName, lName };
 
     db.transaction("students", "readwrite")
