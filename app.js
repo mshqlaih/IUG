@@ -520,67 +520,7 @@ const ratingName = translateLookup("ACTIVITY_GRADE",r.rating);
         };
     };
 }
-function displayRecords01() {
-    const tbody = document.getElementById('logTable');
-    tbody.innerHTML = '';
-    
-    const fDate = document.getElementById('filterDate').value;
-    const fID = document.getElementById('filterStudentID').value;
 
-    // جلب الطلاب أولاً
-    db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
-        const studentsMap = {};
-        e.target.result.forEach(s => {
-            const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
-            studentsMap[s.id] = fullName;
-        });
-
-        // قراءة السجلات
-        db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
-            const cursor = e.target.result;
-            if (cursor) {
-                const r = cursor.value;
-
-                const studentName = studentsMap[r.student] || "";
-
-                const matchesDate = !fDate || r.date === fDate;
-                const matchesID = !fID || r.student.includes(fID);
-
-                if (matchesDate && matchesID) {
-
-                    // ✅ تحويل ID → نص باستخدام AYAH_REVERSE
-                    const fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
-                    const toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
-                    const errorText = extractArabicError(r.syncError);
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${r.date}</td>
-                            <td>${r.teacher}</td>
-                            <td><b>${studentName}</b><br><small class="text-muted">(${r.student})</small></td>
-                            <td><span class="badge">${r.type}</span></td>
-                            
-                            <td style="font-size:11px">${fromText}</td>
-                            <td style="font-size:11px">${toText}</td>
-                            
-                            <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
-                            <td>${r.errors}</td>
-                            <td>${r.rating}</td>
-                            <td>
-                                  ${r.synced 
-                                    ? '<span style="color:green">✔ تم الرفع</span>' 
-                                    : '<span style="color:red">✘ لم يُرفع</span>'
-                                  }</br>
-                                  ${errorText}
-                            </td>
-                            <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
-                        </tr>`;
-                }
-
-                cursor.continue();
-            }
-        };
-    };
-}
 
 function resetFilters() {
     document.getElementById('filterDate').valueAsDate = new Date();
