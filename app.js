@@ -700,7 +700,7 @@ function exportArrayToExcel(data, fileName = "records.xlsx") {
 
 function exportToExcel() {
     // ✨ تصدير نفس البيانات المعروضة
-    exportArrayToExcel(lastDisplayedData,"نشاط التسميع");
+    exportArrayToExcel(lastDisplayedData,"نشاط التسميع.xlsx");
 }
 function exportToExcel01() {
   const txRecords = db.transaction("records", "readonly").objectStore("records").getAll();
