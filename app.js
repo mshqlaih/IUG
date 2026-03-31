@@ -80,13 +80,13 @@ window.AYAH_REVERSE = {};
 
 // 1. تشغيل النظام عند التحميل
 window.onload = () => {
-    initDB();
+    DB();
     fillAyatSearchList();
     document.getElementById('activityDate').valueAsDate = new Date();
     const savedID = localStorage.getItem('teacherID');
     if(savedID) document.getElementById('teacherID').value = savedID;
     // استدعاء الدالة عند تحميل التطبيق
-    normalizeRecords();
+    
 };
 
 // 2. تهيئة قاعدة البيانات
@@ -114,6 +114,7 @@ function initDB() {
     request.onsuccess = (e) => {
         db = e.target.result;
         refreshAll();
+        normalizeRecords();
     };
 }
 
