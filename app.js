@@ -311,9 +311,9 @@ function saveActivity() {
     const rawDate = document.getElementById('activityDate').value;
     const onlyDate = new Date(rawDate).toISOString().split("T")[0];
 
-    const teacher = document.getElementById('teacherID').value;
-    const student = document.getElementById('studentSelect').value;
-    const type = document.getElementById('activityType').value;
+    const teacher = parseInt(document.getElementById('teacherID').value) || null;
+    const student = parseInt(document.getElementById('studentSelect').value) || null;
+    const type    = parseInt(document.getElementById('activityType').value) || null;
 
     // ✅ الآن القيمة رقم ID فقط
     const fromRange = parseInt(document.getElementById('rangeFrom').value) || null;
