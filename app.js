@@ -770,3 +770,33 @@ function addStudent(student) {
   tx.oncomplete = () => console.log("تمت إضافة الطالب:", student);
   refreshAll();   
 }
+
+function convertStringIDsToNumbers() {
+    const tx = db.transaction("students", "readwrite");
+    const store = tx.objectStore("students");
+
+    const request = store.openCursor();
+    request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            const student = cursor.value;
+            if (typeof student.id === "string") {
+                // تحويل الهوية من نص إلى رقم
+                const newID = parseInt(student.id, 10);
+
+                // حذف السجل القديم
+                store.delete(student.id);
+
+                // حفظ نسخة جديدة بنفس البيانات لكن بالرقم
+                const newStudent = { ...student, id: newID };
+                store.put(newStudent);
+            }
+            cursor.continue();
+        }
+    };
+
+    tx.oncomplete = () => {
+        refreshAll();
+        alert("✅ تم تحويل جميع الهويات النصية إلى أرقام بنجاح");
+    };
+}
