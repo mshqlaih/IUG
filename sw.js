@@ -7,7 +7,8 @@ const ASSETS = [
   './app.js',
   './xlsx.full.min.js',
   './bootstrap.bundle.min.js',
-  './students.json'
+  './students.json',
+  './STATIC_LOOKUP.json'
 ];
 
 // تثبيت الملفات في الذاكرة
