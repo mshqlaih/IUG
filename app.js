@@ -138,6 +138,9 @@ function fillAyatSearchList() {
     list.appendChild(fragment);
 }
 
+// مثال استخدام: بناء قائمة النشاط
+//populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
+
 // 3. محرك البحث الذكي (بقرة 155)
 
 function handleSmartSearch(inputEl) {
@@ -807,4 +810,26 @@ function convertStringIDsToNumbers() {
         refreshAll();
         alert("✅ تم تحويل جميع الهويات النصية إلى أرقام بنجاح");
     };
+}
+
+function populateSelectFromLookups(selectId, meaningCode) {
+    fetch('./STATIC_LOOKUP.json')
+        .then(response => response.json())
+        .then(data => {
+            // تصفية الثوابت حسب LOOKUP_MEANING_CODE المطلوب
+            const items = data
+                .filter(item => item.LOOKUP_MEANING_CODE === meaningCode)
+                .sort((a, b) => (a.SORT_ORDER ?? 0) - (b.SORT_ORDER ?? 0));
+
+            const select = document.getElementById(selectId);
+            select.innerHTML = ""; // تفريغ القائمة أولاً
+
+            items.forEach(item => {
+                const option = document.createElement("option");
+                option.value = item.LOOKUP_VALUE;   // القيمة الحقيقية
+                option.textContent = item.LOOKUP_A_NAME; // النص المعروض
+                select.appendChild(option);
+            });
+        })
+        .catch(error => console.error("❌ خطأ في تحميل الثوابت:", error));
 }
