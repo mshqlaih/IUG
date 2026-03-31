@@ -139,7 +139,7 @@ function fillAyatSearchList() {
 }
 
 // مثال استخدام: بناء قائمة النشاط
-//populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
+populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
 
 // 3. محرك البحث الذكي (بقرة 155)
 
