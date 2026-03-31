@@ -939,7 +939,7 @@ function normalizeRecords() {
     }
 
     loadLookups().then(() => {
-        const tx = db.transaction("records", "readwrite");
+        const tx = db.transaction("records", "readonly");
         const store = tx.objectStore("records");
 
         store.openCursor().onsuccess = (e) => {
@@ -998,14 +998,24 @@ function normalizeRecords() {
                     updated = true;
                 }
 
-                // إذا تم تعديل السجل → احفظه من جديد
+                // إذا تم تعديل السجل → افتح transaction جديد واحفظه
                 if (updated) {
-                    const updateRequest = cursor.update(r);
+                    const tx2 = db.transaction("records", "readwrite");
+                    const store2 = tx2.objectStore("records");
+                    const updateRequest = store2.put(r); // put يكتب السجل مباشرة
+
                     updateRequest.onsuccess = () => {
                         console.log("✅ تم حفظ السجل بنجاح:", r.id);
                     };
-                    updateRequest.onerror = (err) => {
-                        console.error("❌ فشل حفظ السجل:", err);
+                    updateRequest.onerror = (event) => {
+                        console.error("❌ فشل حفظ السجل:", r.id, event.target.error);
+                    };
+
+                    tx2.oncomplete = () => {
+                        console.log("🎉 انتهى تحديث السجل:", r.id);
+                    };
+                    tx2.onerror = (event) => {
+                        console.error("❌ خطأ في المعاملة للسجل:", r.id, event.target.error);
                     };
                 }
 
@@ -1014,13 +1024,8 @@ function normalizeRecords() {
         };
 
         tx.oncomplete = () => {
-            console.log("🎉 انتهت المعالجة بالكامل وتم حفظ جميع التغييرات");
-        };
-
-        tx.onerror = (err) => {
-            console.error("❌ خطأ في المعاملة:", err);
+            console.log("🎯 انتهت عملية الفحص لجميع السجلات");
         };
     });
 }
-
 
