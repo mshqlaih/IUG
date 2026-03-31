@@ -933,6 +933,11 @@ function populateSelectFromLookups(selectId, meaningCode) {
 
 // دالة لتحديث السجلات القديمة
 function normalizeRecords() {
+    if (!db) {
+        console.error("قاعدة البيانات غير مهيأة بعد");
+        return;
+    }
+
     loadLookups().then(() => {
         const tx = db.transaction("records", "readwrite");
         const store = tx.objectStore("records");
@@ -995,11 +1000,25 @@ function normalizeRecords() {
 
                 // إذا تم تعديل السجل → احفظه من جديد
                 if (updated) {
-                    cursor.update(r);
+                    const updateRequest = cursor.update(r);
+                    updateRequest.onsuccess = () => {
+                        console.log("✅ تم حفظ السجل بنجاح:", r.id);
+                    };
+                    updateRequest.onerror = (err) => {
+                        console.error("❌ فشل حفظ السجل:", err);
+                    };
                 }
 
                 cursor.continue();
             }
+        };
+
+        tx.oncomplete = () => {
+            console.log("🎉 انتهت المعالجة بالكامل وتم حفظ جميع التغييرات");
+        };
+
+        tx.onerror = (err) => {
+            console.error("❌ خطأ في المعاملة:", err);
         };
     });
 }
