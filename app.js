@@ -80,7 +80,7 @@ window.AYAH_REVERSE = {};
 
 // 1. تشغيل النظام عند التحميل
 window.onload = () => {
-    DB();
+    initDB()
     fillAyatSearchList();
     document.getElementById('activityDate').valueAsDate = new Date();
     const savedID = localStorage.getItem('teacherID');
