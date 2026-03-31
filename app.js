@@ -439,6 +439,16 @@ function refreshAll() {
 
 document.getElementById('filterDate').valueAsDate = new Date();
 
+function translateLookup(code, value) {
+    const key = String(value); // تأكد أن القيمة نص
+    // إذا كانت القيمة نصية (ليست رقم) → أعرضها كما هي
+    if (isNaN(Number(key))) {
+        return key;
+    }
+    // إذا كانت رقمية → ابحث في الخريطة
+    return (lookupMap[code] && lookupMap[code][key]) || key;
+}
+
 function displayRecords() {
     const tbody = document.getElementById('logTable');
     tbody.innerHTML = '';
@@ -472,16 +482,8 @@ const typeKey = String(r.type);
 
 // إذا كانت القيمة نصية (مثلاً "تسميع") نعرضها كما هي
 // وإذا كانت رقمًا نبحث عن المسمى في الثوابت
-let activityName;
-if (isNaN(Number(r.type))) {
-    activityName = r.type; // بيانات قديمة نصية
-} else {
-    activityName = (lookupMap["RECITATION_ATTENDANCE_TYPE"] 
-                    && lookupMap["RECITATION_ATTENDANCE_TYPE"][typeKey]) 
-                   || r.type;
-}
-                    // ✅ تحويل قيمة النشاط إلى المسمى من الثوابت
-                  //  const activityName = lookupMap["RECITATION_ATTENDANCE_TYPE"][r.type] || r.type;
+const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", r.type);
+
 
                     // ✅ تحويل التقييم إلى المسمى من الثوابت
                     //const ratingName = lookupMap["ACTIVITY_GRADE"][r.rating] || r.rating;
