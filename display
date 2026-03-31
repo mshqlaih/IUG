@@ -141,6 +141,22 @@ function fillAyatSearchList() {
 // مثال استخدام: بناء قائمة النشاط
 populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
 
+let lookupMap = {};
+
+function loadLookups() {
+    return fetch('./STATIC_LOOKUP.json')
+        .then(response => response.json())
+        .then(data => {
+            lookupMap = {};
+            data.forEach(item => {
+                const code = item.LOOKUP_MEANING_CODE;
+                if (!lookupMap[code]) lookupMap[code] = {};
+                lookupMap[code][item.LOOKUP_VALUE] = item.LOOKUP_A_NAME;
+            });
+        })
+        .catch(err => console.error("❌ خطأ في تحميل الثوابت:", err));
+}
+
 // 3. محرك البحث الذكي (بقرة 155)
 
 function handleSmartSearch(inputEl) {
@@ -424,6 +440,66 @@ function refreshAll() {
 document.getElementById('filterDate').valueAsDate = new Date();
 
 function displayRecords() {
+    const tbody = document.getElementById('logTable');
+    tbody.innerHTML = '';
+    
+    const fDate = document.getElementById('filterDate').value;
+    const fID = document.getElementById('filterStudentID').value;
+
+    db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
+        const studentsMap = {};
+        e.target.result.forEach(s => {
+            const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
+            studentsMap[s.id] = fullName;
+        });
+
+        db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+                const r = cursor.value;
+                const studentName = studentsMap[r.student] || "";
+
+                const matchesDate = !fDate || r.date === fDate;
+                const matchesID = !fID || r.student.includes(fID);
+
+                if (matchesDate && matchesID) {
+                    const fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
+                    const toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
+                    const errorText = extractArabicError(r.syncError);
+
+                    // ✅ تحويل قيمة النشاط إلى المسمى من الثوابت
+                    const activityName = lookupMap["RECITATION_ATTENDANCE_TYPE"][r.type] || r.type;
+
+                    // ✅ تحويل التقييم إلى المسمى من الثوابت
+                    //const ratingName = lookupMap["ACTIVITY_GRADE"][r.rating] || r.rating;
+                    const ratingName = r.rating;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${r.date}</td>
+                            <td>${r.teacher}</td>
+                            <td><b>${studentName}</b><br><small class="text-muted">(${r.student})</small></td>
+                            <td><span class="badge">${activityName}</span></td>
+                            <td style="font-size:11px">${fromText}</td>
+                            <td style="font-size:11px">${toText}</td>
+                            <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
+                            <td>${r.errors}</td>
+                            <td>${ratingName}</td>
+                            <td>
+                                  ${r.synced 
+                                    ? '<span style="color:green">✔ تم الرفع</span>' 
+                                    : '<span style="color:red">✘ لم يُرفع</span>'
+                                  }</br>
+                                  ${errorText}
+                            </td>
+                            <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
+                        </tr>`;
+                }
+                cursor.continue();
+            }
+        };
+    };
+}
+function displayRecords01() {
     const tbody = document.getElementById('logTable');
     tbody.innerHTML = '';
     
@@ -833,3 +909,5 @@ function populateSelectFromLookups(selectId, meaningCode) {
         })
         .catch(error => console.error("❌ خطأ في تحميل الثوابت:", error));
 }
+
+
