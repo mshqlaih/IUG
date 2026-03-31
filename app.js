@@ -317,6 +317,7 @@ function saveActivity() {
     const teacher = parseInt(document.getElementById('teacherID').value) || null;
     const student = parseInt(document.getElementById('studentSelect').value) || null;
     const type    = parseInt(document.getElementById('activityType').value) || null;
+    const rating    = parseInt(document.getElementById('rating').value) || null;
 
     // ✅ الآن القيمة رقم ID فقط
     const fromRange = parseInt(document.getElementById('rangeFrom').value) || null;
@@ -342,7 +343,7 @@ function saveActivity() {
         amount: prog ? prog.value : 0,   // ✅ نخزن الرقم
         part: prog ? prog.part : "---",
         errors: document.getElementById('errors').value || 0,
-        rating: document.getElementById('rating').value,
+        rating: rating,
         synced: false
     };
 
@@ -491,11 +492,7 @@ const typeKey = String(r.type);
 // إذا كانت القيمة نصية (مثلاً "تسميع") نعرضها كما هي
 // وإذا كانت رقمًا نبحث عن المسمى في الثوابت
 const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", r.type);
-
-
-                    // ✅ تحويل التقييم إلى المسمى من الثوابت
-                    //const ratingName = lookupMap["ACTIVITY_GRADE"][r.rating] || r.rating;
-                    const ratingName = r.rating;
+const ratingName = translateLookup("ACTIVITY_GRADE",r.rating);
                     tbody.innerHTML += `
                         <tr>
                             <td>${r.date}</td>
