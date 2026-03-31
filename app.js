@@ -680,9 +680,27 @@ function showImportMessage(msg, isError=false) {
     box.style.color = isError ? "#721c24" : "#155724";
     box.innerHTML = msg;
 }
+
+function exportArrayToExcel(data, fileName = "records.xlsx") {
+  if (!data || data.length === 0) {
+    alert("لا توجد بيانات للتصدير");
+    return;
+  }
+
+  // تحويل البيانات إلى ورقة عمل
+  const worksheet = XLSX.utils.json_to_sheet(data);
+
+  // إنشاء مصنف جديد وإضافة الورقة
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Records");
+
+  // حفظ الملف
+  XLSX.writeFile(workbook, fileName);
+}
+
 function exportToExcel() {
     // ✨ تصدير نفس البيانات المعروضة
-    exportArrayToExcel(lastDisplayedData);
+    exportArrayToExcel(lastDisplayedData,"نشاط التسميع");
 }
 function exportToExcel01() {
   const txRecords = db.transaction("records", "readonly").objectStore("records").getAll();
