@@ -942,19 +942,18 @@ function normalizeRecords() {
                 const r = cursor.value;
                 let updated = false;
 
-                // ✅ معالجة النشاط type
+                // ✅ معالجة type
                 if (typeof r.type === "string") {
                     const trimmed = r.type.trim();
-
                     if (!isNaN(Number(trimmed))) {
-                        // إذا كان نص رقمي مثل "1" → نحوله إلى رقم
-                        r.type = parseInt(trimmed);
+                        console.log("تحويل type:", r.type, "→", Number(trimmed));
+                        r.type = Number(trimmed);
                         updated = true;
                     } else {
-                        // إذا كان نص عربي مثل "تسميع" → ابحث عن القيمة الرقمية المقابلة
                         for (const [val, name] of Object.entries(lookupMap["RECITATION_ATTENDANCE_TYPE"] || {})) {
-                            if (name === trimmed) {
-                                r.type = parseInt(val);
+                            if (name.trim() === trimmed) {
+                                console.log("تحويل type:", r.type, "→", Number(val));
+                                r.type = Number(val);
                                 updated = true;
                                 break;
                             }
@@ -962,17 +961,18 @@ function normalizeRecords() {
                     }
                 }
 
-                // ✅ معالجة التقييم rating بنفس المنطق
+                // ✅ معالجة rating
                 if (typeof r.rating === "string") {
                     const trimmed = r.rating.trim();
-
                     if (!isNaN(Number(trimmed))) {
-                        r.rating = parseInt(trimmed);
+                        console.log("تحويل rating:", r.rating, "→", Number(trimmed));
+                        r.rating = Number(trimmed);
                         updated = true;
                     } else {
                         for (const [val, name] of Object.entries(lookupMap["ACTIVITY_GRADE"] || {})) {
-                            if (name === trimmed) {
-                                r.rating = parseInt(val);
+                            if (name.trim() === trimmed) {
+                                console.log("تحويل rating:", r.rating, "→", Number(val));
+                                r.rating = Number(val);
                                 updated = true;
                                 break;
                             }
@@ -982,11 +982,13 @@ function normalizeRecords() {
 
                 // ✅ teacher و student إذا كانوا نصوص رقمية
                 if (typeof r.teacher === "string" && !isNaN(Number(r.teacher))) {
-                    r.teacher = parseInt(r.teacher);
+                    console.log("تحويل teacher:", r.teacher, "→", Number(r.teacher));
+                    r.teacher = Number(r.teacher);
                     updated = true;
                 }
                 if (typeof r.student === "string" && !isNaN(Number(r.student))) {
-                    r.student = parseInt(r.student);
+                    console.log("تحويل student:", r.student, "→", Number(r.student));
+                    r.student = Number(r.student);
                     updated = true;
                 }
 
@@ -1000,6 +1002,5 @@ function normalizeRecords() {
         };
     });
 }
-
 
 
