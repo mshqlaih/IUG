@@ -434,7 +434,9 @@ function refreshAll() {
             </tr>`;
         });
     };
+   loadLookups().then(() => {
     displayRecords();
+});
 }
 
 document.getElementById('filterDate').valueAsDate = new Date();
