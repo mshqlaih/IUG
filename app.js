@@ -85,6 +85,8 @@ window.onload = () => {
     document.getElementById('activityDate').valueAsDate = new Date();
     const savedID = localStorage.getItem('teacherID');
     if(savedID) document.getElementById('teacherID').value = savedID;
+    // استدعاء الدالة عند تحميل التطبيق
+    normalizeRecords();
 };
 
 // 2. تهيئة قاعدة البيانات
