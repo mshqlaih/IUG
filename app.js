@@ -391,7 +391,7 @@ function saveStudent() {
         alert("❌ يجب إدخال جميع أجزاء الاسم (الاسم الأول، الأب، الجد، العائلة)");
         return;
     }
-
+   id = parseInt(id, 10);
     // إذا كان كل شيء صحيح يتم الحفظ
     const s = { id, fName, pName, gName, lName };
 
