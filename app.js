@@ -649,9 +649,19 @@ function deleteStudent(id, fullName) {
     if (confirm(`هل أنت متأكد أنك تريد حذف الطالب: ${fullName} ؟`)) {
         const tx = db.transaction("students", "readwrite");
         const store = tx.objectStore("students");
-        store.delete(id);
+
+        // حذف إذا كان مخزن كنص
+        store.delete(id.toString());
+
+        // حذف إذا كان مخزن كرقم
+        const numericID = parseInt(id, 10);
+        if (!isNaN(numericID)) {
+            store.delete(numericID);
+        }
+
         tx.oncomplete = () => {
-            refreshAll(); // إعادة تحديث القائمة بعد الحذف
+            refreshAll();
+            alert("✅ تم الحذف بنجاح");
         };
     }
 }
