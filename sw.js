@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.99992';
+const CACHE_NAME = 'quran-app-v1.99993';
 const ASSETS = [
   './',
   './index.html',
