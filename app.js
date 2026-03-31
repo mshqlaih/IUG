@@ -440,11 +440,14 @@ function refreshAll() {
 document.getElementById('filterDate').valueAsDate = new Date();
 
 function translateLookup(code, value) {
-    const key = String(value); // تأكد أن القيمة نص
+    if (value === null || value === undefined) return "";
+    const key = String(value).trim();
+
     // إذا كانت القيمة نصية (ليست رقم) → أعرضها كما هي
     if (isNaN(Number(key))) {
         return key;
     }
+
     // إذا كانت رقمية → ابحث في الخريطة
     return (lookupMap[code] && lookupMap[code][key]) || key;
 }
