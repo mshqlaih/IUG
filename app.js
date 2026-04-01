@@ -1068,16 +1068,76 @@ function normalizeRecords() {
     });
 }
 
-document.getElementById("syncBtn").addEventListener("click", () => {
-  navigator.serviceWorker.ready.then(reg => {
-    reg.sync.register('sync-records')
-      .then(() => {
-        console.log("🔄 تم تسجيل حدث المزامنة بنجاح");
-      })
-      .catch(err => {
-        console.error("❌ فشل تسجيل المزامنة:", err);
-        // في حالة الفشل يمكنك استدعاء الدالة مباشرة
-        navigator.serviceWorker.controller.postMessage({ action: "SYNC_RECORDS" });
-      });
+function syncRecordsFromPage() {
+  return new Promise((resolve, reject) => {
+    console.log("🔄 بدأ تشغيل المزامنة من الصفحة");
+    const request = indexedDB.open("QuranProjectDB", 3);
+
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const tx = db.transaction("records", "readonly");
+      const store = tx.objectStore("records");
+      const getAll = store.getAll();
+
+      getAll.onsuccess = () => {
+        const unsynced = getAll.result.filter(r => !r.synced);
+        console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
+
+        Promise.all(
+          unsynced.map(record =>
+            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(record)
+            })
+            .then(res => {
+              if (res.ok) {
+                const txUpdate = db.transaction("records", "readwrite");
+                const storeUpdate = txUpdate.objectStore("records");
+                record.synced = true;
+                storeUpdate.put(record);
+
+                console.log("✅ تم رفع النشاط:", record);
+
+                // إظهار رسالة نجاح في الصفحة
+                showSyncMessage("✅ تم رفع النشاط: " + JSON.stringify(record));
+              } else {
+                console.log("❌ فشل رفع النشاط:", record);
+                showSyncMessage("❌ فشل رفع النشاط: " + JSON.stringify(record));
+              }
+            })
+            .catch(err => {
+              console.error("⚠️ خطأ في الاتصال:", err);
+              showSyncMessage("⚠️ خطأ في الاتصال: " + err);
+            })
+          )
+        ).then(resolve).catch(reject);
+      };
+    };
+
+    request.onerror = (err) => reject(err);
   });
+}
+
+// دالة لعرض رسالة في الصفحة
+function showSyncMessage(msg) {
+  const container = document.getElementById("syncBtnContainer");
+  const alertBox = document.createElement("div");
+  alertBox.textContent = msg;
+  alertBox.style.background = "#d4edda";   // أخضر فاتح
+  alertBox.style.color = "#155724";        // أخضر غامق
+  alertBox.style.padding = "10px";
+  alertBox.style.marginTop = "10px";
+  alertBox.style.border = "1px solid #c3e6cb";
+  alertBox.style.borderRadius = "5px";
+
+  container.appendChild(alertBox);
+
+  setTimeout(() => alertBox.remove(), 5000);
+}
+
+document.getElementById("syncBtn").addEventListener("click", () => {
+  syncRecordsFromPage()
+    .then(() => console.log("🎉 انتهت المزامنة"))
+    .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
 });
