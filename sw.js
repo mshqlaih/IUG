@@ -9,7 +9,7 @@ const ASSETS = [
   './bootstrap.bundle.min.js',
   './students.json',
   './STATIC_LOOKUP.json',
-  ./manifest.json'
+  './manifest.json'
 ];
 
 // تثبيت الملفات في الذاكرة
