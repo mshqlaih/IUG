@@ -504,10 +504,7 @@ function displayRecords() {
 
                     // ✨ خزّن البيانات في المصفوفة
                    const errorText = extractArabicError(r.syncError);
-                    console.log("السجل:", r);
-console.log("syncError raw:", r.syncError);
-console.log("بعد المعالجة:", extractArabicError(r.syncError));
-
+                   
 lastDisplayedData.push({
   "التاريخ": r.date,
   "المحفظ": r.teacher,
@@ -809,25 +806,45 @@ function syncAyahID(textInput, hiddenID) {
  * دالة لاستخراج النص العربي من رسالة الخطأ
  * إذا وُجد نص عربي تُرجعه، وإذا لم يوجد تُرجع النص كامل كما هو
  */
-function extractArabicError(errorText) {
-  if (!errorText) return "";
+function extractArabicError(errorObj) {
+  if (!errorObj) return "";
 
-  // 🔎 البحث عن النصوص العربية
-  const arabicMatches = errorText.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
+  // إذا كان الخطأ كائن (object) من نوع JSON
+  if (typeof errorObj === "object") {
+    const causeText = errorObj.cause || "";
+    if (causeText) {
+      // 🔎 البحث عن نص عربي
+      const arabicMatches = causeText.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
+      if (arabicMatches && arabicMatches.length > 0) {
+        return arabicMatches.join(" ").trim();
+      }
 
-  if (arabicMatches && arabicMatches.length > 0) {
-    // إذا وُجد نص عربي → إرجاعه فقط
-    return arabicMatches.join(" ").trim();
+      // 🔎 البحث عن أخطاء ORA من Oracle (السطر الأول فقط)
+      const oracleMatch = causeText.match(/ORA-[^\n]+/);
+      if (oracleMatch) {
+        return oracleMatch[0].trim();
+      }
+
+      return causeText; // إذا لم يوجد عربي أو ORA → إرجاع النص كما هو
+    }
   }
 
-  // 🔎 البحث عن أخطاء ORA من Oracle
-  const oracleMatch = errorText.match(/ORA-[\s\S]+/);
-  if (oracleMatch) {
-    return oracleMatch[0].trim();
+  // إذا كان الخطأ نص عادي (string)
+  if (typeof errorObj === "string") {
+    const arabicMatches = errorObj.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
+    if (arabicMatches && arabicMatches.length > 0) {
+      return arabicMatches.join(" ").trim();
+    }
+
+    const oracleMatch = errorObj.match(/ORA-[^\n]+/);
+    if (oracleMatch) {
+      return oracleMatch[0].trim();
+    }
+
+    return errorObj;
   }
 
-  // إذا لم يوجد عربي ولا ORA → إرجاع النص الأصلي
-  return errorText;
+  return "";
 }
 
 async function loadStudentsTable() {
