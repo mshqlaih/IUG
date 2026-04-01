@@ -1068,3 +1068,11 @@ function normalizeRecords() {
     });
 }
 
+document.getElementById("syncBtn").addEventListener("click", () => {
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ action: "sync-records" });
+    console.log("📤 تم إرسال طلب المزامنة إلى Service Worker");
+  } else {
+    console.log("⚠️ لا يوجد Service Worker متحكم حالياً");
+  }
+});
