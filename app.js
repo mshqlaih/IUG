@@ -809,7 +809,7 @@ function syncAyahID(textInput, hiddenID) {
 function extractArabicError(errorObj) {
   if (!errorObj) return "";
 
-  // إذا كان الخطأ كائن (object) من نوع JSON
+  // إذا كان الخطأ كائن JSON
   if (typeof errorObj === "object") {
     const causeText = errorObj.cause || "";
     if (causeText) {
@@ -819,10 +819,10 @@ function extractArabicError(errorObj) {
         return arabicMatches.join(" ").trim();
       }
 
-      // 🔎 البحث عن أخطاء ORA من Oracle (السطر الأول فقط)
-      const oracleMatch = causeText.match(/ORA-[^\n]+/);
-      if (oracleMatch) {
-        return oracleMatch[0].trim();
+      // 🔎 البحث عن أخطاء ORA من Oracle (كل الأسطر)
+      const oracleMatches = causeText.match(/ORA-[^\n]+/g);
+      if (oracleMatches && oracleMatches.length > 0) {
+        return oracleMatches.join("\n").trim();
       }
 
       return causeText; // إذا لم يوجد عربي أو ORA → إرجاع النص كما هو
@@ -836,9 +836,9 @@ function extractArabicError(errorObj) {
       return arabicMatches.join(" ").trim();
     }
 
-    const oracleMatch = errorObj.match(/ORA-[^\n]+/);
-    if (oracleMatch) {
-      return oracleMatch[0].trim();
+    const oracleMatches = errorObj.match(/ORA-[^\n]+/g);
+    if (oracleMatches && oracleMatches.length > 0) {
+      return oracleMatches.join("\n").trim();
     }
 
     return errorObj;
