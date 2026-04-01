@@ -503,19 +503,21 @@ function displayRecords() {
                     const ratingName   = translateLookup("ACTIVITY_GRADE", r.rating);
 
                     // ✨ خزّن البيانات في المصفوفة
-                    lastDisplayedData.push({
-                        "التاريخ": r.date,
-                        "المحفظ": r.teacher,
-                        "اسم الطالب": studentName,
-                        "رقم الطالب": r.student,
-                        "النوع": activityName,
-                        "من الآية": fromText,
-                        "إلى الآية": toText,
-                        "عدد الصفحات": r.amount,
-                        "الأخطاء": r.errors,
-                        "التقييم": ratingName,
-                        "الحالة": r.synced ? "✔ تم الرفع" : "✘ لم يُرفع"
-                    });
+                   lastDisplayedData.push({
+                    "التاريخ": r.date,
+                    "المحفظ": r.teacher,
+                    "اسم الطالب": studentName,
+                    "رقم الطالب": r.student,
+                    "النوع": activityName,
+                    "من الآية": fromText,
+                    "إلى الآية": toText,
+                    "عدد الصفحات": r.amount,
+                    "الأخطاء": r.errors,
+                    "التقييم": ratingName,
+                    "الحالة": r.synced 
+                        ? "✔ تم الرفع" 
+                        : "✘ لم يُرفع" + (r.syncError ? "\n" + r.syncError : "")
+                });
 
                     // بناء الصف في الجدول
                     tbody.innerHTML += `
@@ -867,14 +869,22 @@ function syncAyahID(textInput, hiddenID) {
 function extractArabicError(errorText) {
   if (!errorText) return "";
 
-  // 🔎 البحث عن جميع النصوص العربية (مع الترقيم)
-  const matches = errorText.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
+  // 🔎 البحث عن النصوص العربية
+  const arabicMatches = errorText.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
 
-  if (matches && matches.length > 0) {
-    return matches.join(" ").trim(); // إرجاع كل النصوص العربية مجمعة
-  } else {
-    return errorText; // إذا لم يوجد نص عربي، إرجاع النص كامل
+  if (arabicMatches && arabicMatches.length > 0) {
+    // إذا وُجد نص عربي → إرجاعه فقط
+    return arabicMatches.join(" ").trim();
   }
+
+  // 🔎 البحث عن أخطاء ORA من Oracle
+  const oracleMatch = errorText.match(/ORA-[\s\S]+/);
+  if (oracleMatch) {
+    return oracleMatch[0].trim();
+  }
+
+  // إذا لم يوجد عربي ولا ORA → إرجاع النص الأصلي
+  return errorText;
 }
 
 async function loadStudentsTable() {
