@@ -1095,6 +1095,71 @@ function syncRecordsFromPage() {
 
       if (unsynced.length === 0) {
         showSyncMessage("✅ لا توجد سجلات تحتاج مزامنة");
+        displayRecords(); // تحديث الجدول مباشرة
+        resolve();
+        return;
+      }
+
+      Promise.all(
+        unsynced.map(record =>
+          fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(record)
+          })
+          .then(async res => {
+            if (res.ok) {
+              const txUpdate = db.transaction("records", "readwrite");
+              const storeUpdate = txUpdate.objectStore("records");
+              record.synced = true;
+              record.syncError = null;
+              storeUpdate.put(record);
+            } else {
+              const errorText = await res.text();
+              record.synced = false;
+              record.syncError = errorText;
+              const txUpdate = db.transaction("records", "readwrite");
+              txUpdate.objectStore("records").put(record);
+            }
+          })
+          .catch(err => {
+            record.synced = false;
+            record.syncError = "خطأ في الاتصال: " + err.message;
+            const txUpdate = db.transaction("records", "readwrite");
+            txUpdate.objectStore("records").put(record);
+          })
+        )
+      )
+      .then(() => {
+        // ✅ رسالة واحدة فقط بعد اكتمال العملية
+        showSyncMessage("✅ تمت عملية المزامنة");
+        displayRecords(); // تحديث الجدول بعد المزامنة
+        resolve();
+      })
+      .catch(reject);
+    };
+
+    getAll.onerror = (err) => reject(err);
+  });
+}
+
+function syncRecordsFromPage01() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject("⚠️ قاعدة البيانات غير مهيأة بعد");
+      return;
+    }
+
+    const tx = db.transaction("records", "readonly");
+    const store = tx.objectStore("records");
+    const getAll = store.getAll();
+
+    getAll.onsuccess = () => {
+      const unsynced = getAll.result.filter(r => !r.synced);
+      console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
+
+      if (unsynced.length === 0) {
+        showSyncMessage("✅ لا توجد سجلات تحتاج مزامنة");
         resolve();
         return;
       }
