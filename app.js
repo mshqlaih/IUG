@@ -516,7 +516,7 @@ function displayRecords() {
                     "التقييم": ratingName,
                     "الحالة": r.synced 
                         ? "✔ تم الرفع" 
-                        : "✘ لم يُرفع" + (r.syncError ? "\n" + r.syncError : "")
+                        : "✘ لم يُرفع" + (errorText ? "\n" + errorText : "")
                 });
 
                     // بناء الصف في الجدول
