@@ -504,6 +504,9 @@ function displayRecords() {
 
                     // ✨ خزّن البيانات في المصفوفة
                    const errorText = extractArabicError(r.syncError);
+                    console.log("السجل:", r);
+console.log("syncError raw:", r.syncError);
+console.log("بعد المعالجة:", extractArabicError(r.syncError));
 
 lastDisplayedData.push({
   "التاريخ": r.date,
