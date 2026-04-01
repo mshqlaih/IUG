@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.2003';
+const CACHE_NAME = 'quran-app-v1.2004';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,8 @@ const ASSETS = [
   './xlsx.full.min.js',
   './bootstrap.bundle.min.js',
   './students.json',
-  './STATIC_LOOKUP.json'
+  './STATIC_LOOKUP.json',
+  ./manifest.json'
 ];
 
 // تثبيت الملفات في الذاكرة
