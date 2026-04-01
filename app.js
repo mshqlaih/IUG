@@ -115,6 +115,16 @@ function initDB() {
         db = e.target.result;
         refreshAll();
         normalizeRecords();
+         if (!window._syncOnlineListenerAdded) {
+        window._syncOnlineListenerAdded = true;
+        window.addEventListener("online", () => {
+            console.log("📶 الإنترنت عاد، تسجيل المزامنة...");
+            navigator.serviceWorker.ready.then(reg => {
+                reg.sync.register('sync-records');
+            });
+        });
+    }
+
     };
 }
 
