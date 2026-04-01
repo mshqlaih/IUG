@@ -1069,10 +1069,15 @@ function normalizeRecords() {
 }
 
 document.getElementById("syncBtn").addEventListener("click", () => {
-  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({ action: "sync-records" });
-    console.log("📤 تم إرسال طلب المزامنة إلى Service Worker");
-  } else {
-    console.log("⚠️ لا يوجد Service Worker متحكم حالياً");
-  }
+  navigator.serviceWorker.ready.then(reg => {
+    reg.sync.register('sync-records')
+      .then(() => {
+        console.log("🔄 تم تسجيل حدث المزامنة بنجاح");
+      })
+      .catch(err => {
+        console.error("❌ فشل تسجيل المزامنة:", err);
+        // في حالة الفشل يمكنك استدعاء الدالة مباشرة
+        navigator.serviceWorker.controller.postMessage({ action: "SYNC_RECORDS" });
+      });
+  });
 });
