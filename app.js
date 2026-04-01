@@ -1070,52 +1070,66 @@ function normalizeRecords() {
 
 function syncRecordsFromPage() {
   return new Promise((resolve, reject) => {
-    console.log("🔄 بدأ تشغيل المزامنة من الصفحة");
-    const request = indexedDB.open("QuranProjectDB", 3);
+    if (!db) {
+      reject("⚠️ قاعدة البيانات غير مهيأة بعد");
+      return;
+    }
 
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      const tx = db.transaction("records", "readonly");
-      const store = tx.objectStore("records");
-      const getAll = store.getAll();
+    const tx = db.transaction("records", "readonly");
+    const store = tx.objectStore("records");
+    const getAll = store.getAll();
 
-      getAll.onsuccess = () => {
-        const unsynced = getAll.result.filter(r => !r.synced);
-        console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
+    getAll.onsuccess = () => {
+      const unsynced = getAll.result.filter(r => !r.synced);
+      console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
 
-        Promise.all(
-          unsynced.map(record =>
-            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(record)
-            })
-            .then(res => {
-              if (res.ok) {
-                const txUpdate = db.transaction("records", "readwrite");
-                const storeUpdate = txUpdate.objectStore("records");
-                record.synced = true;
-                storeUpdate.put(record);
+      if (unsynced.length === 0) {
+        showSyncMessage("✅ لا توجد سجلات تحتاج مزامنة");
+        resolve();
+        return;
+      }
 
-                console.log("✅ تم رفع النشاط:", record);
+      Promise.all(
+        unsynced.map(record =>
+          fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(record)
+          })
+          .then(async res => {
+            if (res.ok) {
+              const txUpdate = db.transaction("records", "readwrite");
+              const storeUpdate = txUpdate.objectStore("records");
+              record.synced = true;
+              record.syncError = null;
+              storeUpdate.put(record);
 
-                // إظهار رسالة نجاح في الصفحة
-                showSyncMessage("✅ تم رفع النشاط: " + JSON.stringify(record));
-              } else {
-                console.log("❌ فشل رفع النشاط:", record);
-                showSyncMessage("❌ فشل رفع النشاط: " + JSON.stringify(record));
-              }
-            })
-            .catch(err => {
-              console.error("⚠️ خطأ في الاتصال:", err);
-              showSyncMessage("⚠️ خطأ في الاتصال: " + err);
-            })
-          )
-        ).then(resolve).catch(reject);
-      };
+              showSyncMessage("✅ تم رفع النشاط: " + JSON.stringify(record));
+            } else {
+              const errorText = await res.text();
+              record.synced = false;
+              record.syncError = errorText;
+
+              const txUpdate = db.transaction("records", "readwrite");
+              txUpdate.objectStore("records").put(record);
+
+              showSyncMessage("❌ فشل رفع النشاط: " + errorText);
+            }
+          })
+          .catch(err => {
+            record.synced = false;
+            record.syncError = "خطأ في الاتصال: " + err.message;
+
+            const txUpdate = db.transaction("records", "readwrite");
+            txUpdate.objectStore("records").put(record);
+
+            showSyncMessage("⚠️ خطأ في الاتصال: " + err.message);
+          })
+        )
+      ).then(resolve).catch(reject);
     };
 
-    request.onerror = (err) => reject(err);
+    getAll.onerror = (err) => reject(err);
   });
 }
 
