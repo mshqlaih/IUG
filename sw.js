@@ -126,60 +126,6 @@ function syncRecords() {
   });
 }
 
-function syncRecords01() {
-  return new Promise((resolve, reject) => {
-    console.log("🔄 بدأ تشغيل syncRecords");
-    const request = indexedDB.open("QuranProjectDB", 3);
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      const tx = db.transaction("records", "readonly");
-      const store = tx.objectStore("records");
-      const getAll = store.getAll();
-
-      getAll.onsuccess = () => {
-        const unsynced = getAll.result.filter(r => !r.synced);
-        console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
-
-        Promise.all(
-          unsynced.map(record =>
-            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(record)
-            })
-            .then(res => {
-              if (res.ok) {
-                const txUpdate = db.transaction("records", "readwrite");
-                const storeUpdate = txUpdate.objectStore("records");
-                record.synced = true;
-                storeUpdate.put(record);
-
-                console.log("✅ تم رفع النشاط:", record);
-
-                // إرسال رسالة للصفحة
-                self.clients.matchAll().then(clients => {
-                  clients.forEach(client => {
-                    client.postMessage({
-                      type: 'SYNC_LOG',
-                      message: "✅ تم رفع النشاط: " + JSON.stringify(record)
-                    });
-                  });
-                });
-              } else {
-                console.log("❌ فشل رفع النشاط:", record);
-              }
-            })
-            .catch(err => {
-              console.error("⚠️ خطأ في الاتصال:", err);
-            })
-          )
-        ).then(resolve).catch(reject);
-      };
-    };
-    request.onerror = (err) => reject(err);
-  });
-}
-
 // حدث المزامنة
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-records') {
