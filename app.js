@@ -221,7 +221,7 @@ document.getElementById('studentSelect').addEventListener('change', function() {
     store.openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
-            if (cursor.value.student === name) {
+            if (cursor.value.student === id) {
                 if (!lastDate) {
                     lastDate = cursor.value.date;
                     // تنفيذ القفزة الذكية
@@ -246,8 +246,8 @@ document.getElementById('studentSelect').addEventListener('change', function() {
             updateStatsUI(hifz, muraja, errs, cnt, lastDate);
 
             // مثال: لو أردت عرض النصوص بجانب الأرقام
-            document.getElementById('hifzText').innerText   = hifzText;
-            document.getElementById('murajaText').innerText = murajaText;
+           // document.getElementById('totalHifz').innerText   = hifzText;
+           // document.getElementById('totalMuraja').innerText = murajaText;
         }
     };
 });
