@@ -221,7 +221,7 @@ document.getElementById('studentSelect').addEventListener('change', function() {
     store.openCursor(null, 'prev').onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
-            if (cursor.value.student === id) {
+            if (cursor.value.student == id) {
                 if (!lastDate) {
                     lastDate = cursor.value.date;
                     // تنفيذ القفزة الذكية
