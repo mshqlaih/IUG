@@ -126,17 +126,20 @@ button {
   transition: 0.2s;
   font-size: 16px;
 }
+
 .btn-save {
   background: var(--primary);
   color: white;
   width: 100%;
   margin-top: 10px;
 }
+
 .btn-add {
   background: var(--secondary);
   color: white;
   width: 100%;
 }
+
 .btn-excel {
   background: #1d6f42;
   color: white;
@@ -144,12 +147,34 @@ button {
   padding: 8px 15px;
   font-size: 13px;
 }
+
 .btn-del {
-  background: var(--danger);
-  color: white;
-  padding: 5px;
-  font-size: 11px;
+    background-color: #fee2e2; /* أحمر فاتح جداً للخلفية */
+    color: #dc2626;           /* أحمر غامق للنص */
+    border: 1px solid #fecaca;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
+
+.btn-del:hover {
+    background-color: #dc2626; /* ينعكس اللون عند التمرير */
+    color: white;
+    transform: scale(1.05);
+}
+
+/* تأكد من أن خلية الجدول تسمح بظهور الزر */
+td:last-child {
+    min-width: 70px;
+    white-space: nowrap;
+}
+
 
 /* الجداول */
 .table-wrap {
