@@ -151,12 +151,59 @@ function fillAyatSearchList() {
     list.appendChild(fragment);
 }
 
-// مثال استخدام: بناء قائمة النشاط
-populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
-// السطر الجديد لتحويلها فوراً لشكل بصري
-transformSelectToIcons("activityType");
+const activityStyles = {
+    "1": { icon: "🗣️", color: "#2ecc71" }, // تسميع - أخضر
+    "2": { icon: "🔄", color: "#3498db" }, // مراجعة - أزرق
+    "6": { icon: "🏆", color: "#f1c40f" }, // اختبار - ذهبي
+    "7": { icon: "📖", color: "#9b59b6" }, // سرد - بنفسجي
+    "8": { icon: "💡", color: "#e67e22" }, // شرح - برتقالي
+    "3": { icon: "👤", color: "#95a5a6" }, // حضور - رمادي
+    "4": { icon: "✉️", color: "#e74c3c" }, // عذر - أحمر فاتح
+    "5": { icon: "❌", color: "#c0392b" }, // غياب - أحمر غامق
+    "99": { icon: "➖", color: "#bdc3c7" } // غير مدخل
+};
 
+function transformSelectToIcons(selectId, containerId) {
+    const select = document.getElementById(selectId);
+    const container = document.getElementById(containerId);
+    
+    if (!select || !container) return;
+
+    const options = select.options;
+    container.innerHTML = ''; // مسح أي محتوى قديم
+    select.style.display = 'none'; // إخفاء القائمة الأصلية
+
+    Array.from(options).forEach(opt => {
+        if (!opt.value || opt.value === "") return;
+
+        // تحديد الأيقونة بناءً على القيمة (Value)
+        const style = activityStyles[opt.value] || { icon: "📝" };
+        
+        const item = document.createElement('div');
+        item.className = "icon-item";
+        item.innerHTML = `<span>${style.icon}</span><p>${opt.text}</p>`;
+        
+        item.onclick = function() {
+            select.value = opt.value; // تحديث الـ Select الأصلي
+            
+            // تمييز العنصر المختار بصرياً
+            container.querySelectorAll('.icon-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            
+            // إطلاق حدث التغيير ليعمل كودك الأصلي المرتبط بالـ Select
+            select.dispatchEvent(new Event('change'));
+        };
+
+        container.appendChild(item);
+    });
+}
+
+populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
 populateSelectFromLookups("rating", "ACTIVITY_GRADE");
+
+transformSelectToIcons("activityType","iconsContainer");
+
+
 
 let lookupMap = {};
 
@@ -1188,51 +1235,4 @@ document.getElementById("syncBtn").addEventListener("click", () => {
     .then(() => console.log("🎉 انتهت المزامنة"))
     .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
 });
-
-const activityStyles = {
-    "1": { icon: "🗣️", color: "#2ecc71" }, // تسميع - أخضر
-    "2": { icon: "🔄", color: "#3498db" }, // مراجعة - أزرق
-    "6": { icon: "🏆", color: "#f1c40f" }, // اختبار - ذهبي
-    "7": { icon: "📖", color: "#9b59b6" }, // سرد - بنفسجي
-    "8": { icon: "💡", color: "#e67e22" }, // شرح - برتقالي
-    "3": { icon: "👤", color: "#95a5a6" }, // حضور - رمادي
-    "4": { icon: "✉️", color: "#e74c3c" }, // عذر - أحمر فاتح
-    "5": { icon: "❌", color: "#c0392b" }, // غياب - أحمر غامق
-    "99": { icon: "➖", color: "#bdc3c7" } // غير مدخل
-};
-
-function transformSelectToIcons(selectId, containerId) {
-    const select = document.getElementById(selectId);
-    const container = document.getElementById(containerId);
-    
-    if (!select || !container) return;
-
-    const options = select.options;
-    container.innerHTML = ''; // مسح أي محتوى قديم
-    select.style.display = 'none'; // إخفاء القائمة الأصلية
-
-    Array.from(options).forEach(opt => {
-        if (!opt.value || opt.value === "") return;
-
-        // تحديد الأيقونة بناءً على القيمة (Value)
-        const style = activityStyles[opt.value] || { icon: "📝" };
-        
-        const item = document.createElement('div');
-        item.className = "icon-item";
-        item.innerHTML = `<span>${style.icon}</span><p>${opt.text}</p>`;
-        
-        item.onclick = function() {
-            select.value = opt.value; // تحديث الـ Select الأصلي
-            
-            // تمييز العنصر المختار بصرياً
-            container.querySelectorAll('.icon-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            
-            // إطلاق حدث التغيير ليعمل كودك الأصلي المرتبط بالـ Select
-            select.dispatchEvent(new Event('change'));
-        };
-
-        container.appendChild(item);
-    });
-}
 
