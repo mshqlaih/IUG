@@ -402,76 +402,108 @@ function jumpToNext(lastPos, dir) {
 
 // دالة الحساب وإرجاع القيمة الرقمية
 // 1. الدالة المساعدة للحساب للأمام (Forward) - أساس كل الحسابات
+// 1. الدالة المساعدة للحساب (Forward) مع مراقبة كاملة
 function getForwardPages(id1, id2) {
+    console.log(`--- بدء حساب Forward من ID: ${id1} إلى ID: ${id2} ---`);
+    
     const s = QURAN_DATA.find(i => i.id === id1);
     const e = QURAN_DATA.find(i => i.id === id2);
-    if (!s || !e || id1 > id2) return 0;
+    
+    if (!s || !e) {
+        console.error("خطأ: لم يتم العثور على بيانات الآيات في المصفوفة لهذه المعرفات.");
+        return 0;
+    }
 
-    // منطق أوراكل للبسملة والسطر الأخير في الصفحة
-    let startL = (s.a === 1 && (s.ls === 2 || s.ls === 3)) ? 1 : s.ls;
-    let maxLInPage = (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[e.p]) ? window.PAGE_MAX_LINES[e.p] : 15;
-    let endL = (e.le === maxLInPage) ? 15 : e.le;
+    // فحص PAGE_MAX_LINES
+    if (!window.PAGE_MAX_LINES || Object.keys(window.PAGE_MAX_LINES).length === 0) {
+        console.warn("تنبيه: PAGE_MAX_LINES غير معرفة أو فارغة، سيتم استخدام 15 افتراضياً.");
+    }
+
+    let startL = (s.a === 1 && (s.ls === 2 || s.ls === 3)) ? 1 : (s.ls || 1);
+    let maxLinesInPage = (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[e.p]) ? window.PAGE_MAX_LINES[e.p] : 15;
+    let endL = (e.le === maxLinesInPage) ? 15 : (e.le || 15);
+
+    console.log(`الصفحة: ${s.p} -> ${e.p} | الأسطر: ${startL} -> ${endL}`);
 
     let total = 0;
-    let pagesCount = (e.p - s.p) + 1;
+    let pCount = (e.p - s.p) + 1;
 
-    for (let i = 1; i <= pagesCount; i++) {
-        if (i === 1 && pagesCount === 1) total += (endL - startL + 1) / 15;
+    for (let i = 1; i <= pCount; i++) {
+        if (i === 1 && pCount === 1) total += (endL - startL + 1) / 15;
         else if (i === 1)           total += (15 - startL + 1) / 15;
-        else if (i === pagesCount)   total += (endL / 15);
+        else if (i === pCount)       total += (endL / 15);
         else                        total += 1;
     }
-    return total;
+    
+    console.log(`النتيجة الجزئية لهذه السورة: ${total.toFixed(2)}`);
+    return total || 0;
 }
 
-// 2. الدالة الرئيسية للحساب (تستدعيها عند تغيير الآيات)
+// 2. الدالة الرئيسية (تطابق منطق أوراكل)
 function calculateExactProgress() {
-    const fromID = parseInt(document.getElementById('rangeFrom').value);
-    const toID   = parseInt(document.getElementById('rangeTo').value);
+    console.clear(); // تنظيف الكونسول لرؤية الحساب الجديد بوضوح
+    
+    const fID = parseInt(document.getElementById('rangeFrom').value);
+    const tID = parseInt(document.getElementById('rangeTo').value);
     const display = document.getElementById('calcResult');
 
-    if (!fromID || !toID) { if(display) display.innerText = "0"; return; }
+    console.log(`محاولة الحساب النهائية: من ${fID} إلى ${tID}`);
 
-    const fromObj = QURAN_DATA.find(i => i.id === fromID);
-    const toObj   = QURAN_DATA.find(i => i.id === toID);
-    if (!fromObj || !toObj) return;
+    if (!fID || !tID) {
+        console.warn("تنبيه: أحد المعرفات (IDs) مفقود أو صفر.");
+        if(display) display.innerText = "0";
+        return;
+    }
+
+    const fObj = QURAN_DATA.find(i => i.id === fID);
+    const tObj = QURAN_DATA.find(i => i.id === tID);
+
+    if (!fObj || !tObj) {
+        console.error("خطأ: تعذر العثور على كائنات الآيات المختارة.");
+        return;
+    }
 
     let finalPages = 0;
 
-    // حالة التسميع العكسي (المرسلات 77 إلى الإنسان 76)
-    if (fromID > toID) {
-        // أ- بقية سورة البدء (المرسلات)
-        const suraFrom = QURAN_DATA.filter(i => i.s === fromObj.s);
-        const lastAyahFrom = suraFrom[suraFrom.length - 1];
-        finalPages += getForwardPages(fromObj.id, lastAyahFrom.id);
+    // الحالة العكسية (المرسلات -> الإنسان)
+    if (fID > tID) {
+        console.log("المنطق المكتشف: تسميع عكسي (Backwards)");
+        
+        // سورة البدء
+        const sFromAyahs = QURAN_DATA.filter(i => i.s === fObj.s);
+        const lastAFrom = sFromAyahs[sFromAyahs.length - 1];
+        console.log(`حساب سورة البدء (${fObj.s}): من آية ${fObj.a} لنهاية السورة`);
+        finalPages += getForwardPages(fID, lastAFrom.id);
 
-        // ب- بداية سورة النهاية (الإنسان)
-        if (fromObj.s !== toObj.s) {
-            const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
-            finalPages += getForwardPages(firstAyahTo.id, toObj.id);
+        // سورة النهاية والسور البينية
+        if (fObj.s !== tObj.s) {
+            const firstATo = QURAN_DATA.find(i => i.s === tObj.s);
+            console.log(`حساب سورة النهاية (${tObj.s}): من بداية السورة لآية ${tObj.a}`);
+            finalPages += getForwardPages(firstATo.id, tID);
 
-            // ج- السور الكاملة بينهما (إن وجدت)
-            let minS = Math.min(fromObj.s, toObj.s);
-            let maxS = Math.max(fromObj.s, toObj.s);
+            // السور البينية
+            let minS = Math.min(fObj.s, tObj.s);
+            let maxS = Math.max(fObj.s, tObj.s);
             for (let s = minS + 1; s < maxS; s++) {
                 const sItems = QURAN_DATA.filter(i => i.s === s);
                 if (sItems.length > 0) {
+                    console.log(`حساب سورة كاملة بينهما: سورة رقم ${s}`);
                     finalPages += getForwardPages(sItems[0].id, sItems[sItems.length - 1].id);
                 }
             }
         }
-    } 
-    // حالة التسميع العادي (للأمام)
-    else {
-        finalPages = getForwardPages(fromID, toID);
+    } else {
+        console.log("المنطق المكتشف: تسميع للأمام (Forward)");
+        finalPages = getForwardPages(fID, tID);
     }
 
-    // عرض النتيجة بكسر عشري واحد (مثل 2.4)
-    const result = parseFloat(finalPages).toFixed(1);
-    if (display) display.innerText = result;
+    const result = Number(finalPages || 0).toFixed(1);
+    console.log(`النتيجة النهائية المجمعة: ${result} صفحة`);
     
+    if (display) display.innerText = result;
     return result;
 }
+
 
 
 
