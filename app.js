@@ -231,8 +231,8 @@ document.getElementById('studentSelect').addEventListener('change', function() {
                 // الآن amount يجب أن يكون رقمًا (ناتج الدالة calculateExactProgress)
                 const p = parseFloat(cursor.value.amount) || 0;
 
-                if (cursor.value.type === 1) hifz += p;
-                else if (cursor.value.type === 2) muraja += p;
+                if (cursor.value.type == 1) hifz += p;
+                else if (cursor.value.type == 2) muraja += p;
 
                 errs += parseInt(cursor.value.errors) || 0;
                 cnt++;
