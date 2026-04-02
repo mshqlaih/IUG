@@ -297,10 +297,6 @@ function calculateExactProgress() {
 
     let numericValue = pgs + frac;
 
-    // عرض القيمة الرقمية فقط
-    document.getElementById('pagesResult').innerText = "المقدار: " + numericValue;
-    document.getElementById('partNumber').innerText  = end.j;
-
     return { value: numericValue, part: end.j };
 }
 
