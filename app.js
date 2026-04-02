@@ -335,55 +335,47 @@ function calculateExactProgress() {
     const fromID = parseInt(document.getElementById('rangeFrom').value);
     const toID   = parseInt(document.getElementById('rangeTo').value);
 
-    if (isNaN(fromID) || isNaN(toID)) return;
+    if (isNaN(fromID) || isNaN(toID)) return { value: 0 };
 
-    const fromObj = QURAN_DATA.find(i => i.id === fromID);
-    const toObj   = QURAN_DATA.find(i => i.id === toID);
+    // 1. تحديد البداية والنهاية حسب ترتيب الـ ID في مصفوفتك
+    const start = QURAN_DATA.find(i => i.id === Math.min(fromID, toID));
+    const end   = QURAN_DATA.find(i => i.id === Math.max(fromID, toID));
 
-    if (!fromObj || !toObj) return;
-
-    // تحديد البداية والنهاية حسب ترتيب المصحف (ID الأصغر هو البداية دائماً)
-    const start = (fromID <= toID) ? fromObj : toObj;
-    const end   = (fromID <= toID) ? toObj   : fromObj;
+    if (!start || !end) return { value: 0 };
 
     let totalLines = 0;
 
+    // 2. إذا كان الحفظ في نفس الصفحة
     if (start.p === end.p) {
-        // إذا كانا في نفس الصفحة: الفرق بين سطر النهاية وسطر البداية + 1
         totalLines = (end.le - start.ls) + 1;
-    } else {
-        // 1. أسطر الصفحة الأولى: من بداية الآية حتى "أقصى سطر" في تلك الصفحة
-        const maxLinesStartPage = Math.max(...QURAN_DATA.filter(i => i.p === start.p).map(i => i.le));
-        totalLines += (maxLinesStartPage - start.ls + 1);
+    } 
+    // 3. إذا كان الحفظ يمتد عبر صفحات متعددة (سيشمل المرسلات والإنسان والقيامة تلقائياً)
+    else {
+        // أسطر صفحة البداية (من بداية الآية حتى نهاية الصفحة)
+        const maxLinesFirst = PAGE_MAX_LINES[start.p] || 15;
+        totalLines += (maxLinesFirst - start.ls + 1);
 
-        // 2. أسطر الصفحات الكاملة بينهما: نحسب أسطر كل صفحة ديناميكياً من البيانات
-        for (let pIdx = start.p + 1; pIdx < end.p; pIdx++) {
-            const pageMaxLines = Math.max(...QURAN_DATA.filter(i => i.p === pIdx).map(i => i.le));
-            totalLines += pageMaxLines;
+        // أسطر الصفحات الكاملة بينهما (تشمل أي سور تقع في هذه الصفحات)
+        for (let p = start.p + 1; p < end.p; p++) {
+            totalLines += (PAGE_MAX_LINES[p] || 15);
         }
 
-        // 3. أسطر الصفحة الأخيرة: من سطر 1 حتى نهاية الآية المطلوبة
+        // أسطر صفحة النهاية (من أول سطر حتى نهاية آية الوصول)
         totalLines += end.le;
     }
 
-    // الحساب النهائي للصفحات والكسور (بناءً على معيار 15 سطراً للصفحة الواحدة)
+    // 4. تحويل إجمالي الأسطر إلى صفحات وكسور
     let pgs = Math.floor(totalLines / 15);
     let rem = totalLines % 15;
     let frac = 0;
+    if (rem >= 1 && rem <= 4) frac = 0.25;
+    else if (rem >= 5 && rem <= 8) frac = 0.5;
+    else if (rem >= 9 && rem <= 12) frac = 0.75;
+    else if (rem >= 13) { pgs++; rem = 0; }
 
-    if (rem > 0) {
-        if (rem <= 4) frac = 0.25;      // ربع صفحة
-        else if (rem <= 8) frac = 0.5;   // نصف صفحة
-        else if (rem <= 12) frac = 0.75; // ثلاثة أرباع
-        else { pgs++; frac = 0; }        // أكثر من 12 سطراً تعتبر صفحة كاملة
-    }
-
-    return { 
-        value: pgs + frac, 
-        lines: totalLines, 
-        isReversed: (fromID > toID) // معلومة إضافية إذا أردت معرفة هل التسميع عكسي
-    };
+    return { value: pgs + frac, lines: totalLines };
 }
+
 
 function calculateExactProgress01() {
     const fromID = parseInt(document.getElementById('rangeFrom').value);
