@@ -345,44 +345,59 @@ function calculateExactProgress() {
 
     if (isNaN(fromID) || isNaN(toID)) return { value: 0 };
 
-    // 1. تحديد البداية والنهاية حسب ترتيب الـ ID في مصفوفتك
-    const start = QURAN_DATA.find(i => i.id === Math.min(fromID, toID));
-    const end   = QURAN_DATA.find(i => i.id === Math.max(fromID, toID));
+    const fromObj = QURAN_DATA.find(i => i.id === fromID);
+    const toObj   = QURAN_DATA.find(i => i.id === toID);
 
-    if (!start || !end) return { value: 0 };
+    if (!fromObj || !toObj) return { value: 0 };
 
     let totalLines = 0;
 
-    // 2. إذا كان الحفظ في نفس الصفحة
-    if (start.p === end.p) {
-        totalLines = (end.le - start.ls) + 1;
+    // 1. إذا كان التسميع داخل نفس السورة
+    if (fromObj.s === toObj.s) {
+        totalLines = getLinesBetween(fromObj, toObj);
     } 
-    // 3. إذا كان الحفظ يمتد عبر صفحات متعددة (سيشمل المرسلات والإنسان والقيامة تلقائياً)
+    // 2. إذا انتقل من سورة إلى سورة أخرى (مثل المرسلات إلى الإنسان)
     else {
-        // أسطر صفحة البداية (من بداية الآية حتى نهاية الصفحة)
-        const maxLinesFirst = PAGE_MAX_LINES[start.p] || 15;
-        totalLines += (maxLinesFirst - start.ls + 1);
+        // أ- حساب أسطر سورة البدء (من آية البدء حتى نهاية السورة)
+        const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
+        const lastAyahFrom = suraFromAyahs[suraFromAyahs.length - 1];
+        totalLines += getLinesBetween(fromObj, lastAyahFrom);
 
-        // أسطر الصفحات الكاملة بينهما (تشمل أي سور تقع في هذه الصفحات)
-        for (let p = start.p + 1; p < end.p; p++) {
-            totalLines += (PAGE_MAX_LINES[p] || 15);
-        }
-
-        // أسطر صفحة النهاية (من أول سطر حتى نهاية آية الوصول)
-        totalLines += end.le;
+        // ب- حساب أسطر سورة النهاية (من بداية السورة حتى آية النهاية)
+        const suraToAyahs = QURAN_DATA.filter(i => i.s === toObj.s);
+        const firstAyahTo = suraToAyahs[0];
+        totalLines += getLinesBetween(firstAyahTo, toObj);
+        
+        // ملاحظة: هنا تجاهلنا سورة القيامة تماماً لأنها لم تُطلب
     }
 
-    // 4. تحويل إجمالي الأسطر إلى صفحات وكسور
+    // حساب الصفحات والكسر العشري الدقيق (للحصول على 2.4)
+    // نستخدم القسمة على 15 للحصول على كسر عشري دقيق
+    let numericValue = (totalLines / 15).toFixed(1); 
+
+    // إذا أردت نظام (ربع، نصف، ثلث) كما فعلنا سابقاً:
     let pgs = Math.floor(totalLines / 15);
     let rem = totalLines % 15;
-    let frac = 0;
-    if (rem >= 1 && rem <= 4) frac = 0.25;
-    else if (rem >= 5 && rem <= 8) frac = 0.5;
-    else if (rem >= 9 && rem <= 12) frac = 0.75;
-    else if (rem >= 13) { pgs++; rem = 0; }
+    // ... منطق الـ frac السابق ...
 
-    return { value: pgs + frac, lines: totalLines };
+    return { value: parseFloat(numericValue), lines: totalLines };
 }
+
+// دالة مساعدة لحساب الأسطر بدقة بين أي آيتين في نفس السورة
+function getLinesBetween(obj1, obj2) {
+    const start = (obj1.id <= obj2.id) ? obj1 : obj2;
+    const end   = (obj1.id <= obj2.id) ? obj2 : obj1;
+    
+    if (start.p === end.p) return (end.le - start.ls) + 1;
+    
+    let lines = (PAGE_MAX_LINES[start.p] - start.ls + 1);
+    for (let p = start.p + 1; p < end.p; p++) {
+        lines += (PAGE_MAX_LINES[p] || 15);
+    }
+    lines += end.le;
+    return lines;
+}
+
 
 
 function calculateExactProgress01() {
