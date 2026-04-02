@@ -335,9 +335,10 @@ function saveActivity() {
     const toRange   = parseInt(document.getElementById('rangeTo').value) || null;
 
     if (!teacher || !student || !type) {
-        return alert("يجب إدخال المعلم والطالب ونوع النشاط");
+        return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
     }
-    if ((type === "تسميع" || type === "مراجعة") && (!fromRange || !toRange)) {
+    
+    if ((type === 1 || type === 2 || type === 6 || type === 7 ) && (!fromRange || !toRange)) {
         return alert("يجب اختيار آيات صحيحة من القائمة");
     }
 
@@ -346,11 +347,8 @@ function saveActivity() {
         student: student,
         date: onlyDate,
         type: type,
-   //     flowDirection: document.getElementById('flowDirection').value,
-
         fromRange: fromRange,  
         toRange: toRange,
-
         amount: prog ? prog.value : 0,   // ✅ نخزن الرقم
         part: prog ? prog.part : "---",
         errors: document.getElementById('errors').value || 0,
