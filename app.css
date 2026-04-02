@@ -253,42 +253,56 @@ th {
   text-align: center;
 }
 
+/* الحاوية الأساسية */
 #iconsContainer {
-    display: flex;
-    flex-wrap: wrap; /* للسماح بالنزول لسطر جديد إذا ضاقت الشاشة */
-    gap: 12px;       /* مسافة بين البطاقات */
-    margin: 15px 0 25px 0;
-    justify-content: center; /* توسيط البطاقات */
+    display: grid;
+    /* في الجوال: 3 أعمدة متساوية */
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 8px; /* مسافة معقولة للجوال */
+    margin: 15px 0;
+    direction: rtl;
 }
 
+/* الشاشات الكبيرة (الكمبيوتر والتابلت) */
+@media (min-width: 768px) {
+    #iconsContainer {
+        /* في الكمبيوتر: 5 أعمدة أو أكثر حسب المساحة */
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 12px;
+    }
+}
+
+/* تصميم البطاقة */
 .icon-card {
     background: #fff;
-    border: 2px solid #eee; /* حدود خفيفة */
-    border-radius: 12px;
-    padding: 12px 15px;
-    min-width: 100px;  /* عرض أدنى للبطاقة */
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px 4px; /* تقليل الحشو ليتناسب مع الجوال */
     text-align: center;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: 0.2s;
     display: flex;
-    flex-direction: row-reverse; /* أيقونة ثم نص */
+    flex-direction: column; /* أيقونة فوق النص لتوفير المساحة العرضية */
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
 }
 
-/* التميز عند الاختيار - لون خلفية وحدود واضحة */
+/* تمييز العنصر المختار */
 .icon-card.active {
-    background-color: #eef2ff !important;
-    border-color: #3f51b5 !important; /* لون أزرق غامق للتميز */
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(63, 81, 181, 0.2);
+    background-color: #f0f7ff !important;
+    border: 2px solid #007bff !important; /* إطار أزرق واضح */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
 }
 
-.icon-card .emoji { font-size: 20px; }
-.icon-card .text { font-size: 13px; font-weight: bold; color: #333; }
-
-.icon-item p { margin: 5px 0 0; font-size: 11px; font-weight: bold; color: #333; }
-
-
+/* تنسيق الأيقونة والنص */
+.icon-card .emoji { font-size: 18px; margin-bottom: 4px; }
+.icon-card .text { 
+    font-size: 10px; /* نص صغير ليتناسب مع 3 أعمدة */
+    font-weight: bold; 
+    color: #444;
+    white-space: nowrap; /* منع انقسام النص لسطرين */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
