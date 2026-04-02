@@ -1445,57 +1445,59 @@ function QMC_GET_FORWARD_NO_PAGES(fromID, toID) {
 
 // دالة الحساب العكسي (Backwards) - مطابقة لمنطق أوراكل
 function QMC_BACKWARDS_NO_PAGES(fromID, toID) {
-    // جلب كائنات الآيات من البيانات
     const fromObj = QURAN_DATA.find(i => i.id === fromID);
     const toObj = QURAN_DATA.find(i => i.id === toID);
     
-    // فحص السلامة لمنع undefined
-    if (!fromObj || !toObj || fromID <= toID) return 0;
+    // فحص السلامة: إذا لم يجد الآيات يعيد 0 فوراً بدل undefined
+    if (!fromObj || !toObj) return 0;
 
     const diffSura = Math.abs(toObj.s - fromObj.s);
-    let lNO_PAGES = 0;
+    let totalLines = 0;
 
-    // 1. إذا كانت نفس السورة أو سور متتالية (المرسلات والإنسان مثلاً)
-    if (diffSura === 0 || diffSura === 1) {
-        // حساب بقية سورة البدء (من آية البدء لآخر آية في السورة)
-        const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
+    // 1. حساب سورة البدء (المرسلات مثلاً): من آية البدء حتى نهاية السورة
+    const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
+    if (suraFromAyahs.length > 0) {
         const lastAyahFrom = suraFromAyahs[suraFromAyahs.length - 1];
-        lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(fromObj.id, lastAyahFrom.id);
-
-        // إذا انتقل لسورة ثانية، نحسب من بداية السورة لآية النهاية
-        if (diffSura === 1) {
-            const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
-            lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(firstAyahTo.id, toObj.id);
-        }
-    } 
-    // 2. إذا وجد سور كاملة بينهما (المرسلات إلى القيامة)
-    else {
-        // أ- بقية سورة البدء
-        const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
-        const lastAyahFrom = suraFromAyahs[suraFromAyahs.length - 1];
-        lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(fromObj.id, lastAyahFrom.id);
-
-        // ب- السور الكاملة بينهما (تراكمي)
-        // نستخدم الترتيب العكسي حسب الـ id في مصفوفتك
-        const minSura = Math.min(fromObj.s, toObj.s);
-        const maxSura = Math.max(fromObj.s, toObj.s);
-        
-        for (let sNo = minSura + 1; sNo < maxSura; sNo++) {
-            const sFirst = QURAN_DATA.find(i => i.s === sNo);
-            const sLastAyahs = QURAN_DATA.filter(i => i.s === sNo);
-            const sLast = sLastAyahs[sLastAyahs.length - 1];
-            
-            if (sFirst && sLast) {
-                lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(sFirst.id, sLast.id);
-            }
-        }
-
-        // ج- بداية سورة النهاية
-        const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
-        lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(firstAyahTo.id, toObj.id);
+        totalLines += getLinesSimple(fromObj, lastAyahFrom);
     }
 
-    return lNO_PAGES || 0;
+    // 2. حساب السور البينية (إذا كانت المسافة أكثر من سورتين متتاليتين)
+    if (diffSura > 1) {
+        const minS = Math.min(fromObj.s, toObj.s);
+        const maxS = Math.max(fromObj.s, toObj.s);
+        for (let sNo = minS + 1; sNo < maxS; sNo++) {
+            const sAyahs = QURAN_DATA.filter(i => i.s === sNo);
+            if (sAyahs.length > 0) {
+                totalLines += getLinesSimple(sAyahs[0], sAyahs[sAyahs.length - 1]);
+            }
+        }
+    }
+
+    // 3. حساب سورة النهاية (الإنسان مثلاً): من بداية السورة حتى آية النهاية
+    if (fromObj.s !== toObj.s) {
+        const suraToAyahs = QURAN_DATA.filter(i => i.s === toObj.s);
+        if (suraToAyahs.length > 0) {
+            totalLines += getLinesSimple(suraToAyahs[0], toObj);
+        }
+    }
+
+    // تحويل الأسطر لصفحات (القسمة على 15) ليعطيك 2.4 أو 2.5
+    return totalLines / 15;
 }
 
-
+// دالة مساعدة داخلية بسيطة تضمن إعادة رقم دائماً
+function getLinesSimple(start, end) {
+    if (!start || !end) return 0;
+    let lines = 0;
+    if (start.p === end.p) {
+        lines = (end.le - start.ls) + 1;
+    } else {
+        // أسطر الصفحة الأولى + أسطر الصفحات البينية + أسطر الصفحة الأخيرة
+        const maxL = (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[start.p]) ? window.PAGE_MAX_LINES[start.p] : 15;
+        lines = (maxL - start.ls + 1) + end.le;
+        for (let p = start.p + 1; p < end.p; p++) {
+            lines += (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[p]) ? window.PAGE_MAX_LINES[p] : 15;
+        }
+    }
+    return lines || 0;
+}
