@@ -602,6 +602,11 @@ function translateLookup(code, value) {
 let lastDisplayedData = []; // ✨ متغيّر عام لتخزين النتائج
 
 function displayRecords() {
+
+    if (!window.AYAH_REVERSE || Object.keys(window.AYAH_REVERSE).length === 0) {
+        setTimeout(displayRecords, 200); // إذا لم تجهز الأسماء، انتظر 200 ملي ثانية وحاول مجدداً
+        return; 
+    }
     const tbody = document.getElementById('logTable');
     tbody.innerHTML = '';
 
