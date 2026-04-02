@@ -498,7 +498,6 @@ function displayRecords() {
                     const fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
                     const toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
                    
-
                     const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", r.type);
                     const ratingName   = translateLookup("ACTIVITY_GRADE", r.rating);
 
@@ -807,44 +806,32 @@ function syncAyahID(textInput, hiddenID) {
  * إذا وُجد نص عربي تُرجعه، وإذا لم يوجد تُرجع النص كامل كما هو
  */
 function extractArabicError(errorObj) {
+  console.log("Input to function:", errorObj);  
   if (!errorObj) return "";
-
-  // إذا كان الخطأ كائن JSON
+  
+  // استخراج النص الأساسي سواء كان الكائن مباشرة أو حقلاً بداخله
+  let textToSearch = "";
   if (typeof errorObj === "object") {
-    const causeText = errorObj.cause || "";
-    if (causeText) {
-      // 🔎 البحث عن نص عربي
-      const arabicMatches = causeText.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
-      if (arabicMatches && arabicMatches.length > 0) {
-        return arabicMatches.join(" ").trim();
-      }
-
-      // 🔎 البحث عن أخطاء ORA من Oracle (كل الأسطر)
-      const oracleMatches = causeText.match(/ORA-[^\n]+/g);
-      if (oracleMatches && oracleMatches.length > 0) {
-        return oracleMatches.join("\n").trim();
-      }
-
-      return causeText; // إذا لم يوجد عربي أو ORA → إرجاع النص كما هو
-    }
+    textToSearch = errorObj.cause || errorObj.message || JSON.stringify(errorObj);
+  } else {
+    textToSearch = errorObj;
   }
 
-  // إذا كان الخطأ نص عادي (string)
-  if (typeof errorObj === "string") {
-    const arabicMatches = errorObj.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
-    if (arabicMatches && arabicMatches.length > 0) {
-      return arabicMatches.join(" ").trim();
-    }
-
-    const oracleMatches = errorObj.match(/ORA-[^\n]+/g);
-    if (oracleMatches && oracleMatches.length > 0) {
-      return oracleMatches.join("\n").trim();
-    }
-
-    return errorObj;
+  // 1. البحث عن نص عربي (الأولوية للعربي)
+  const arabicMatches = textToSearch.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
+  if (arabicMatches) {
+    const cleanedArabic = arabicMatches.join(" ").trim();
+    if (cleanedArabic.length > 5) return cleanedArabic; // إرجاعه إذا كان نصاً معتبراً
   }
 
-  return "";
+  // 2. البحث عن أخطاء ORA (بما في ذلك الأخطاء المتداخلة)
+  const oracleMatches = textToSearch.match(/ORA-\d{5}:?[^\n]*/g);
+  if (oracleMatches) {
+    // استخدام Set لإزالة التكرار (مثل ORA-20001 المتكررة)
+    return [...new Set(oracleMatches)].join("\n").trim();
+  }
+
+  return textToSearch.substring(0, 200); // إرجاع أول جزء من النص إذا لم يطابق ما سبق
 }
 
 async function loadStudentsTable() {
