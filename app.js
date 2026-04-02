@@ -502,23 +502,23 @@ function displayRecords() {
                     const ratingName   = translateLookup("ACTIVITY_GRADE", r.rating);
 
                     // ✨ خزّن البيانات في المصفوفة
-                   const errorText = extractArabicError(r.syncError);
+                    const errorText = !r.synced ? extractArabicError(r.syncError) : "";
                    
-lastDisplayedData.push({
-  "التاريخ": r.date,
-  "المحفظ": r.teacher,
-  "اسم الطالب": studentName,
-  "رقم الطالب": r.student,
-  "النوع": activityName,
-  "من الآية": fromText,
-  "إلى الآية": toText,
-  "عدد الصفحات": r.amount,
-  "الأخطاء": r.errors,
-  "التقييم": ratingName,
-  "الحالة": r.synced
-      ? "✔ تم الرفع"
-      : "✘ لم يُرفع" + (errorText && errorText.trim() !== "" ? "\n" + errorText : "")
-});
+                    lastDisplayedData.push({
+                      "التاريخ": r.date,
+                      "المحفظ": r.teacher,
+                      "اسم الطالب": studentName,
+                      "رقم الطالب": r.student,
+                      "النوع": activityName,
+                      "من الآية": fromText,
+                      "إلى الآية": toText,
+                      "عدد الصفحات": r.amount,
+                      "الأخطاء": r.errors,
+                      "التقييم": ratingName,
+                      "الحالة": r.synced
+                          ? "✔ تم الرفع"
+                          : "✘ لم يُرفع" + (errorText && errorText.trim() !== "" ? "\n" + errorText : "")
+                    });
 
                     // بناء الصف في الجدول
                     tbody.innerHTML += `
