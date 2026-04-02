@@ -650,8 +650,8 @@ function saveActivity() {
         type: type,
         fromRange: fromRange,  
         toRange: toRange,
-        amount: prog ? prog.value : 0,   // ✅ نخزن الرقم
-        part: prog ? prog.part : "---",
+        amount: prog || 0,
+        part: QURAN_DATA.find(i => i.id === toRange)?.j || "---",
         errors: document.getElementById('errors').value || 0,
         rating: rating,
         synced: false
