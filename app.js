@@ -192,13 +192,23 @@ function drawIcons(select, container) {
         item.style.borderBottom = `3px solid ${style.color}`;
 
         item.onclick = function() {
-            select.value = opt.value;
-            // إزالة التحديد من الجميع وإضافته لهذا العنصر
-            container.querySelectorAll('.icon-card').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            // إرسال إشارة للنظام أن القيمة تغيرت
-            select.dispatchEvent(new Event('change'));
-        };
+    // 1. تحديث القيمة في الـ Select المخفي
+    const select = document.getElementById('activityType');
+    select.value = opt.value;
+
+    // 2. إزالة التميز (active) من جميع البطاقات الأخرى
+    const allCards = container.querySelectorAll('.icon-card');
+    allCards.forEach(card => card.classList.remove('active'));
+
+    // 3. إضافة التميز للبطاقة التي تم النقر عليها حالياً
+    item.classList.add('active');
+
+    // 4. تشغيل حدث التغيير (اختياري)
+    select.dispatchEvent(new Event('change'));
+    
+    console.log("تم اختيار النوع رقم: " + opt.value); // للتأكد في الكونسول
+};
+
         container.appendChild(item);
     });
 }
