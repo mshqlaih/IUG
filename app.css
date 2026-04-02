@@ -252,3 +252,49 @@ th {
   border: 1px solid #ccc;
   text-align: center;
 }
+
+/* أضف هذا التنسيق لملف الـ CSS الخاص بك أو داخل وسم <style> */
+.icon-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); /* ترتيب تلقائي حسب عرض الشاشة */
+    gap: 12px;
+    margin-top: 15px;
+    direction: rtl;
+}
+
+.icon-item {
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 15px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.icon-item:hover {
+    border-color: #3498db;
+    transform: translateY(-2px);
+    background-color: #f8fbff;
+}
+
+.icon-item.active {
+    border-color: #2ecc71; /* لون أخضر عند الاختيار */
+    background-color: #eefdf5;
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
+}
+
+.icon-item span {
+    font-size: 28px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.icon-item p {
+    margin: 0;
+    font-size: 13px;
+    font-weight: bold;
+    color: #444;
+}
+
