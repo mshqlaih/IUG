@@ -133,6 +133,14 @@ function fillAyatSearchList() {
     const list = document.getElementById('ayatList');
     window.AYAH_REVERSE = {};
     if (typeof QURAN_DATA === 'undefined') return;
+
+    if (typeof window.PAGE_MAX_LINES === 'undefined') {
+        window.PAGE_MAX_LINES = QURAN_DATA.reduce((acc, curr) => {
+            acc[curr.p] = Math.max(acc[curr.p] || 0, curr.le);
+            return acc;
+        }, {});
+        console.log("تم تجهيز بيانات أسطر الصفحات بنجاح ✅");
+    }
     
     const fragment = document.createDocumentFragment();
 
