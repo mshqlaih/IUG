@@ -335,6 +335,60 @@ function calculateExactProgress() {
     const fromID = parseInt(document.getElementById('rangeFrom').value);
     const toID   = parseInt(document.getElementById('rangeTo').value);
 
+    if (isNaN(fromID) || isNaN(toID)) return;
+
+    const fromObj = QURAN_DATA.find(i => i.id === fromID);
+    const toObj   = QURAN_DATA.find(i => i.id === toID);
+
+    if (!fromObj || !toObj) return;
+
+    // تحديد البداية والنهاية حسب ترتيب المصحف (ID الأصغر هو البداية دائماً)
+    const start = (fromID <= toID) ? fromObj : toObj;
+    const end   = (fromID <= toID) ? toObj   : fromObj;
+
+    let totalLines = 0;
+
+    if (start.p === end.p) {
+        // إذا كانا في نفس الصفحة: الفرق بين سطر النهاية وسطر البداية + 1
+        totalLines = (end.le - start.ls) + 1;
+    } else {
+        // 1. أسطر الصفحة الأولى: من بداية الآية حتى "أقصى سطر" في تلك الصفحة
+        const maxLinesStartPage = Math.max(...QURAN_DATA.filter(i => i.p === start.p).map(i => i.le));
+        totalLines += (maxLinesStartPage - start.ls + 1);
+
+        // 2. أسطر الصفحات الكاملة بينهما: نحسب أسطر كل صفحة ديناميكياً من البيانات
+        for (let pIdx = start.p + 1; pIdx < end.p; pIdx++) {
+            const pageMaxLines = Math.max(...QURAN_DATA.filter(i => i.p === pIdx).map(i => i.le));
+            totalLines += pageMaxLines;
+        }
+
+        // 3. أسطر الصفحة الأخيرة: من سطر 1 حتى نهاية الآية المطلوبة
+        totalLines += end.le;
+    }
+
+    // الحساب النهائي للصفحات والكسور (بناءً على معيار 15 سطراً للصفحة الواحدة)
+    let pgs = Math.floor(totalLines / 15);
+    let rem = totalLines % 15;
+    let frac = 0;
+
+    if (rem > 0) {
+        if (rem <= 4) frac = 0.25;      // ربع صفحة
+        else if (rem <= 8) frac = 0.5;   // نصف صفحة
+        else if (rem <= 12) frac = 0.75; // ثلاثة أرباع
+        else { pgs++; frac = 0; }        // أكثر من 12 سطراً تعتبر صفحة كاملة
+    }
+
+    return { 
+        value: pgs + frac, 
+        lines: totalLines, 
+        isReversed: (fromID > toID) // معلومة إضافية إذا أردت معرفة هل التسميع عكسي
+    };
+}
+
+function calculateExactProgress01() {
+    const fromID = parseInt(document.getElementById('rangeFrom').value);
+    const toID   = parseInt(document.getElementById('rangeTo').value);
+
     if (!fromID || !toID) return;
 
     const fromObj = QURAN_DATA.find(i => i.id === fromID);
