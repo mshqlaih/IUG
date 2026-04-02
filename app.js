@@ -131,7 +131,14 @@ function initDB() {
 // ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
 function fillAyatSearchList() {
     const list = document.getElementById('ayatList');
-    window.AYAH_REVERSE = {};
+    
+if (!window.AYAH_REVERSE || Object.keys(window.AYAH_REVERSE).length === 0) {
+        window.AYAH_REVERSE = {};
+    } else {
+        // إذا كانت المصفوفة مليئة بالبيانات، فلا داعي لإعادة تعبئتها وتضييع الوقت
+        console.log("AYAH_REVERSE جاهزة مسبقاً، نكتفي بتعبئة قائمة البحث");
+    }
+    
     if (typeof QURAN_DATA === 'undefined') return;
 
     if (typeof window.PAGE_MAX_LINES === 'undefined') {
@@ -602,11 +609,6 @@ function translateLookup(code, value) {
 let lastDisplayedData = []; // ✨ متغيّر عام لتخزين النتائج
 
 function displayRecords() {
-
-    if (!window.AYAH_REVERSE || Object.keys(window.AYAH_REVERSE).length === 0) {
-        setTimeout(displayRecords, 200); // إذا لم تجهز الأسماء، انتظر 200 ملي ثانية وحاول مجدداً
-        return; 
-    }
     const tbody = document.getElementById('logTable');
     tbody.innerHTML = '';
 
