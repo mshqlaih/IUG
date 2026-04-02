@@ -401,33 +401,78 @@ function jumpToNext(lastPos, dir) {
 // 5. حساب المقدار الدقيق (أرباع وصفحات)
 
 // دالة الحساب وإرجاع القيمة الرقمية
-function calculateExactProgress() {
-    const fromVal = document.getElementById('rangeFrom').value;
-    const toVal   = document.getElementById('rangeTo').value;
+// 1. الدالة المساعدة للحساب للأمام (Forward) - أساس كل الحسابات
+function getForwardPages(id1, id2) {
+    const s = QURAN_DATA.find(i => i.id === id1);
+    const e = QURAN_DATA.find(i => i.id === id2);
+    if (!s || !e || id1 > id2) return 0;
 
-    const fromID = parseInt(fromVal);
-    const toID   = parseInt(toVal);
+    // منطق أوراكل للبسملة والسطر الأخير في الصفحة
+    let startL = (s.a === 1 && (s.ls === 2 || s.ls === 3)) ? 1 : s.ls;
+    let maxLInPage = (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[e.p]) ? window.PAGE_MAX_LINES[e.p] : 15;
+    let endL = (e.le === maxLInPage) ? 15 : e.le;
 
-    if (isNaN(fromID) || isNaN(toID) || fromID === 0 || toID === 0) {
-        if(document.getElementById('calcResult')) document.getElementById('calcResult').innerText = "0";
-        return 0;
+    let total = 0;
+    let pagesCount = (e.p - s.p) + 1;
+
+    for (let i = 1; i <= pagesCount; i++) {
+        if (i === 1 && pagesCount === 1) total += (endL - startL + 1) / 15;
+        else if (i === 1)           total += (15 - startL + 1) / 15;
+        else if (i === pagesCount)   total += (endL / 15);
+        else                        total += 1;
     }
-
-    let result = 0;
-    if (fromID > toID) {
-        result = QMC_BACKWARDS_NO_PAGES(fromID, toID);
-    } else {
-        result = QMC_GET_FORWARD_NO_PAGES(fromID, toID);
-    }
-
-    // تقريب النتيجة لخانة واحدة (مثلاً 2.4)
-    const finalVal = Number(result).toFixed(1);
-    
-    const display = document.getElementById('calcResult');
-    if (display) display.innerText = finalVal;
-
-    return finalVal;
+    return total;
 }
+
+// 2. الدالة الرئيسية للحساب (تستدعيها عند تغيير الآيات)
+function calculateExactProgress() {
+    const fromID = parseInt(document.getElementById('rangeFrom').value);
+    const toID   = parseInt(document.getElementById('rangeTo').value);
+    const display = document.getElementById('calcResult');
+
+    if (!fromID || !toID) { if(display) display.innerText = "0"; return; }
+
+    const fromObj = QURAN_DATA.find(i => i.id === fromID);
+    const toObj   = QURAN_DATA.find(i => i.id === toID);
+    if (!fromObj || !toObj) return;
+
+    let finalPages = 0;
+
+    // حالة التسميع العكسي (المرسلات 77 إلى الإنسان 76)
+    if (fromID > toID) {
+        // أ- بقية سورة البدء (المرسلات)
+        const suraFrom = QURAN_DATA.filter(i => i.s === fromObj.s);
+        const lastAyahFrom = suraFrom[suraFrom.length - 1];
+        finalPages += getForwardPages(fromObj.id, lastAyahFrom.id);
+
+        // ب- بداية سورة النهاية (الإنسان)
+        if (fromObj.s !== toObj.s) {
+            const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
+            finalPages += getForwardPages(firstAyahTo.id, toObj.id);
+
+            // ج- السور الكاملة بينهما (إن وجدت)
+            let minS = Math.min(fromObj.s, toObj.s);
+            let maxS = Math.max(fromObj.s, toObj.s);
+            for (let s = minS + 1; s < maxS; s++) {
+                const sItems = QURAN_DATA.filter(i => i.s === s);
+                if (sItems.length > 0) {
+                    finalPages += getForwardPages(sItems[0].id, sItems[sItems.length - 1].id);
+                }
+            }
+        }
+    } 
+    // حالة التسميع العادي (للأمام)
+    else {
+        finalPages = getForwardPages(fromID, toID);
+    }
+
+    // عرض النتيجة بكسر عشري واحد (مثل 2.4)
+    const result = parseFloat(finalPages).toFixed(1);
+    if (display) display.innerText = result;
+    
+    return result;
+}
+
 
 
 
@@ -1409,95 +1454,3 @@ document.getElementById("syncBtn").addEventListener("click", () => {
     .then(() => console.log("🎉 انتهت المزامنة"))
     .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
 });
-
-function QMC_GET_FORWARD_NO_PAGES(fromID, toID) {
-    if (!fromID || !toID || fromID > toID) return 0;
-
-    const start = QURAN_DATA.find(i => i.id === fromID);
-    const end = QURAN_DATA.find(i => i.id === toID);
-    
-    if (!start || !end) return 0;
-
-    // محاكاة شرط أوراكل للبسملة
-    let lSTART_LINE = (start.a === 1 && (start.ls === 2 || start.ls === 3)) ? 1 : start.ls;
-    let lEND_LINE = end.le;
-    
-    // التأكد من وجود PAGE_MAX_LINES قبل القراءة منها
-    let maxLines = (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[end.p]) ? window.PAGE_MAX_LINES[end.p] : 15;
-    if (end.le === maxLines) lEND_LINE = 15;
-
-    let lACTIVITY_NO_PAGES = 0;
-    let numPages = Math.abs(end.p - start.p) + 1;
-
-    for (let i = 1; i <= numPages; i++) {
-        if (i === 1 && numPages === 1) {
-            lACTIVITY_NO_PAGES += (lEND_LINE - lSTART_LINE + 1) / 15;
-        } else if (i === 1 && numPages > 1) {
-            lACTIVITY_NO_PAGES += (15 - lSTART_LINE + 1) / 15;
-        } else if (i === numPages) {
-            lACTIVITY_NO_PAGES += (lEND_LINE / 15);
-        } else {
-            lACTIVITY_NO_PAGES += 1;
-        }
-    }
-    return lACTIVITY_NO_PAGES || 0; // لضمان عدم عودة undefined
-}
-
-// دالة الحساب العكسي (Backwards) - مطابقة لمنطق أوراكل
-function QMC_BACKWARDS_NO_PAGES(fromID, toID) {
-    const fromObj = QURAN_DATA.find(i => i.id === fromID);
-    const toObj = QURAN_DATA.find(i => i.id === toID);
-    
-    // فحص السلامة: إذا لم يجد الآيات يعيد 0 فوراً بدل undefined
-    if (!fromObj || !toObj) return 0;
-
-    const diffSura = Math.abs(toObj.s - fromObj.s);
-    let totalLines = 0;
-
-    // 1. حساب سورة البدء (المرسلات مثلاً): من آية البدء حتى نهاية السورة
-    const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
-    if (suraFromAyahs.length > 0) {
-        const lastAyahFrom = suraFromAyahs[suraFromAyahs.length - 1];
-        totalLines += getLinesSimple(fromObj, lastAyahFrom);
-    }
-
-    // 2. حساب السور البينية (إذا كانت المسافة أكثر من سورتين متتاليتين)
-    if (diffSura > 1) {
-        const minS = Math.min(fromObj.s, toObj.s);
-        const maxS = Math.max(fromObj.s, toObj.s);
-        for (let sNo = minS + 1; sNo < maxS; sNo++) {
-            const sAyahs = QURAN_DATA.filter(i => i.s === sNo);
-            if (sAyahs.length > 0) {
-                totalLines += getLinesSimple(sAyahs[0], sAyahs[sAyahs.length - 1]);
-            }
-        }
-    }
-
-    // 3. حساب سورة النهاية (الإنسان مثلاً): من بداية السورة حتى آية النهاية
-    if (fromObj.s !== toObj.s) {
-        const suraToAyahs = QURAN_DATA.filter(i => i.s === toObj.s);
-        if (suraToAyahs.length > 0) {
-            totalLines += getLinesSimple(suraToAyahs[0], toObj);
-        }
-    }
-
-    // تحويل الأسطر لصفحات (القسمة على 15) ليعطيك 2.4 أو 2.5
-    return totalLines / 15;
-}
-
-// دالة مساعدة داخلية بسيطة تضمن إعادة رقم دائماً
-function getLinesSimple(start, end) {
-    if (!start || !end) return 0;
-    let lines = 0;
-    if (start.p === end.p) {
-        lines = (end.le - start.ls) + 1;
-    } else {
-        // أسطر الصفحة الأولى + أسطر الصفحات البينية + أسطر الصفحة الأخيرة
-        const maxL = (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[start.p]) ? window.PAGE_MAX_LINES[start.p] : 15;
-        lines = (maxL - start.ls + 1) + end.le;
-        for (let p = start.p + 1; p < end.p; p++) {
-            lines += (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[p]) ? window.PAGE_MAX_LINES[p] : 15;
-        }
-    }
-    return lines || 0;
-}
