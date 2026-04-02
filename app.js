@@ -201,12 +201,16 @@ function renderOptions(data) {
 
 // 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
 document.getElementById('studentSelect').addEventListener('change', function() {
-    const name = this.value;
-    if (!name) { 
+    
+    const id = this.value;
+    if (!id) { 
         document.getElementById('studentStatsCard').style.display = 'none'; 
         return; 
     }
-    
+
+    const select = document.getElementById('studentSelect');
+    const name   = select.options[select.selectedIndex].text; // الاسم (النص المعروض)
+
     document.getElementById('statStudentName').innerText = name;
     document.getElementById('studentStatsCard').style.display = 'block';
 
@@ -227,8 +231,8 @@ document.getElementById('studentSelect').addEventListener('change', function() {
                 // الآن amount يجب أن يكون رقمًا (ناتج الدالة calculateExactProgress)
                 const p = parseFloat(cursor.value.amount) || 0;
 
-                if (cursor.value.type === "تسميع") hifz += p;
-                else if (cursor.value.type === "مراجعة") muraja += p;
+                if (cursor.value.type === 1) hifz += p;
+                else if (cursor.value.type === 2) muraja += p;
 
                 errs += parseInt(cursor.value.errors) || 0;
                 cnt++;
