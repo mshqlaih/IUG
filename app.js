@@ -152,48 +152,53 @@ function fillAyatSearchList() {
 }
 
 const activityStyles = {
-    "1": { icon: "🗣️", color: "#2ecc71" }, // تسميع - أخضر
-    "2": { icon: "🔄", color: "#3498db" }, // مراجعة - أزرق
-    "6": { icon: "🏆", color: "#f1c40f" }, // اختبار - ذهبي
-    "7": { icon: "📖", color: "#9b59b6" }, // سرد - بنفسجي
-    "8": { icon: "💡", color: "#e67e22" }, // شرح - برتقالي
-    "3": { icon: "👤", color: "#95a5a6" }, // حضور - رمادي
-    "4": { icon: "✉️", color: "#e74c3c" }, // عذر - أحمر فاتح
-    "5": { icon: "❌", color: "#c0392b" }, // غياب - أحمر غامق
-    "99": { icon: "➖", color: "#bdc3c7" } // غير مدخل
+    "1": { icon: "🗣️", color: "#2ecc71" },
+    "2": { icon: "🔄", color: "#3498db" },
+    "6": { icon: "🏆", color: "#f1c40f" },
+    "7": { icon: "📖", color: "#9b59b6" },
+    "8": { icon: "💡", color: "#e67e22" },
+    "3": { icon: "👤", color: "#95a5a6" },
+    "4": { icon: "✉️", color: "#e74c3c" },
+    "5": { icon: "❌", color: "#c0392b" },
+    "99": { icon: "➖", color: "#bdc3c7" }
 };
 
-function transformSelectToIcons(selectId, containerId) {
-    const select = document.getElementById(selectId);
-    const container = document.getElementById(containerId);
-    
+function initIconSelector() {
+    const select = document.getElementById('activityType');
+    const container = document.getElementById('iconsContainer');
+
     if (!select || !container) return;
 
-    const options = select.options;
-    container.innerHTML = ''; // مسح أي محتوى قديم
-    select.style.display = 'none'; // إخفاء القائمة الأصلية
+    // مراقب ذكي: بمجرد تعبئة القائمة بالبيانات، يقوم برسم الأيقونات
+    const observer = new MutationObserver(() => {
+        if (select.options.length > 0) {
+            drawIcons(select, container);
+            observer.disconnect(); // نتوقف عن المراقبة بعد أول تعبئة ناجحة
+        }
+    });
 
-    Array.from(options).forEach(opt => {
-        if (!opt.value || opt.value === "") return;
+    observer.observe(select, { childList: true });
+}
 
-        // تحديد الأيقونة بناءً على القيمة (Value)
-        const style = activityStyles[opt.value] || { icon: "📝" };
-        
+function drawIcons(select, container) {
+    container.innerHTML = '';
+    Array.from(select.options).forEach(opt => {
+        if (!opt.value) return;
+
+        const style = activityStyles[opt.value] || { icon: "📝", color: "#ccc" };
         const item = document.createElement('div');
-        item.className = "icon-item";
-        item.innerHTML = `<span>${style.icon}</span><p>${opt.text}</p>`;
-        
+        item.className = "icon-card";
+        item.innerHTML = `<span class="emoji">${style.icon}</span><span class="text">${opt.text}</span>`;
+        item.style.borderBottom = `3px solid ${style.color}`;
+
         item.onclick = function() {
-            select.value = opt.value; // تحديث الـ Select الأصلي
-            
-            // تمييز العنصر المختار بصرياً
-            container.querySelectorAll('.icon-item').forEach(el => el.classList.remove('active'));
+            select.value = opt.value;
+            // إزالة التحديد من الجميع وإضافته لهذا العنصر
+            container.querySelectorAll('.icon-card').forEach(el => el.classList.remove('active'));
             item.classList.add('active');
-            
-            // إطلاق حدث التغيير ليعمل كودك الأصلي المرتبط بالـ Select
+            // إرسال إشارة للنظام أن القيمة تغيرت
             select.dispatchEvent(new Event('change'));
         };
-
         container.appendChild(item);
     });
 }
@@ -201,9 +206,7 @@ function transformSelectToIcons(selectId, containerId) {
 populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
 populateSelectFromLookups("rating", "ACTIVITY_GRADE");
 
-transformSelectToIcons("activityType","iconsContainer");
-
-
+initIconSelector();
 
 let lookupMap = {};
 
