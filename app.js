@@ -403,6 +403,33 @@ function jumpToNext(lastPos, dir) {
 // دالة الحساب وإرجاع القيمة الرقمية
 function calculateExactProgress() {
     const fromID = parseInt(document.getElementById('rangeFrom').value);
+    const toID = parseInt(document.getElementById('rangeTo').value);
+
+    if (isNaN(fromID) || isNaN(toID) || fromID === 0 || toID === 0) {
+        document.getElementById('calcResult').innerText = "0";
+        return 0;
+    }
+
+    let result = 0;
+    if (fromID > toID) {
+        result = QMC_BACKWARDS_NO_PAGES(fromID, toID);
+    } else {
+        result = QMC_GET_FORWARD_NO_PAGES(fromID, toID);
+    }
+
+    // تقريب النتيجة لخانة عشرية واحدة كما في أوراكل (مثل 2.4)
+    const finalVal = parseFloat(result.toFixed(1));
+    
+    // تحديث مربع النتيجة في الواجهة
+    const display = document.getElementById('calcResult');
+    if (display) display.innerText = finalVal;
+
+    return finalVal;
+}
+
+
+function calculateExactProgress02() {
+    const fromID = parseInt(document.getElementById('rangeFrom').value);
     const toID   = parseInt(document.getElementById('rangeTo').value);
 
     if (isNaN(fromID) || isNaN(toID)) return { value: 0 };
@@ -1379,4 +1406,73 @@ document.getElementById("syncBtn").addEventListener("click", () => {
     .then(() => console.log("🎉 انتهت المزامنة"))
     .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
 });
+
+// دالة الحساب للأمام (Forward) - تحاكي منطق أوراكل بدقة الأسطر والبسملة
+function QMC_GET_FORWARD_NO_PAGES(fromID, toID) {
+    const start = QURAN_DATA.find(i => i.id === fromID);
+    const end = QURAN_DATA.find(i => i.id === toID);
+    if (!start || !end || fromID > toID) return 0;
+
+    // محاكاة شرط أوراكل للبسملة والسطر الأول
+    let lSTART_LINE = (start.a === 1 && (start.ls === 2 || start.ls === 3)) ? 1 : start.ls;
+    let lEND_LINE = end.le;
+    
+    // إذا كانت الآية هي آخر آية في الصفحة، نعتبرها أكملت 15 سطراً حسب منطق أوراكل
+    if (end.le === (window.PAGE_MAX_LINES[end.p] || 15)) lEND_LINE = 15;
+
+    let lACTIVITY_NO_PAGES = 0;
+    let numPages = Math.abs(end.p - start.p) + 1;
+
+    for (let i = 1; i <= numPages; i++) {
+        if (i === 1 && numPages === 1) {
+            lACTIVITY_NO_PAGES += (lEND_LINE - lSTART_LINE + 1) / 15;
+        } else if (i === 1 && numPages > 1) {
+            lACTIVITY_NO_PAGES += (15 - lSTART_LINE + 1) / 15;
+        } else if (i === numPages) {
+            lACTIVITY_NO_PAGES += (lEND_LINE / 15);
+        } else {
+            lACTIVITY_NO_PAGES += 1;
+        }
+    }
+    return lACTIVITY_NO_PAGES;
+}
+
+// دالة الحساب العكسي (Backwards) - تجمع السور وتتجاهل ما بينهما
+function QMC_BACKWARDS_NO_PAGES(fromID, toID) {
+    const fromObj = QURAN_DATA.find(i => i.id === fromID);
+    const toObj = QURAN_DATA.find(i => i.id === toID);
+    if (!fromObj || !toObj || fromID <= toID) return 0;
+
+    const diffSura = Math.abs(toObj.s - fromObj.s);
+    let lNO_PAGES = 0;
+
+    // السور المتتالية (مثل المرسلات 77 والإنسان 76)
+    if (diffSura === 1 || diffSura === 0) {
+        const lastAyahFrom = QURAN_DATA.filter(i => i.s === fromObj.s).pop();
+        const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
+        
+        lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(fromObj.id, lastAyahFrom.id);
+        if (diffSura === 1) {
+            lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(firstAyahTo.id, toObj.id);
+        }
+    } 
+    // وجود سور بينهما (المرسلات إلى القيامة)
+    else {
+        const lastAyahFrom = QURAN_DATA.filter(i => i.s === fromObj.s).pop();
+        const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
+        
+        // 1. بقية سورة البدء
+        lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(fromObj.id, lastAyahFrom.id);
+        // 2. السور الكاملة بينهما (تراكمي)
+        for (let sNo = Math.min(fromObj.s, toObj.s) + 1; sNo < Math.max(fromObj.s, toObj.s); sNo++) {
+            const sFirst = QURAN_DATA.find(i => i.s === sNo);
+            const sLast = QURAN_DATA.filter(i => i.s === sNo).pop();
+            lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(sFirst.id, sLast.id);
+        }
+        // 3. بداية سورة النهاية
+        lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(firstAyahTo.id, toObj.id);
+    }
+    return lNO_PAGES;
+}
+
 
