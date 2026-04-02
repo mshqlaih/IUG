@@ -368,3 +368,26 @@ th {
 .toast-success { background-color: #2e7d32 !important; }
 .toast-error { background-color: #d32f2f !important; }
 
+/* تنسيق خلية الحالة لمنع تمدد الجدول */
+td:nth-last-child(2) { 
+    max-width: 200px; /* حدد عرضاً أقصى مناسباً للرسالة */
+    word-wrap: break-word; /* كسر الكلمات الطويلة */
+    overflow-wrap: break-word;
+    font-size: 10px; /* تصغير الخط لرسائل الخطأ التقنية */
+    color: #d32f2f;
+    line-height: 1.2;
+}
+
+/* تحسين شكل رسالة الخطأ لتظهر كصندوق صغير */
+.error-msg {
+    display: block;
+    margin-top: 5px;
+    padding: 5px;
+    background: #fff5f5;
+    border-radius: 4px;
+    border: 1px solid #fed7d7;
+    max-height: 60px; /* تحديد أقصى ارتفاع */
+    overflow-y: auto; /* إظهار شريط تمرير داخلي إذا كان الخطأ طويلاً جداً */
+}
+
+
