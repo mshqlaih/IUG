@@ -80,8 +80,8 @@ window.AYAH_REVERSE = {};
 
 // 1. تشغيل النظام عند التحميل
 window.onload = () => {
-    initDB();
     fillAyatSearchList();
+    initDB();
     document.getElementById('activityDate').valueAsDate = new Date();
     const savedID = localStorage.getItem('teacherID');
     if(savedID) document.getElementById('teacherID').value = savedID;
@@ -128,8 +128,47 @@ function initDB() {
     };
 }
 
-// ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
 function fillAyatSearchList() {
+    const list = document.getElementById('ayatList');
+    if (!list) return; // تأكد أن العنصر موجود
+
+    // 1. إذا كانت القائمة (Datalist) بها خيارات فعلياً، فلا داعي لإعادة بنائها
+    if (list.options.length > 0) {
+        console.log("قائمة البحث جاهزة مسبقاً ✅");
+        return;
+    }
+
+    if (typeof QURAN_DATA === 'undefined') return;
+
+    // 2. بناء PAGE_MAX_LINES و AYAH_REVERSE مرة واحدة فقط
+    if (typeof window.PAGE_MAX_LINES === 'undefined') {
+        window.PAGE_MAX_LINES = QURAN_DATA.reduce((acc, curr) => {
+            acc[curr.p] = Math.max(acc[curr.p] || 0, curr.le);
+            return acc;
+        }, {});
+        
+        // بناء مصفوفة الأسماء (ترجمة IDs إلى نصوص)
+        QURAN_DATA.forEach(item => {
+            window.AYAH_REVERSE[item.id] = item.l;
+        });
+        console.log("تم تجهيز بيانات المساعدة بنجاح ✅");
+    }
+    
+    // 3. بناء قائمة البحث (Datalist)
+    const fragment = document.createDocumentFragment();
+    QURAN_DATA.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.l;
+        option.setAttribute('data-id', item.id); // أفضل من dataset برمجياً للـ Datalist
+        fragment.appendChild(option);
+    });
+
+    list.innerHTML = "";
+    list.appendChild(fragment);
+}
+
+// ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
+function fillAyatSearchList01() {
     const list = document.getElementById('ayatList');
     
 if (!window.AYAH_REVERSE || Object.keys(window.AYAH_REVERSE).length === 0) {
@@ -263,6 +302,22 @@ function handleSmartSearch(inputEl) {
 }
 
 function renderOptions(data) {
+    const list = document.getElementById('ayatList');
+    // window.AYAH_REVERSE = {}; // ❌ احذف هذا السطر فوراً! يسبب مسح البيانات
+    
+    list.innerHTML = "";
+
+    data.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.l;
+        opt.setAttribute('data-id', item.id); // تخزين الـ ID للبحث
+        
+        // لا نحتاج لتعبئة AYAH_REVERSE هنا لأنها تعبأت عند تحميل الصفحة
+        list.appendChild(opt);
+    });
+}
+
+function renderOptions01(data) {
     const list = document.getElementById('ayatList');
     window.AYAH_REVERSE = {};
     list.innerHTML = "";
