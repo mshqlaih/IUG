@@ -668,8 +668,8 @@ function saveActivity() {
         } else {
             store.add(record).onsuccess = () => {
                 refreshAll();
-                alert("تم الحفظ");
-
+                showToast('تم حفظ النشاط بنجاح');
+                resetActivityForm();
                 navigator.serviceWorker.ready.then(reg => {
                     reg.sync.register('sync-records');
                 });
@@ -1486,3 +1486,31 @@ document.getElementById("syncBtn").addEventListener("click", () => {
     .then(() => console.log("🎉 انتهت المزامنة"))
     .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
 });
+
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.innerText = message;
+    toast.classList.remove('toast-hidden');
+    
+    // تختفي تلقائياً بعد 3 ثوانٍ
+    setTimeout(() => {
+        toast.classList.add('toast-hidden');
+    }, 3000);
+}
+
+function resetActivityForm() {
+    // 1. تصفير نصوص البحث والحقول المخفية للآيات
+    document.getElementById('rangeFromText').value = "";
+    document.getElementById('rangeToText').value = "";
+    document.getElementById('rangeFrom').value = "";
+    document.getElementById('rangeTo').value = "";
+
+    // 2. إعادة الأخطاء للصفر
+    document.getElementById('errors').value = 0;
+    
+    // 4. (اختياري) إبقاء اسم الطالب أو تصفيره حسب رغبتك
+    document.getElementById('studentSelect').value = ""; 
+    
+    console.log("تم تنظيف النموذج بنجاح 🧹");
+}
+
