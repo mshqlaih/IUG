@@ -402,11 +402,14 @@ function jumpToNext(lastPos, dir) {
 
 // دالة الحساب وإرجاع القيمة الرقمية
 function calculateExactProgress() {
-    const fromID = parseInt(document.getElementById('rangeFrom').value);
-    const toID = parseInt(document.getElementById('rangeTo').value);
+    const fromVal = document.getElementById('rangeFrom').value;
+    const toVal   = document.getElementById('rangeTo').value;
+
+    const fromID = parseInt(fromVal);
+    const toID   = parseInt(toVal);
 
     if (isNaN(fromID) || isNaN(toID) || fromID === 0 || toID === 0) {
-        document.getElementById('calcResult').innerText = "0";
+        if(document.getElementById('calcResult')) document.getElementById('calcResult').innerText = "0";
         return 0;
     }
 
@@ -417,15 +420,15 @@ function calculateExactProgress() {
         result = QMC_GET_FORWARD_NO_PAGES(fromID, toID);
     }
 
-    // تقريب النتيجة لخانة عشرية واحدة كما في أوراكل (مثل 2.4)
-    const finalVal = parseFloat(result.toFixed(1));
+    // تقريب النتيجة لخانة واحدة (مثلاً 2.4)
+    const finalVal = Number(result).toFixed(1);
     
-    // تحديث مربع النتيجة في الواجهة
     const display = document.getElementById('calcResult');
     if (display) display.innerText = finalVal;
 
     return finalVal;
 }
+
 
 
 function calculateExactProgress02() {
@@ -1407,18 +1410,21 @@ document.getElementById("syncBtn").addEventListener("click", () => {
     .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
 });
 
-// دالة الحساب للأمام (Forward) - تحاكي منطق أوراكل بدقة الأسطر والبسملة
 function QMC_GET_FORWARD_NO_PAGES(fromID, toID) {
+    if (!fromID || !toID || fromID > toID) return 0;
+
     const start = QURAN_DATA.find(i => i.id === fromID);
     const end = QURAN_DATA.find(i => i.id === toID);
-    if (!start || !end || fromID > toID) return 0;
+    
+    if (!start || !end) return 0;
 
-    // محاكاة شرط أوراكل للبسملة والسطر الأول
+    // محاكاة شرط أوراكل للبسملة
     let lSTART_LINE = (start.a === 1 && (start.ls === 2 || start.ls === 3)) ? 1 : start.ls;
     let lEND_LINE = end.le;
     
-    // إذا كانت الآية هي آخر آية في الصفحة، نعتبرها أكملت 15 سطراً حسب منطق أوراكل
-    if (end.le === (window.PAGE_MAX_LINES[end.p] || 15)) lEND_LINE = 15;
+    // التأكد من وجود PAGE_MAX_LINES قبل القراءة منها
+    let maxLines = (window.PAGE_MAX_LINES && window.PAGE_MAX_LINES[end.p]) ? window.PAGE_MAX_LINES[end.p] : 15;
+    if (end.le === maxLines) lEND_LINE = 15;
 
     let lACTIVITY_NO_PAGES = 0;
     let numPages = Math.abs(end.p - start.p) + 1;
@@ -1434,45 +1440,62 @@ function QMC_GET_FORWARD_NO_PAGES(fromID, toID) {
             lACTIVITY_NO_PAGES += 1;
         }
     }
-    return lACTIVITY_NO_PAGES;
+    return lACTIVITY_NO_PAGES || 0; // لضمان عدم عودة undefined
 }
 
-// دالة الحساب العكسي (Backwards) - تجمع السور وتتجاهل ما بينهما
+// دالة الحساب العكسي (Backwards) - مطابقة لمنطق أوراكل
 function QMC_BACKWARDS_NO_PAGES(fromID, toID) {
+    // جلب كائنات الآيات من البيانات
     const fromObj = QURAN_DATA.find(i => i.id === fromID);
     const toObj = QURAN_DATA.find(i => i.id === toID);
+    
+    // فحص السلامة لمنع undefined
     if (!fromObj || !toObj || fromID <= toID) return 0;
 
     const diffSura = Math.abs(toObj.s - fromObj.s);
     let lNO_PAGES = 0;
 
-    // السور المتتالية (مثل المرسلات 77 والإنسان 76)
-    if (diffSura === 1 || diffSura === 0) {
-        const lastAyahFrom = QURAN_DATA.filter(i => i.s === fromObj.s).pop();
-        const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
-        
+    // 1. إذا كانت نفس السورة أو سور متتالية (المرسلات والإنسان مثلاً)
+    if (diffSura === 0 || diffSura === 1) {
+        // حساب بقية سورة البدء (من آية البدء لآخر آية في السورة)
+        const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
+        const lastAyahFrom = suraFromAyahs[suraFromAyahs.length - 1];
         lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(fromObj.id, lastAyahFrom.id);
+
+        // إذا انتقل لسورة ثانية، نحسب من بداية السورة لآية النهاية
         if (diffSura === 1) {
+            const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
             lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(firstAyahTo.id, toObj.id);
         }
     } 
-    // وجود سور بينهما (المرسلات إلى القيامة)
+    // 2. إذا وجد سور كاملة بينهما (المرسلات إلى القيامة)
     else {
-        const lastAyahFrom = QURAN_DATA.filter(i => i.s === fromObj.s).pop();
-        const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
-        
-        // 1. بقية سورة البدء
+        // أ- بقية سورة البدء
+        const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
+        const lastAyahFrom = suraFromAyahs[suraFromAyahs.length - 1];
         lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(fromObj.id, lastAyahFrom.id);
-        // 2. السور الكاملة بينهما (تراكمي)
-        for (let sNo = Math.min(fromObj.s, toObj.s) + 1; sNo < Math.max(fromObj.s, toObj.s); sNo++) {
+
+        // ب- السور الكاملة بينهما (تراكمي)
+        // نستخدم الترتيب العكسي حسب الـ id في مصفوفتك
+        const minSura = Math.min(fromObj.s, toObj.s);
+        const maxSura = Math.max(fromObj.s, toObj.s);
+        
+        for (let sNo = minSura + 1; sNo < maxSura; sNo++) {
             const sFirst = QURAN_DATA.find(i => i.s === sNo);
-            const sLast = QURAN_DATA.filter(i => i.s === sNo).pop();
-            lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(sFirst.id, sLast.id);
+            const sLastAyahs = QURAN_DATA.filter(i => i.s === sNo);
+            const sLast = sLastAyahs[sLastAyahs.length - 1];
+            
+            if (sFirst && sLast) {
+                lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(sFirst.id, sLast.id);
+            }
         }
-        // 3. بداية سورة النهاية
+
+        // ج- بداية سورة النهاية
+        const firstAyahTo = QURAN_DATA.find(i => i.s === toObj.s);
         lNO_PAGES += QMC_GET_FORWARD_NO_PAGES(firstAyahTo.id, toObj.id);
     }
-    return lNO_PAGES;
+
+    return lNO_PAGES || 0;
 }
 
 
