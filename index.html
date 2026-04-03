@@ -72,39 +72,39 @@
     <div id="iconsContainer" class="flex-icons"></div>
 </div>
        <div id="extraFieldsContainer" class="grid" style="grid-column: 1 / -1; display: grid; gap: 15px;">
-        <!-- بقية الحقول -->
-        <div class="field">
-            <label>الآية من</label>    
-            <div class="input-with-clear">
-                <input list="ayatList" id="rangeFromText" placeholder="مثلاً: بقرة 155" oninput="handleSmartSearch(this); syncAyahID(this, 'rangeFrom')">
-                <span class="clear-btn" onclick="document.getElementById('rangeFromText').value=''">✖</span> 
-                <input type="hidden" id="rangeFrom">                       
-            </div>
-        </div> 
+            <div class="field">
+                <label>الآية من</label>    
+                <div class="input-with-clear">
+                    <input list="ayatList" id="rangeFromText" placeholder="مثلاً: بقرة 155" oninput="handleSmartSearch(this); syncAyahID(this, 'rangeFrom')">
+                    <span class="clear-btn" onclick="document.getElementById('rangeFromText').value=''">✖</span> 
+                    <input type="hidden" id="rangeFrom">                       
+                </div>
+            </div> 
 
-        <div class="field">  
-            <label>الآية إلى</label>    
-            <div class="input-with-clear">
-                <input list="ayatList" id="rangeToText" placeholder="مثلاً: ص 20" oninput="handleSmartSearch(this);syncAyahID(this, 'rangeTo')">
-                <span class="clear-btn" onclick="document.getElementById('rangeToText').value=''">✖</span>
-                <input type="hidden" id="rangeTo">   
+            <div class="field">  
+                <label>الآية إلى</label>    
+                <div class="input-with-clear">
+                    <input list="ayatList" id="rangeToText" placeholder="مثلاً: ص 20" oninput="handleSmartSearch(this);syncAyahID(this, 'rangeTo')">
+                    <span class="clear-btn" onclick="document.getElementById('rangeToText').value=''">✖</span>
+                    <input type="hidden" id="rangeTo">   
+                </div>
             </div>
-        </div>
         
-        <div class="field">
-            <label>أخطاء</label>
-            <input type="number" id="errors" value="0">
-        </div>
+            <div class="field">
+                <label>أخطاء</label>
+                <input type="number" id="errors" value="0">
+            </div>
 
-        <div class="field">
-            <label>التقييم</label>
-            <select id="rating"></select>
-        </div>
-       </div>   
-    </div>                
+            <div class="field">
+                <label>التقييم</label>
+                <select id="rating"></select>
+            </div>
+       </div>  -- extraFieldsContainer  
+    </div> -- grid               
 
     <button class="btn-save" onclick="saveActivity()">حفظ سجل النشاط ✅</button>
 </div>
+        </div>            
         <!-- شاشة إدارة الطلاب -->
         <div id="studentsTab" class="tab-content">
             <div class="card">
