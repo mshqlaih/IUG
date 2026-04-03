@@ -1522,7 +1522,7 @@ function handleActivityTypeChange(type) {
     // قائمة الأنواع التي تتطلب إخفاء الحقول
     const hideForTypes = [3,4,5];
 
-    if (hideForTypes.includes(Number(typeId))) {
+    if (hideForTypes.includes(Number(type))) {
         // 1. إخفاء الحقول
         extraFields.style.display = 'none';
         
