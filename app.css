@@ -390,4 +390,28 @@ td:nth-last-child(2) {
     overflow-y: auto; /* إظهار شريط تمرير داخلي إذا كان الخطأ طويلاً جداً */
 }
 
+.icons-full-width {
+    grid-column: 1 / -1; /* يمتد من أول عمود لآخر عمود */
+    margin-top: 10px;
+    margin-bottom: 15px;
+}
+
+/* توزيع الأيقونات بشكل مريح */
+.flex-icons {
+    display: flex;
+    flex-wrap: wrap; /* للسماح بالنزول لسطر جديد في الشاشات الصغيرة */
+    gap: 12px;       /* المسافة بين الأيقونات */
+    justify-content: flex-start; /* محاذاة لليمين */
+}
+
+/* تحسين مظهر كل أيقونة */
+.flex-icons .icon-item { /* استبدل .icon-item باسم الكلاس لديك */
+    flex: 0 1 auto;
+    min-width: 80px;  /* عرض أدنى للأيقونة لتبدو متناسقة */
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+}
 
