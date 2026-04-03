@@ -250,6 +250,8 @@ function drawIcons(select, container) {
     const select = document.getElementById('activityType');
     select.value = opt.value;
 
+    handleActivityTypeChange(opt.value);        
+
     // 2. إزالة التميز (active) من جميع البطاقات الأخرى
     const allCards = container.querySelectorAll('.icon-card');
     allCards.forEach(card => card.classList.remove('active'));
@@ -1512,5 +1514,29 @@ function resetActivityForm() {
     document.getElementById('studentSelect').value = ""; 
     
     console.log("تم تنظيف النموذج بنجاح 🧹");
+}
+
+function handleActivityTypeChange(type) {
+    const extraFields = document.getElementById('extraFieldsContainer');
+    
+    // قائمة الأنواع التي تتطلب إخفاء الحقول
+    const hideForTypes = [3,4,5];
+
+    if (hideForTypes.includes(Number(typeId))) {
+        // 1. إخفاء الحقول
+        extraFields.style.display = 'none';
+        
+        // 2. تصفير القيم (وضع قيم افتراضية)
+        document.getElementById('rangeFromText').value = '';
+        document.getElementById('rangeFrom').value = '0';
+        document.getElementById('rangeToText').value = '';
+        document.getElementById('rangeTo').value = '0';
+        document.getElementById('errors').value = '0';
+        document.getElementById('rating').value = ''; // أو قيمة افتراضية مثل "لم يقيم"
+        
+    } else {
+        // إظهار الحقول في حال كان النشاط تسميع أو سرد
+        extraFields.style.display = 'grid';
+    }
 }
 
