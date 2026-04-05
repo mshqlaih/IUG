@@ -90,9 +90,9 @@
                 </div>
             </div>
 
-           <div style="display:none;" id="juzField" class="field">
+           <div style="display:none;" id="juzdiv" class="field">
                   <label>اختر الجزء</label>
-                  <select id="juzSelect" onchange="setJuzRange(this.value)">
+                  <select id="juzNo">
                     <option value="">-- اختر الجزء --</option>
                     <option value="1">الجزء الأول</option>
                     <option value="2">الجزء الثاني</option>
@@ -126,7 +126,12 @@
                     <option value="30">الجزء الثلاثون (جزء عمّ)</option>
                   </select>
             </div>
-        
+
+           <div  style="display:none;" id="markdiv" class="field">
+                <label>العلامة</label>
+                <input type="number" id="mark" value="">
+            </div>
+           
             <div class="field">
                 <label>أخطاء</label>
                 <input type="number" id="errors" value="0">
@@ -269,13 +274,5 @@
     <div id="toast" class="toast-hidden"></div>
 </body>
 </html>
-
-
-
-
-
-
-
-
 
 
