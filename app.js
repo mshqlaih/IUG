@@ -637,6 +637,10 @@ function saveActivity() {
     const fromRange = parseInt(document.getElementById('rangeFrom').value) || null;
     const toRange   = parseInt(document.getElementById('rangeTo').value) || null;
 
+    const mark =  parseInt(document.getElementById('mark').value) || null;
+    const juzFrom =  parseInt(document.getElementById('juzFrom').value) || null;
+    const juzTo =  parseInt(document.getElementById('juzTo').value) || null;
+
     if (!teacher || !student || !type) {
         return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
     }
@@ -656,7 +660,8 @@ function saveActivity() {
         part: QURAN_DATA.find(i => i.id === toRange)?.j || "---",
         errors: document.getElementById('errors').value || 0,
         rating: rating,
-        synced: false
+        synced: false,
+        mark:mark
     };
 
     const tx = db.transaction("records", "readwrite");
@@ -1517,6 +1522,85 @@ function resetActivityForm() {
 }
 
 function handleActivityTypeChange(type) {
+
+    const extraFields = document.getElementById('extraFieldsContainer');
+
+    // حقول الآيات
+    const rangeFromDiv = document.getElementById('rangeFromText').parentElement.parentElement;
+    const rangeToDiv   = document.getElementById('rangeToText').parentElement.parentElement;
+
+    // مجموعة الأجزاء داخل extraFields
+    const examDiv = document.getElementById('examdiv');
+
+    // الأخطاء والتقييم
+    const errorsDiv  = document.getElementById('errors').parentElement;
+    const ratingDiv  = document.getElementById('rating').parentElement;
+
+    // الأنواع التي تُخفي كل شيء
+    const hideForTypes = [3, 4, 5];
+
+    // النوع الذي يُظهر فقط examdiv
+    const showOnlyExamDiv = 6;
+
+    // -----------------------------------
+    // ✅ 1) إخفاء جميع الحقول كاملة
+    // -----------------------------------
+    if (hideForTypes.includes(Number(type))) {
+
+        extraFields.style.display = 'none';
+
+        // تصفير القيم
+        document.getElementById('rangeFromText').value = '';
+        document.getElementById('rangeToText').value = '';
+        document.getElementById('rangeFrom').value = '0';
+        document.getElementById('rangeTo').value = '0';
+        document.getElementById('errors').value = 0;
+        document.getElementById('rating').value = '';
+
+        examDiv.style.display = 'none';
+
+        return;
+    }
+
+    // -----------------------------------
+    // ✅ 2) إظهار الأجزاء فقط (examdiv)
+    // -----------------------------------
+    if (Number(type) === showOnlyExamDiv) {
+
+        extraFields.style.display = 'grid';
+
+        // ✅ إظهار examdiv (الجزء من/إلى + العلامة)
+        examDiv.style.display = 'block';
+
+        // ✅ إخفاء الآيات
+        rangeFromDiv.style.display = 'none';
+        rangeToDiv.style.display   = 'none';
+
+        // ✅ إخفاء الأخطاء والتقييم
+        errorsDiv.style.display = 'none';
+        ratingDiv.style.display = 'none';
+
+        return;
+    }
+
+    // -----------------------------------
+    // ✅ 3) الوضع الطبيعي (تسميع/سرد)
+    // -----------------------------------
+    extraFields.style.display = 'grid';
+
+    // ✅ إظهار الآيات
+    rangeFromDiv.style.display = 'block';
+    rangeToDiv.style.display   = 'block';
+
+    // ✅ إخفاء examdiv
+    examDiv.style.display = 'none';
+
+    // ✅ إظهار الأخطاء والتقييم
+    errorsDiv.style.display = 'block';
+    ratingDiv.style.display = 'block';
+}
+
+function handleActivityTypeChange01(type) {
     const extraFields = document.getElementById('extraFieldsContainer');
     
     // قائمة الأنواع التي تتطلب إخفاء الحقول
