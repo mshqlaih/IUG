@@ -638,8 +638,8 @@ function saveActivity() {
     const toRange   = parseInt(document.getElementById('rangeTo').value) || null;
 
     const mark =  parseInt(document.getElementById('mark').value) || null;
-    const juzFrom =  parseInt(document.getElementById('juzFrom').value) || null;
-    const juzTo =  parseInt(document.getElementById('juzTo').value) || null;
+    const partFrom =  parseInt(document.getElementById('partFrom').value) || null;
+    const partTo =  parseInt(document.getElementById('partTo').value) || null;
 
     if (!teacher || !student || !type) {
         return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
