@@ -661,7 +661,9 @@ function saveActivity() {
         errors: document.getElementById('errors').value || 0,
         rating: rating,
         synced: false,
-        mark:mark
+        mark:mark,
+        partFrom:partFrom,
+        partTo:partTo
     };
 
     const tx = db.transaction("records", "readwrite");
