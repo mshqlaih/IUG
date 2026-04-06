@@ -89,10 +89,47 @@
                     <input type="hidden" id="rangeTo">   
                 </div>
             </div>
-
-           <div style="display:none;" id="juzdiv" class="field">
-                  <label>اختر الجزء</label>
-                  <select id="juzNo">
+          <div id="examdiv">
+           <div style="display:none;" class="field">
+                  <label>اختر الجزء من</label>
+                  <select id="juzFrom">
+                    <option value="">-- اختر الجزء --</option>
+                    <option value="1">الجزء الأول</option>
+                    <option value="2">الجزء الثاني</option>
+                    <option value="3">الجزء الثالث</option>
+                    <option value="4">الجزء الرابع</option>
+                    <option value="5">الجزء الخامس</option>
+                    <option value="6">الجزء السادس</option>
+                    <option value="7">الجزء السابع</option>
+                    <option value="8">الجزء الثامن</option>
+                    <option value="9">الجزء التاسع</option>
+                    <option value="10">الجزء العاشر</option>
+                    <option value="11">الجزء الحادي عشر</option>
+                    <option value="12">الجزء الثاني عشر</option>
+                    <option value="13">الجزء الثالث عشر</option>
+                    <option value="14">الجزء الرابع عشر</option>
+                    <option value="15">الجزء الخامس عشر</option>
+                    <option value="16">الجزء السادس عشر</option>
+                    <option value="17">الجزء السابع عشر</option>
+                    <option value="18">الجزء الثامن عشر</option>
+                    <option value="19">الجزء التاسع عشر</option>
+                    <option value="20">الجزء العشرون</option>
+                    <option value="21">الجزء الحادي والعشرون</option>
+                    <option value="22">الجزء الثاني والعشرون</option>
+                    <option value="23">الجزء الثالث والعشرون</option>
+                    <option value="24">الجزء الرابع والعشرون</option>
+                    <option value="25">الجزء الخامس والعشرون</option>
+                    <option value="26">الجزء السادس والعشرون</option>
+                    <option value="27">الجزء السابع والعشرون</option>
+                    <option value="28">الجزء الثامن والعشرون</option>
+                    <option value="29">الجزء التاسع والعشرون (جزء تبارك)</option>
+                    <option value="30">الجزء الثلاثون (جزء عمّ)</option>
+                  </select>
+            </div>
+           
+           <div style="display:none;" class="field">
+                  <label>اختر الجزء إلى</label>
+                  <select id="juzTo">
                     <option value="">-- اختر الجزء --</option>
                     <option value="1">الجزء الأول</option>
                     <option value="2">الجزء الثاني</option>
@@ -127,10 +164,12 @@
                   </select>
             </div>
 
-           <div  style="display:none;" id="markdiv" class="field">
+           <div  style="display:none;" class="field">
                 <label>العلامة</label>
                 <input type="number" id="mark" value="">
             </div>
+
+           </div>   
            
             <div class="field">
                 <label>أخطاء</label>
