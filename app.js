@@ -645,8 +645,12 @@ function saveActivity() {
         return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
     }
     
-    if ((type === 1 || type === 2 || type === 6 || type === 7 ) && (!fromRange || !toRange)) {
+    if ((type === 1 || type === 2 || type === 7 ) && (!fromRange || !toRange)) {
         return alert("يجب اختيار آيات صحيحة من القائمة");
+    }
+
+    if ((type === 7) && (!partFrom || !partTo)) {
+        return alert("يجب ادخال الجزء من والجزء إلى والعلامة");
     }
 
     const record = {
