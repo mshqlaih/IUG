@@ -1518,6 +1518,10 @@ function resetActivityForm() {
     document.getElementById('rangeFrom').value = "";
     document.getElementById('rangeTo').value = "";
 
+    document.getElementById('partFrom').value = "";
+    document.getElementById('partTo').value = "";
+    document.getElementById('mark').value = "";
+
     // 2. إعادة الأخطاء للصفر
     document.getElementById('errors').value = 0;
     
