@@ -807,11 +807,59 @@ function displayRecords() {
                 const matchesID = !fID || r.student.includes(fID);
 
                 if (matchesDate && matchesID) {
-                    const fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
-                    const toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
+                    let fromText = "";
+                    let toText   = "";
+
+// ✅ إذا كان اختبار جزء (نوع النشاط = 6)
+if (r.type == 6) {
+    const juzNames = {
+        1: "الجزء الأول",
+        2: "الجزء الثاني",
+        3: "الجزء الثالث",
+        4: "الجزء الرابع",
+        5: "الجزء الخامس",
+        6: "الجزء السادس",
+        7: "الجزء السابع",
+        8: "الجزء الثامن",
+        9: "الجزء التاسع",
+        10: "الجزء العاشر",
+        11: "الجزء الحادي عشر",
+        12: "الجزء الثاني عشر",
+        13: "الجزء الثالث عشر",
+        14: "الجزء الرابع عشر",
+        15: "الجزء الخامس عشر",
+        16: "الجزء السادس عشر",
+        17: "الجزء السابع عشر",
+        18: "الجزء الثامن عشر",
+        19: "الجزء التاسع عشر",
+        20: "الجزء العشرون",
+        21: "الجزء الحادي والعشرون",
+        22: "الجزء الثاني والعشرون",
+        23: "الجزء الثالث والعشرون",
+        24: "الجزء الرابع والعشرون",
+        25: "الجزء الخامس والعشرون",
+        26: "الجزء السادس والعشرون",
+        27: "الجزء السابع والعشرون",
+        28: "الجزء الثامن والعشرون",
+        29: "الجزء التاسع والعشرون",
+        30: "الجزء الثلاثون"
+    };
+
+    fromText = juzNames[r.partFrom] || "";
+    toText   = juzNames[r.partTo]   || "";
+
+} else {
+    // ✅ الوضع الطبيعي: عرض الآيات
+    fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
+    toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
+}
+
+               //     const fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
+                //    const toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
                    
                     const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", r.type);
                     const ratingName   = translateLookup("ACTIVITY_GRADE", r.rating);
+                   
 
                     // ✨ خزّن البيانات في المصفوفة
                     const errorText = !r.synced ? extractArabicError(r.syncError) : "";
@@ -822,11 +870,12 @@ function displayRecords() {
                       "اسم الطالب": studentName,
                       "رقم الطالب": r.student,
                       "النوع": activityName,
-                      "من الآية": fromText,
-                      "إلى الآية": toText,
+                      "من": fromText,
+                      "إلى": toText,
                       "عدد الصفحات": r.amount,
+                      "التقييم": ratingName, 
                       "الأخطاء": r.errors,
-                      "التقييم": ratingName,
+                      "العلامة" : r.mark,
                       "الحالة": r.synced
                           ? "✔ تم الرفع"
                           : "✘ لم يُرفع" + (errorText && errorText.trim() !== "" ? "\n" + errorText : "")
@@ -842,8 +891,9 @@ function displayRecords() {
                             <td style="font-size:11px">${fromText}</td>
                             <td style="font-size:11px">${toText}</td>
                             <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
-                            <td>${r.errors}</td>
                             <td>${ratingName}</td>
+                            <td>${r.mark}</td>
+                            <td>${r.errors}</td>
                             <td>
                                 ${r.synced 
                                     ? '<span style="color:green">✔ تم الرفع</span>' 
