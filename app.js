@@ -1570,7 +1570,7 @@ function handleActivityTypeChange(type) {
         extraFields.style.display = 'grid';
 
         // ✅ إظهار examdiv (الجزء من/إلى + العلامة)
-        examDiv.style.display = 'block';
+        examDiv.style.display = 'grid';
 
         // ✅ إخفاء الآيات
         rangeFromDiv.style.display = 'none';
