@@ -622,7 +622,93 @@ function progressToText(value) {
 
 
 // 6. حفظ النشاط
+function saveActivity00() {
 
+    const prog = calculateExactProgress();
+
+    const rawDate = document.getElementById('activityDate').value;
+    if (!rawDate) {
+        return alert("يجب إدخال تاريخ النشاط");
+    }
+
+    const onlyDate = new Date(rawDate).toISOString().split("T")[0];
+
+    const teacher   = clean(parseInt(document.getElementById('teacherID').value), 0);
+    const student   = clean(parseInt(document.getElementById('studentSelect').value), 0);
+    const type      = clean(parseInt(document.getElementById('activityType').value), 0);
+    const rating    = clean(parseInt(document.getElementById('rating').value), 0);
+
+    const fromRange = clean(parseInt(document.getElementById('rangeFrom').value), 0);
+    const toRange   = clean(parseInt(document.getElementById('rangeTo').value), 0);
+
+    const mark      = clean(parseInt(document.getElementById('mark').value), "");
+    const partFrom  = clean(parseInt(document.getElementById('partFrom').value), 0);
+    const partTo    = clean(parseInt(document.getElementById('partTo').value), 0);
+
+    const errors    = clean(parseInt(document.getElementById('errors').value), 0);
+
+    // ✅ تحقق أساسي
+    if (!teacher || !student || !type) {
+        return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
+    }
+
+    if ((type === 1 || type === 2 || type === 7) && (!fromRange || !toRange)) {
+        return alert("يجب اختيار آيات صحيحة من القائمة");
+    }
+
+    if (type === 7 && (!partFrom || !partTo)) {
+        return alert("يجب إدخال الجزء من وإلى");
+    }
+
+    const record = {
+        teacher   : teacher,                 // رقم فقط
+        student   : student,
+        date      : onlyDate,
+        type      : type,
+
+        fromRange : fromRange || "",
+        toRange   : toRange   || "",
+
+        amount    : prog || 0,
+
+        part      : clean(
+                      QURAN_DATA.find(i => i.id === toRange)?.j,
+                      ""
+                    ),
+
+        errors    : errors,
+        rating    : rating || "",
+
+        mark      : mark,
+        partFrom  : partFrom || "",
+        partTo    : partTo   || "",
+
+        synced    : false,
+        syncError : ""
+    };
+
+    const tx = db.transaction("records", "readwrite");
+    const store = tx.objectStore("records");
+    const index = store.index("student_date_type");
+
+    const check = index.get([record.student, record.date, record.type]);
+
+    check.onsuccess = () => {
+        if (check.result) {
+            alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
+        } else {
+            store.add(record).onsuccess = () => {
+                refreshAll();
+                showToast("تم حفظ النشاط بنجاح");
+                resetActivityForm();
+
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.sync.register("sync-records");
+                });
+            };
+        }
+    };
+}
 function saveActivity() {
     const prog = calculateExactProgress();
     const rawDate = document.getElementById('activityDate').value;
@@ -910,7 +996,6 @@ if (r.type == 6) {
 }
 
 
-
 function resetFilters() {
     document.getElementById('filterDate').valueAsDate = new Date();
     document.getElementById('filterStudentID').value = "";
@@ -1069,14 +1154,6 @@ function exportToExcel01() {
       XLSX.writeFile(wb, "Quran_Report.xlsx");
     };
   };
-}
-
-function exportToExcel01() {
-    db.transaction("records").objectStore("records").getAll().onsuccess = e => {
-        const ws = XLSX.utils.json_to_sheet(e.target.result);
-        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Records");
-        XLSX.writeFile(wb, "Quran_Report.xlsx");
-    };
 }
 
 function editStudent(id) {
@@ -1809,3 +1886,14 @@ function getArabicDateText() {
   });
 }
 
+function clean(value, fallback = "") {
+  if (value === undefined || value === null) return fallback;
+
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (v === "" || v === "null" || v === "undefined") return fallback;
+    return value.trim();
+  }
+
+  return value;
+}
