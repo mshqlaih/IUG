@@ -10,8 +10,7 @@ const ASSETS = [
   './students.json',
   './STATIC_LOOKUP.json',
   './manifest.json',
-  './jspdf.umd.min.js',
-  './jspdf.plugin.autotable.min.js'
+  './html2pdf.bundle.min.js'
 ];
 
 // تثبيت الملفات في الذاكرة
