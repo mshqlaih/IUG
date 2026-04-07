@@ -1660,6 +1660,12 @@ function handleActivityTypeChange(type) {
     ratingDiv.style.display = 'block';
 }
 
+function registerArabicFont(doc) {
+  doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
+  doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+  doc.setFont("Amiri");
+}
+
 function exportPDF() {
 
   if (!lastDisplayedData || lastDisplayedData.length === 0) {
