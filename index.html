@@ -212,14 +212,20 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom:10px">
                     <h3 style="margin:0">📊 سجلات الأنشطة</h3>
-                    <div style="display:flex; gap:8px;">
-                          <button class="btn-excel" onclick="exportToExcel()">
-                            📊 Excel
-                          </button>
-                        
-                          <button class="btn-pdf" onclick="exportPDF()">
-                            📄 PDF
-                          </button>
+                   <div style="display:flex; gap:8px;">
+
+                      <button class="btn-excel" onclick="exportToExcel()">
+                        📊 Excel
+                      </button>
+                    
+                      <button class="btn-pdf" onclick="exportPDF()">
+                        📄 تنزيل PDF
+                      </button>
+                    
+                      <button class="btn-whatsapp" onclick="exportAndSharePDF()">
+                        📤 مشاركة واتساب
+                      </button>
+
                     </div>
                 </div>
                 <div class="card" style="background: #f8f9fa; border: 1px solid #dee2e6;">
