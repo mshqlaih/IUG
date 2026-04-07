@@ -1897,3 +1897,65 @@ function clean(value, fallback = "") {
 
   return value;
 }
+
+function getTeacherCache() {
+  return JSON.parse(localStorage.getItem("teacher_cache")) || {};
+}
+
+function saveTeacherToCache(id, name) {
+  const cache = getTeacherCache();
+  cache[id] = name;
+  localStorage.setItem("teacher_cache", JSON.stringify(cache));
+}
+
+async function resolveTeacherName(teacherID) {
+
+  const cache = getTeacherCache();
+
+  // ✅ 1. موجود محليًا
+  if (cache[teacherID]) {
+    return cache[teacherID];
+  }
+
+  // ✅ 2. غير موجود → جلب من السيرفر
+  try {
+    const response = await fetch(
+      `/ords/api/teachers/${teacherID}`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      throw new Error("Teacher not found");
+    }
+
+    const data = await response.json();
+
+    // نفترض أن السيرفر يرجع:
+    // { "name": "فلان علان" }
+    const teacherName = data.name;
+
+    // ✅ خزنه محليًا
+    saveTeacherToCache(teacherID, teacherName);
+
+    return teacherName;
+
+  } catch (err) {
+    console.error(err);
+    return ""; // أو "غير معروف"
+  }
+}
+
+async function onTeacherIDChange() {
+  const id = document.getElementById("teacherID").value;
+  if (!id) return;
+
+  const name = await resolveTeacherName(id);
+
+  if (name) {
+    console.log("اسم المسمع:", name);
+    // إن أحببت عرضه:
+    // document.getElementById("teacherName").textContent = name;
+  } else {
+    alert("لم يتم العثور على المسمّع");
+  }
+}
