@@ -1959,3 +1959,50 @@ async function onTeacherIDChange() {
     alert("لم يتم العثور على المسمّع");
   }
 }
+
+async function saveTeacherID01() {
+
+    const id = document.getElementById('teacherID').value;
+    if (!id) {
+        return alert("❌ الرجاء إدخال رقم الهوية");
+    }
+
+    // ✅ التحقق من صيغة الرقم (منطقك القديم)
+    const result = checkIDNumber(id);
+    if (result !== "Y") {
+        return alert("❌ " + result);
+    }
+
+    const cache = getTeacherCache();
+
+    // ✅ 1. موجود مسبقًا
+    if (cache[id]) {
+        alert("✅ المسمع محفوظ مسبقًا: " + cache[id]);
+        return;
+    }
+
+    // ✅ 2. غير موجود → جلب من السيرفر
+    try {
+        const response = await fetch(`/ords/api/teachers/${id}`);
+
+        if (!response.ok) {
+            throw new Error("لم يتم العثور على المسمع");
+        }
+
+        const data = await response.json();
+        const teacherName = data.name;
+
+        if (!teacherName) {
+            throw new Error("الاسم غير متوفر");
+        }
+
+        // ✅ حفظ في الكاش
+        saveTeacherToCache(id, teacherName);
+
+        alert("✅ تم حفظ المسمع: " + teacherName);
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ فشل جلب اسم المسمع من السيرفر");
+    }
+}
