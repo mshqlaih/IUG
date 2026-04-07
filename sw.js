@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.2058';
+const CACHE_NAME = 'quran-app-v1.2059';
 const ASSETS = [
   './',
   './index.html',
@@ -10,8 +10,8 @@ const ASSETS = [
   './students.json',
   './STATIC_LOOKUP.json',
   './manifest.json',
-  '/.jspdf.umd.min.js',
-  '/.jspdf.plugin.autotable.min.js'
+  './jspdf.umd.min.js',
+  './jspdf.plugin.autotable.min.js'
 ];
 
 // تثبيت الملفات في الذاكرة
