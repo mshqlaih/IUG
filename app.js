@@ -1660,27 +1660,73 @@ function handleActivityTypeChange(type) {
     ratingDiv.style.display = 'block';
 }
 
-function handleActivityTypeChange01(type) {
-    const extraFields = document.getElementById('extraFieldsContainer');
-    
-    // قائمة الأنواع التي تتطلب إخفاء الحقول
-    const hideForTypes = [3,4,5];
+function exportPDF() {
 
-    if (hideForTypes.includes(Number(type))) {
-        // 1. إخفاء الحقول
-        extraFields.style.display = 'none';
-        
-        // 2. تصفير القيم (وضع قيم افتراضية)
-        document.getElementById('rangeFromText').value = '';
-        document.getElementById('rangeFrom').value = '0';
-        document.getElementById('rangeToText').value = '';
-        document.getElementById('rangeTo').value = '0';
-        document.getElementById('errors').value = '0';
-        document.getElementById('rating').value = ''; // أو قيمة افتراضية مثل "لم يقيم"
-        
-    } else {
-        // إظهار الحقول في حال كان النشاط تسميع أو سرد
-        extraFields.style.display = 'grid';
+  if (!lastDisplayedData || lastDisplayedData.length === 0) {
+    alert("لا توجد بيانات لطباعتها");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("l", "mm", "a4"); // أفقي لأن البيانات كثيرة
+
+  // عنوان التقرير
+  doc.setFontSize(14);
+  doc.text("تقرير نشاط التحفيظ", doc.internal.pageSize.getWidth() / 2, 12, { align: "center" });
+
+  // التاريخ
+  doc.setFontSize(9);
+  doc.text(`تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`, 14, 18);
+
+  // رؤوس الأعمدة (من مفاتيح الكائن)
+  const headers = Object.keys(lastDisplayedData[0]);
+
+  // الصفوف
+  const rows = lastDisplayedData.map(row =>
+    headers.map(h => row[h] ?? "")
+  );
+
+  doc.autoTable({
+    startY: 22,
+    head: [headers],
+    body: rows,
+    styles: {
+      fontSize: 8,
+      halign: "right"
+    },
+    headStyles: {
+      fillColor: [230,230,230],
+      textColor: 0
+    },
+    theme: "grid",
+    didDrawPage: function () {
+      doc.setFontSize(8);
+      doc.text(
+        "تم إنشاؤه من نظام نشاط التحفيظ",
+        doc.internal.pageSize.getWidth() / 2,
+        doc.internal.pageSize.getHeight() - 8,
+        { align: "center" }
+      );
     }
+  });
+
+  const fileName = `نشاط_التحفيظ_${Date.now()}.pdf`;
+  doc.save(fileName);
+
+  // ✅ مشاركة مباشرة (لو مدعومة)
+  shareIfPossible(fileName, doc);
+}
+
+function shareIfPossible(fileName, doc) {
+  if (!navigator.canShare) return;
+
+  const pdfBlob = doc.output("blob");
+  const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+  navigator.share({
+    title: "نشاط التحفيظ",
+    text: "تقرير نشاط الطالب",
+    files: [file]
+  }).catch(() => {});
 }
 
