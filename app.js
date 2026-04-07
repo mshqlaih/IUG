@@ -1662,25 +1662,39 @@ function handleActivityTypeChange(type) {
 
 function exportPDF() {
 
-  const element = document.getElementById("logsTab");
+  const table = document.getElementById("pdfArea");
 
-  const opt = {
-    margin: 0.5,
-    filename: 'نشاط_التحفيظ.pdf',
-    image: { type: 'jpeg', quality: 1 },
-    html2canvas: {
-      scale: 3,        // ✅ أهم سطر
-      backgroundColor: '#ffffff'
-    },
-    jsPDF: {
-      unit: 'cm',
-      format: 'a4',
-      orientation: 'landscape'
-    }
-  };
+  if (!table) {
+    alert("الجدول غير موجود");
+    return;
+  }
 
-  html2pdf().set(opt).from(element).save();
+  // ✅ تأكد أن له ارتفاع
+  const rect = table.getBoundingClientRect();
+  if (rect.height === 0) {
+    alert("الجدول مخفي أو فارغ");
+    return;
+  }
+
+  html2pdf()
+    .set({
+      margin: 0.5,
+      filename: 'نشاط_التحفيظ.pdf',
+      image: { type: 'png', quality: 1 },
+      html2canvas: {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      },
+      jsPDF: {
+        unit: 'cm',
+        format: 'a4',
+        orientation: 'landscape'
+      }
+    })
+    .from(table)
+    .save();
 }
+
 function shareIfPossible(fileName, doc) {
   if (!navigator.canShare) return;
 
