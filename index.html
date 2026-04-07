@@ -212,7 +212,15 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom:10px">
                     <h3 style="margin:0">📊 سجلات الأنشطة</h3>
-                    <button class="btn-excel" onclick="exportToExcel()">تصدير Excel 📥</button>
+                    <div style="display:flex; gap:8px;">
+                          <button class="btn-excel" onclick="exportToExcel()">
+                            📊 Excel
+                          </button>
+                        
+                          <button class="btn-pdf" onclick="exportPDF()">
+                            📄 PDF
+                          </button>
+                    </div>
                 </div>
                 <div class="card" style="background: #f8f9fa; border: 1px solid #dee2e6;">
     <label class="fw-bold mb-2">🔍 تصفية السجلات</label>
@@ -311,6 +319,8 @@
         }
     </script>
     <script src="app.js"></script>
+    <script src="jspdf.umd.min.js"></script>
+<script src="jspdf.plugin.autotable.min.js"></script>
     <div id="toast" class="toast-hidden"></div>
 </body>
 </html>
