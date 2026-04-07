@@ -1662,6 +1662,36 @@ function handleActivityTypeChange(type) {
 
 function exportPDF() {
 
+  const pdfArea = document.getElementById("pdfArea");
+
+  // ✅ فعّل وضع التصدير
+  pdfArea.classList.add("pdf-mode");
+
+  html2pdf()
+    .set({
+      margin: 0.5,
+      filename: 'نشاط_التحفيظ.pdf',
+      image: { type: 'png', quality: 1 },
+      html2canvas: {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      },
+      jsPDF: {
+        unit: 'cm',
+        format: 'a4',
+        orientation: 'landscape'
+      }
+    })
+    .from(pdfArea)
+    .save()
+    .then(() => {
+      // ✅ أعد الوضع الطبيعي
+      pdfArea.classList.remove("pdf-mode");
+    });
+}
+
+function exportPDF01() {
+
   const table = document.getElementById("pdfArea");
 
   if (!table) {
