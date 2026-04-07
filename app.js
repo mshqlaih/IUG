@@ -1660,12 +1660,6 @@ function handleActivityTypeChange(type) {
     ratingDiv.style.display = 'block';
 }
 
-function registerArabicFont(doc) {
-  doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
-  doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
-  doc.setFont("Amiri");
-}
-
 function exportPDF() {
 
   if (!lastDisplayedData || lastDisplayedData.length === 0) {
@@ -1675,9 +1669,7 @@ function exportPDF() {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF("l", "mm", "a4");
-
-  // ✅ تسجيل الخط العربي
-  registerArabicFont(doc);
+  doc.setFont("Amiri");  
 
   const pageWidth = doc.internal.pageSize.getWidth();
 
