@@ -1662,100 +1662,29 @@ function handleActivityTypeChange(type) {
 
 function exportPDF() {
 
-  if (!lastDisplayedData || lastDisplayedData.length === 0) {
-    alert("لا توجد بيانات لعرضها");
-    return;
-  }
+  const element = document.getElementById("logsTab");
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF("l", "mm", "a4");
-  doc.setFont("Amiri");  
-
-  const pageWidth = doc.internal.pageSize.getWidth();
-
-  // ✅ العنوان
-  doc.setFontSize(16);
-  doc.text("تقرير سجلات نشاط التحفيظ", pageWidth / 2, 14, {
-    align: "center"
-  });
-
-  // ✅ التاريخ
-  doc.setFontSize(9);
-  doc.text(
-    "تاريخ الاستخراج: " + new Date().toLocaleDateString("ar-EG"),
-    pageWidth - 14,
-    20,
-    { align: "right" }
-  );
-
-  // الأعمدة (مطابقة للواجهة)
-  const headers = [
-    "التاريخ",
-    "المسمع",
-    "اسم الطالب",
-    "رقم الطالب",
-    "النوع",
-    "من",
-    "إلى",
-    "عدد الصفحات",
-    "التقييم",
-    "العلامة",
-    "الأخطاء"
-  ];
-
-  // الصفوف
-  const body = lastDisplayedData.map(r => [
-    r["التاريخ"],
-    r["المحفظ"],
-    r["اسم الطالب"],
-    r["رقم الطالب"],
-    r["النوع"],
-    r["من"],
-    r["إلى"],
-    r["عدد الصفحات"],
-    r["التقييم"],
-    r["العلامة"],
-    r["الأخطاء"]
-  ]);
-
-  // ✅ الجدول
-  doc.autoTable({
-    startY: 24,
-    head: [headers],
-    body: body,
-    theme: "grid",
-    styles: {
-      font: "Amiri",
-      fontSize: 9,
-      halign: "right",
-      valign: "middle",
-      cellPadding: 3
+  const opt = {
+    margin:       0.5,
+    filename:     'نشاط_التحفيظ.pdf',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  {
+      scale: 2,
+      useCORS: true
     },
-    headStyles: {
-      font: "Amiri",
-      fillColor: [230, 230, 230],
-      textColor: 20,
-      fontSize: 10
-    },
-    margin: { left: 10, right: 10 },
-    didDrawPage: function () {
-      doc.setFontSize(8);
-      doc.text(
-        "نظام نشاط التحفيظ - يعمل دون اتصال",
-        pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 8,
-        { align: "center" }
-      );
+    jsPDF:        {
+      unit: 'cm',
+      format: 'a4',
+      orientation: 'landscape'
     }
-  });
+  };
 
-  // ✅ حفظ الملف
-  const fileName = "نشاط_التحفيظ.pdf";
-  doc.save(fileName);
-
-  // ✅ مشاركة (إن توفرت)
-  sharePDFIfPossible(doc, fileName);
+  html2pdf()
+    .set(opt)
+    .from(element)
+    .save();
 }
+
 function shareIfPossible(fileName, doc) {
   if (!navigator.canShare) return;
 
