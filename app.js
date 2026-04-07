@@ -1693,6 +1693,56 @@ function exportPDF() {
 function exportAndSharePDF() {
 
   const pdfArea = document.getElementById("pdfArea");
+  const fileName = `Activity_Report_${getFileDatePart()}.pdf`;
+
+  // ✅ عنوان التقرير
+  const header = document.createElement("div");
+  header.style.textAlign = "center";
+  header.style.fontWeight = "bold";
+  header.style.marginBottom = "12px";
+  header.style.fontSize = "16px";
+  header.textContent = `تقرير نشاط التحفيظ – ${getArabicDateText()}`;
+
+  pdfArea.prepend(header);
+  pdfArea.classList.add("pdf-mode");
+
+  html2pdf()
+    .set({
+      margin: 0.5,
+      image: { type: 'jpeg', quality: 0.75 },
+      html2canvas: {
+        scale: 1.5,
+        backgroundColor: '#ffffff'
+      },
+      jsPDF: {
+        unit: 'cm',
+        format: 'a4',
+        orientation: 'landscape'
+      }
+    })
+    .from(pdfArea)
+    .outputPdf('blob')
+    .then(blob => {
+
+      const file = new File([blob], fileName, {
+        type: 'application/pdf'
+      });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+          title: 'تقرير نشاط التحفيظ',
+          files: [file]
+        });
+      }
+
+      // تنظيف
+      header.remove();
+      pdfArea.classList.remove("pdf-mode");
+    });
+}
+function exportAndSharePDF01() {
+
+  const pdfArea = document.getElementById("pdfArea");
 
   // أخفِ الأعمدة غير المطلوبة إن وجدت
   pdfArea.classList.add("pdf-mode");
@@ -1701,9 +1751,9 @@ function exportAndSharePDF() {
     .set({
       margin: 0.5,
       filename: 'نشاط_التحفيظ.pdf',
-      image: { type: 'png', quality: 1 },
+      image: { type: 'jpeg', quality: 0.75 }, //png
       html2canvas: {
-        scale: 2,
+        scale: 1.5,
         backgroundColor: '#ffffff'
       },
       jsPDF: {
@@ -1718,7 +1768,7 @@ function exportAndSharePDF() {
 
       const file = new File(
         [blob],
-        'نشاط_التحفيظ.pdf',
+        `Activity_${new Date().toISOString().slice(0,10)}.pdf`,
         { type: 'application/pdf' }
       );
 
@@ -1736,5 +1786,26 @@ function exportAndSharePDF() {
 
       pdfArea.classList.remove("pdf-mode");
     });
+}
+
+function getSelectedDate() {
+  const v = document.getElementById("filterDate").value;
+  return v && v.trim() !== "" ? v : null;
+}
+
+function getFileDatePart() {
+  const d = getSelectedDate();
+  return d ? d : "ALL_DATES";
+}
+
+function getArabicDateText() {
+  const d = getSelectedDate();
+  if (!d) return "جميع التواريخ";
+
+  return new Date(d).toLocaleDateString("ar-EG", {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
 }
 
