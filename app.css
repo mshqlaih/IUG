@@ -414,3 +414,7 @@ td:nth-last-child(2) {
     border-radius: 8px;
     cursor: pointer;
 }
+
+.pdf-mode .no-pdf {
+  display: none !important;
+}
