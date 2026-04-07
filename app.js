@@ -1665,26 +1665,22 @@ function exportPDF() {
   const element = document.getElementById("logsTab");
 
   const opt = {
-    margin:       0.5,
-    filename:     'نشاط_التحفيظ.pdf',
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  {
-      scale: 2,
-      useCORS: true
+    margin: 0.5,
+    filename: 'نشاط_التحفيظ.pdf',
+    image: { type: 'jpeg', quality: 1 },
+    html2canvas: {
+      scale: 3,        // ✅ أهم سطر
+      backgroundColor: '#ffffff'
     },
-    jsPDF:        {
+    jsPDF: {
       unit: 'cm',
       format: 'a4',
       orientation: 'landscape'
     }
   };
 
-  html2pdf()
-    .set(opt)
-    .from(element)
-    .save();
+  html2pdf().set(opt).from(element).save();
 }
-
 function shareIfPossible(fileName, doc) {
   if (!navigator.canShare) return;
 
