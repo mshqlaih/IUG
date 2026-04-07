@@ -1663,60 +1663,101 @@ function handleActivityTypeChange(type) {
 function exportPDF() {
 
   if (!lastDisplayedData || lastDisplayedData.length === 0) {
-    alert("لا توجد بيانات لطباعتها");
+    alert("لا توجد بيانات لعرضها");
     return;
   }
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF("l", "mm", "a4"); // أفقي لأن البيانات كثيرة
+  const doc = new jsPDF("l", "mm", "a4");
 
-  // عنوان التقرير
-  doc.setFontSize(14);
-  doc.text("تقرير نشاط التحفيظ", doc.internal.pageSize.getWidth() / 2, 12, { align: "center" });
+  // ✅ تسجيل الخط العربي
+  registerArabicFont(doc);
 
-  // التاريخ
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // ✅ العنوان
+  doc.setFontSize(16);
+  doc.text("تقرير سجلات نشاط التحفيظ", pageWidth / 2, 14, {
+    align: "center"
+  });
+
+  // ✅ التاريخ
   doc.setFontSize(9);
-  doc.text(`تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`, 14, 18);
-
-  // رؤوس الأعمدة (من مفاتيح الكائن)
-  const headers = Object.keys(lastDisplayedData[0]);
-
-  // الصفوف
-  const rows = lastDisplayedData.map(row =>
-    headers.map(h => row[h] ?? "")
+  doc.text(
+    "تاريخ الاستخراج: " + new Date().toLocaleDateString("ar-EG"),
+    pageWidth - 14,
+    20,
+    { align: "right" }
   );
 
+  // الأعمدة (مطابقة للواجهة)
+  const headers = [
+    "التاريخ",
+    "المسمع",
+    "اسم الطالب",
+    "رقم الطالب",
+    "النوع",
+    "من",
+    "إلى",
+    "عدد الصفحات",
+    "التقييم",
+    "العلامة",
+    "الأخطاء"
+  ];
+
+  // الصفوف
+  const body = lastDisplayedData.map(r => [
+    r["التاريخ"],
+    r["المحفظ"],
+    r["اسم الطالب"],
+    r["رقم الطالب"],
+    r["النوع"],
+    r["من"],
+    r["إلى"],
+    r["عدد الصفحات"],
+    r["التقييم"],
+    r["العلامة"],
+    r["الأخطاء"]
+  ]);
+
+  // ✅ الجدول
   doc.autoTable({
-    startY: 22,
+    startY: 24,
     head: [headers],
-    body: rows,
+    body: body,
+    theme: "grid",
     styles: {
-      fontSize: 8,
-      halign: "right"
+      font: "Amiri",
+      fontSize: 9,
+      halign: "right",
+      valign: "middle",
+      cellPadding: 3
     },
     headStyles: {
-      fillColor: [230,230,230],
-      textColor: 0
+      font: "Amiri",
+      fillColor: [230, 230, 230],
+      textColor: 20,
+      fontSize: 10
     },
-    theme: "grid",
+    margin: { left: 10, right: 10 },
     didDrawPage: function () {
       doc.setFontSize(8);
       doc.text(
-        "تم إنشاؤه من نظام نشاط التحفيظ",
-        doc.internal.pageSize.getWidth() / 2,
+        "نظام نشاط التحفيظ - يعمل دون اتصال",
+        pageWidth / 2,
         doc.internal.pageSize.getHeight() - 8,
         { align: "center" }
       );
     }
   });
 
-  const fileName = `نشاط_التحفيظ_${Date.now()}.pdf`;
+  // ✅ حفظ الملف
+  const fileName = "نشاط_التحفيظ.pdf";
   doc.save(fileName);
 
-  // ✅ مشاركة مباشرة (لو مدعومة)
-  shareIfPossible(fileName, doc);
+  // ✅ مشاركة (إن توفرت)
+  sharePDFIfPossible(doc, fileName);
 }
-
 function shareIfPossible(fileName, doc) {
   if (!navigator.canShare) return;
 
