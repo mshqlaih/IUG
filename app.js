@@ -893,8 +893,8 @@ if (r.type == 6) {
                             <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
                             <td>${ratingName}</td>
                             <td>${r.mark}</td>
-                            <td>${r.errors}</td>
-                            <td>
+                            <td class="no-pdf">${r.errors}</td>
+                            <td class="no-pdf">
                                 ${r.synced 
                                     ? '<span style="color:green">✔ تم الرفع</span>' 
                                     : '<span style="color:red">✘ لم يُرفع</span>'}
