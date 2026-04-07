@@ -900,7 +900,7 @@ if (r.type == 6) {
                                     : '<span style="color:red">✘ لم يُرفع</span>'}
                                 </br>${errorText}
                             </td>
-                            <td><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
+                            <td class="no-pdf"><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
                         </tr>`;
                 }
                 cursor.continue();
@@ -1690,21 +1690,12 @@ function exportPDF() {
     });
 }
 
-function exportPDF01() {
+function exportAndSharePDF() {
 
-  const table = document.getElementById("pdfArea");
+  const pdfArea = document.getElementById("pdfArea");
 
-  if (!table) {
-    alert("الجدول غير موجود");
-    return;
-  }
-
-  // ✅ تأكد أن له ارتفاع
-  const rect = table.getBoundingClientRect();
-  if (rect.height === 0) {
-    alert("الجدول مخفي أو فارغ");
-    return;
-  }
+  // أخفِ الأعمدة غير المطلوبة إن وجدت
+  pdfArea.classList.add("pdf-mode");
 
   html2pdf()
     .set({
@@ -1721,20 +1712,29 @@ function exportPDF01() {
         orientation: 'landscape'
       }
     })
-    .from(table)
-    .save();
-}
+    .from(pdfArea)
+    .outputPdf('blob')
+    .then(function (blob) {
 
-function shareIfPossible(fileName, doc) {
-  if (!navigator.canShare) return;
+      const file = new File(
+        [blob],
+        'نشاط_التحفيظ.pdf',
+        { type: 'application/pdf' }
+      );
 
-  const pdfBlob = doc.output("blob");
-  const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+      // ✅ مشاركة عبر واتساب
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+          title: 'تقرير نشاط التحفيظ',
+          text: 'مرفق تقرير نشاط الطالب',
+          files: [file]
+        });
+      } else {
+        // fallback: تنزيل فقط
+        saveAs(blob, 'نشاط_التحفيظ.pdf');
+      }
 
-  navigator.share({
-    title: "نشاط التحفيظ",
-    text: "تقرير نشاط الطالب",
-    files: [file]
-  }).catch(() => {});
+      pdfArea.classList.remove("pdf-mode");
+    });
 }
 
