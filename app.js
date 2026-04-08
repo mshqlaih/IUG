@@ -1885,9 +1885,10 @@ function getArabicDateText() {
     day: "numeric"
   });
 }
-
 function clean(value, fallback = "") {
-  if (value === undefined || value === null) return fallback;
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return fallback;
+  }
 
   if (typeof value === "string") {
     const v = value.trim().toLowerCase();
