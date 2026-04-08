@@ -622,7 +622,7 @@ function progressToText(value) {
 
 
 // 6. حفظ النشاط
-function saveActivity00() {
+function saveActivity() {
 
     const prog = calculateExactProgress();
 
@@ -709,7 +709,7 @@ function saveActivity00() {
         }
     };
 }
-function saveActivity() {
+function saveActivity01() {
     const prog = calculateExactProgress();
     const rawDate = document.getElementById('activityDate').value;
     const onlyDate = new Date(rawDate).toISOString().split("T")[0];
