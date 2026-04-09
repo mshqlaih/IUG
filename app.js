@@ -124,7 +124,14 @@ function initDB() {
         if (!store.indexNames.contains("student_date_type")) {
             store.createIndex("student_date_type", ["student", "date", "type"], { unique: true });
         }
+        // إذا كان الفهرس موجودًا باسم sortOrderIndex نحذفه أولاً
+    if (store.indexNames.contains("sortOrderIndex")) {
+        store.deleteIndex("sortOrderIndex");
+    }
 
+    // ثم نعيد إنشاؤه بالحقل الصحيح
+    store.createIndex("sortOrderIndex", "sortOrder", { unique: false });
+        
         if (!store.indexNames.contains("sortOrderIndex")) {
             store.createIndex("sortOrderIndex", "sortOrder", { unique: false });
         }
