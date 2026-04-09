@@ -2046,6 +2046,11 @@ function fetchAndStoreEmpData(teacherID) {
 
               tx.oncomplete = () => {
                   console.log("✅ تم تخزين بيانات الموظف بنجاح في empStore");
+                  // عرض البيانات في الصفحة
+              document.getElementById("empName").textContent = emp.emp_name;
+              document.getElementById("centerInfo").textContent = `${emp.center_no} - ${emp.center_name}`;
+              document.getElementById("circleInfo").textContent = `${emp.circle_no} - ${emp.circle_name}`;
+
               };
 
               tx.onerror = (err) => {
