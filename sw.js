@@ -58,7 +58,7 @@ self.addEventListener('activate', (e) => {
 function syncRecords() {
   return new Promise((resolve, reject) => {
     console.log("🔄 بدأ تشغيل syncRecords");
-    const request = indexedDB.open("QuranProjectDB", 5);
+    const request = indexedDB.open("QuranProjectDB", 6);
 
     request.onsuccess = (event) => {
       const db = event.target.result;
