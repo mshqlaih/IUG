@@ -91,7 +91,7 @@ window.onload = () => {
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 3); // الإصدار الجديد
+    const request = indexedDB.open(DB_NAME, 4); // الإصدار الجديد
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
