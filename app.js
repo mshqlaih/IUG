@@ -918,8 +918,9 @@ function displayRecords() {
     tbody.innerHTML = '';
 
     const fDate = document.getElementById('filterDate').value;
-    const fID = document.getElementById('filterStudentID').value;
+    const fID   = document.getElementById('filterStudentID').value;
 
+    // أولاً: جلب الطلاب
     db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
         const studentsMap = {};
         e.target.result.forEach(s => {
@@ -927,123 +928,93 @@ function displayRecords() {
             studentsMap[s.id] = fullName;
         });
 
-        // ثانياً: جلب بيانات المحفظين (empdata)
+        // ثانياً: جلب بيانات المحفظين
         db.transaction("empdata").objectStore("empdata").getAll().onsuccess = (empEvent) => {
             const teachersMap = {};
             empEvent.target.result.forEach(emp => {
                 teachersMap[emp.idno] = emp.EMP_NAME;
             });
 
-          db.transaction("records").objectStore("records").index("sortOrderIndex").openCursor(null, "next").onsuccess = (e) => {
-        //db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
-            const cursor = e.target.result;
-            if (cursor) {
-                const r = cursor.value;
-                const studentName = studentsMap[r.student] || "";
-                const teacherName = teachersMap[r.teacher] || "";
-                const matchesDate = !fDate || r.date === fDate;
-                const matchesID = !fID || r.student.includes(fID);
+            // ثالثاً: جلب السجلات
+            db.transaction("records").objectStore("records").index("sortOrderIndex").openCursor(null, "next").onsuccess = (recEvent) => {
+                const cursor = recEvent.target.result;
+                if (cursor) {
+                    const r = cursor.value;
+                    const studentName = studentsMap[r.student] || "";
+                    const teacherName = teachersMap[r.teacher] || r.teacher;
 
-                if (matchesDate && matchesID) {
-                    let fromText = "";
-                    let toText   = "";
+                    const matchesDate = !fDate || r.date === fDate;
+                    const matchesID   = !fID || r.student.includes(fID);
 
-// ✅ إذا كان اختبار جزء (نوع النشاط = 6)
-if (r.type == 6) {
-    const juzNames = {
-        1: "الجزء الأول",
-        2: "الجزء الثاني",
-        3: "الجزء الثالث",
-        4: "الجزء الرابع",
-        5: "الجزء الخامس",
-        6: "الجزء السادس",
-        7: "الجزء السابع",
-        8: "الجزء الثامن",
-        9: "الجزء التاسع",
-        10: "الجزء العاشر",
-        11: "الجزء الحادي عشر",
-        12: "الجزء الثاني عشر",
-        13: "الجزء الثالث عشر",
-        14: "الجزء الرابع عشر",
-        15: "الجزء الخامس عشر",
-        16: "الجزء السادس عشر",
-        17: "الجزء السابع عشر",
-        18: "الجزء الثامن عشر",
-        19: "الجزء التاسع عشر",
-        20: "الجزء العشرون",
-        21: "الجزء الحادي والعشرون",
-        22: "الجزء الثاني والعشرون",
-        23: "الجزء الثالث والعشرون",
-        24: "الجزء الرابع والعشرون",
-        25: "الجزء الخامس والعشرون",
-        26: "الجزء السادس والعشرون",
-        27: "الجزء السابع والعشرون",
-        28: "الجزء الثامن والعشرون",
-        29: "الجزء التاسع والعشرون",
-        30: "الجزء الثلاثون"
-    };
+                    if (matchesDate && matchesID) {
+                        let fromText = "";
+                        let toText   = "";
 
-    fromText = juzNames[r.partFrom] || "";
-    toText   = juzNames[r.partTo]   || "";
+                        if (r.type == 6) {
+                            const juzNames = {
+                                1: "الجزء الأول", 2: "الجزء الثاني", 3: "الجزء الثالث",
+                                4: "الجزء الرابع", 5: "الجزء الخامس", 6: "الجزء السادس",
+                                7: "الجزء السابع", 8: "الجزء الثامن", 9: "الجزء التاسع",
+                                10: "الجزء العاشر", 11: "الجزء الحادي عشر", 12: "الجزء الثاني عشر",
+                                13: "الجزء الثالث عشر", 14: "الجزء الرابع عشر", 15: "الجزء الخامس عشر",
+                                16: "الجزء السادس عشر", 17: "الجزء السابع عشر", 18: "الجزء الثامن عشر",
+                                19: "الجزء التاسع عشر", 20: "الجزء العشرون", 21: "الجزء الحادي والعشرون",
+                                22: "الجزء الثاني والعشرون", 23: "الجزء الثالث والعشرون", 24: "الجزء الرابع والعشرون",
+                                25: "الجزء الخامس والعشرون", 26: "الجزء السادس والعشرون", 27: "الجزء السابع والعشرون",
+                                28: "الجزء الثامن والعشرون", 29: "الجزء التاسع والعشرون", 30: "الجزء الثلاثون"
+                            };
+                            fromText = juzNames[r.partFrom] || "";
+                            toText   = juzNames[r.partTo]   || "";
+                        } else {
+                            fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
+                            toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
+                        }
 
-} else {
-    // ✅ الوضع الطبيعي: عرض الآيات
-    fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
-    toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
-}
+                        const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", r.type);
+                        const ratingName   = translateLookup("ACTIVITY_GRADE", r.rating);
+                        const errorText    = !r.synced ? extractArabicError(r.syncError) : "";
 
-               //     const fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
-                //    const toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
-                   
-                    const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", r.type);
-                    const ratingName   = translateLookup("ACTIVITY_GRADE", r.rating);
-                   
+                        lastDisplayedData.push({
+                            "التاريخ": r.date,
+                            "المحفظ": teacherName,
+                            "اسم الطالب": studentName,
+                            "رقم الطالب": r.student,
+                            "النوع": activityName,
+                            "من": fromText,
+                            "إلى": toText,
+                            "عدد الصفحات": r.amount,
+                            "التقييم": ratingName,
+                            "الأخطاء": r.errors,
+                            "العلامة": r.mark,
+                            "الحالة": r.synced
+                                ? "✔ تم الرفع"
+                                : "✘ لم يُرفع" + (errorText && errorText.trim() !== "" ? "\n" + errorText : "")
+                        });
 
-                    // ✨ خزّن البيانات في المصفوفة
-                    const errorText = !r.synced ? extractArabicError(r.syncError) : "";
-                   
-                    lastDisplayedData.push({
-                      "التاريخ": r.date,
-                      "المحفظ": teacherName,
-                      "اسم الطالب": studentName,
-                      "رقم الطالب": r.student,
-                      "النوع": activityName,
-                      "من": fromText,
-                      "إلى": toText,
-                      "عدد الصفحات": r.amount,
-                      "التقييم": ratingName, 
-                      "الأخطاء": r.errors,
-                      "العلامة" : r.mark,
-                      "الحالة": r.synced
-                          ? "✔ تم الرفع"
-                          : "✘ لم يُرفع" + (errorText && errorText.trim() !== "" ? "\n" + errorText : "")
-                    });
-
-                    // بناء الصف في الجدول
-                    //<td><b>${studentName}</b><br><small class="text-muted">(${r.student})</small></td>
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${r.date}</td>
-                            <td>${teacherName}</td>
-                            <td><b>${studentName}</b></td>
-                            <td><span class="badge">${activityName}</span></td>
-                            <td style="font-size:11px">${fromText}</td>
-                            <td style="font-size:11px">${toText}</td>
-                            <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
-                            <td>${ratingName}</td>
-                            <td>${r.mark}</td>
-                            <td class="no-pdf">${r.errors}</td>
-                            <td class="no-pdf">
-                                ${r.synced 
-                                    ? '<span style="color:green">✔ تم الرفع</span>' 
-                                    : '<span style="color:red">✘ لم يُرفع</span>'}
-                                </br>${errorText}
-                            </td>
-                            <td class="no-pdf"><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
-                        </tr>`;
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${r.date}</td>
+                                <td>${teacherName}</td>
+                                <td><b>${studentName}</b><br><small class="text-muted">(${r.student})</small></td>
+                                <td><span class="badge">${activityName}</span></td>
+                                <td style="font-size:11px">${fromText}</td>
+                                <td style="font-size:11px">${toText}</td>
+                                <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
+                                <td>${ratingName}</td>
+                                <td>${r.mark}</td>
+                                <td class="no-pdf">${r.errors}</td>
+                                <td class="no-pdf">
+                                    ${r.synced 
+                                        ? '<span style="color:green">✔ تم الرفع</span>' 
+                                        : '<span style="color:red">✘ لم يُرفع</span>'}
+                                    </br>${errorText}
+                                </td>
+                                <td class="no-pdf"><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
+                            </tr>`;
+                    }
+                    cursor.continue();
                 }
-                cursor.continue();
-            }
+            };
         };
     };
 }
