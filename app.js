@@ -2026,7 +2026,7 @@ function fetchAndStoreEmpData(teacherID) {
     }
 
     // استدعاء الـ API
-    fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/qmc/employees/${teacherID}`)
+    fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/employees/${teacherID}`)
       .then(response => response.json())
       .then(result => {
           if (result.items && result.items.length > 0) {
