@@ -77,10 +77,11 @@ window.addEventListener('appinstalled', () => {
 const DB_NAME = "QuranProjectDB";
 let db;
 window.AYAH_REVERSE = {};
-
+let STATIC_LOOKUP = [];
 // 1. تشغيل النظام عند التحميل
 window.onload = () => {
     fillAyatSearchList();
+    loadStaticLookup();
     initDB();
     document.getElementById('activityDate').valueAsDate = new Date();
     const savedID = localStorage.getItem('teacherID');
@@ -88,6 +89,19 @@ window.onload = () => {
     // استدعاء الدالة عند تحميل التطبيق
     
 };
+
+function loadStaticLookup() {
+    return fetch('./STATIC_LOOKUP.json')
+        .then(response => response.json())
+        .then(data => {
+            STATIC_LOOKUP = data;
+            console.log("✔ STATIC_LOOKUP loaded:", STATIC_LOOKUP);
+        })
+        .catch(err => console.error("❌ خطأ في تحميل STATIC_LOOKUP:", err));
+}
+
+// استدعاء عند بداية الصفحة
+loadStaticLookup();
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
