@@ -126,7 +126,7 @@ function initDB() {
         }
 
         if (!store.indexNames.contains("sortOrderIndex")) {
-            store.createIndex("sortOrderIndex", "SORT_ORDER", { unique: false });
+            store.createIndex("sortOrderIndex", "sortOrder", { unique: false });
         }
         
         let empStore;
