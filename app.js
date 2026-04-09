@@ -697,7 +697,11 @@ function saveActivity() {
     if (type === 7 && (!partFrom || !partTo)) {
         return alert("يجب إدخال الجزء من وإلى");
     }
-    const activityInfo = STATIC_LOOKUP.find(i => parseInt(i.LOOKUP_VALUE) === type);
+   const activityInfo = STATIC_LOOKUP.find(
+    i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE" 
+      && parseInt(i.LOOKUP_VALUE) === type
+);
+    
 
     const record = {
         teacher   : teacher,                 // رقم فقط
@@ -724,7 +728,7 @@ function saveActivity() {
 
         synced    : false,
         syncError : "",
-        sortOrder : activityInfo?.sortOrder ?? 999,
+        sortOrder : activityInfo?.SORT_ORDER ?? 999,
     };
 
     const tx = db.transaction("records", "readwrite");
