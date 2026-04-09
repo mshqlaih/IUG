@@ -418,3 +418,25 @@ td:nth-last-child(2) {
 .pdf-mode .no-pdf {
   display: none !important;
 }
+
+/* الجداول التي تسمح بالتمرير */
+.table-wrap.scrollable {
+  overflow-x: auto;
+}
+.table-wrap.scrollable table {
+  min-width: 600px; /* يضمن أن الجدول لا ينضغط أكثر من اللازم */
+}
+
+/* الجداول التي تتقلص لتناسب الشاشة */
+.table-wrap.responsive table {
+  width: 100%;
+  min-width: auto;
+}
+
+@media (max-width: 600px) {
+  .table-wrap.responsive th, 
+  .table-wrap.responsive td {
+    font-size: 12px;
+    padding: 6px;
+  }
+}
