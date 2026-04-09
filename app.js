@@ -723,7 +723,7 @@ function saveActivity() {
 
         synced    : false,
         syncError : "",
-        sortOrder : activityInfo?.SORT_ORDER ?? 999,
+        sortOrder : activityInfo?.sortOrder ?? 999,
     };
 
     const tx = db.transaction("records", "readwrite");
