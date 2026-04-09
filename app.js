@@ -2025,28 +2025,24 @@ function fetchAndStoreEmpData(teacherID) {
         return;
     }
 
-    // استدعاء الـ API
     fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/employees/${teacherID}`)
       .then(response => response.json())
       .then(result => {
           if (result.items && result.items.length > 0) {
-              const emp = result.items[0];
+              const emp = result.items[0]; // أول عنصر من المصفوفة
 
-              // فتح transaction على empdata
               const tx = db.transaction("empdata", "readwrite");
               const empStore = tx.objectStore("empdata");
 
-              // تجهيز الكائن للتخزين
               const empRecord = {
-                  idno: teacherID,          // المفتاح الأساسي
-                  EMP_NAME: emp.EMP_NAME,
-                  CENTER_NO: emp.CENTER_NO,
-                  CENTER_NAME: emp.CENTER_NAME,
-                  CIRCLE_NO: emp.CIRCLE_NO,
-                  CIRCLE_NAME: emp.CIRCLE_NAME
+                  idno: teacherID,
+                  EMP_NAME: emp.emp_name,       // لاحظ الحروف الصغيرة
+                  CENTER_NO: emp.center_no,
+                  CENTER_NAME: emp.center_name,
+                  CIRCLE_NO: emp.circle_no,
+                  CIRCLE_NAME: emp.circle_name
               };
 
-              // تخزينه في empStore
               empStore.put(empRecord);
 
               tx.oncomplete = () => {
