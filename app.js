@@ -105,7 +105,7 @@ loadStaticLookup();
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 5); // الإصدار الجديد
+    const request = indexedDB.open(DB_NAME, 6); // الإصدار الجديد
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
