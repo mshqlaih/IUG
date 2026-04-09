@@ -994,8 +994,8 @@ function displayRecords() {
                         tbody.innerHTML += `
                             <tr>
                                 <td>${r.date}</td>
-                                <td>${teacherName}</td>
-                                <td><b>${studentName}</b><br><small class="text-muted">(${r.student})</small></td>
+                                <td>${teacherName}</td>                                
+                                <td><b>${studentName}</b></td>
                                 <td><span class="badge">${activityName}</span></td>
                                 <td style="font-size:11px">${fromText}</td>
                                 <td style="font-size:11px">${toText}</td>
