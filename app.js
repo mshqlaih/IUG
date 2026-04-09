@@ -109,6 +109,12 @@ function initDB() {
         if (!store.indexNames.contains("student_date_type")) {
             store.createIndex("student_date_type", ["student", "date", "type"], { unique: true });
         }
+
+        if (!store.indexNames.contains("sortOrderIndex")) {
+            store.createIndex("sortOrderIndex", "SORT_ORDER", { unique: false });
+        }
+
+        store.createIndex("sortOrderIndex", "sortOrder", { unique: false });
         
         let empStore;
         if (!db.objectStoreNames.contains("empdata")) {
@@ -670,6 +676,7 @@ function saveActivity() {
     if (type === 7 && (!partFrom || !partTo)) {
         return alert("يجب إدخال الجزء من وإلى");
     }
+    const activityInfo = STATIC_LOOKUP.find(i => parseInt(i.LOOKUP_VALUE) === type);
 
     const record = {
         teacher   : teacher,                 // رقم فقط
@@ -695,7 +702,8 @@ function saveActivity() {
         partTo    : partTo   || "",
 
         synced    : false,
-        syncError : ""
+        syncError : "",
+        sortOrder : activityInfo?.SORT_ORDER ?? 999,
     };
 
     const tx = db.transaction("records", "readwrite");
@@ -893,8 +901,8 @@ function displayRecords() {
             const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
             studentsMap[s.id] = fullName;
         });
-
-        db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
+          db.transaction("records").objectStore("records").index("sortOrderIndex").openCursor(null, "next").onsuccess = (e) => {
+        //db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
             const cursor = e.target.result;
             if (cursor) {
                 const r = cursor.value;
