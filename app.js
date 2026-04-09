@@ -926,13 +926,21 @@ function displayRecords() {
             const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
             studentsMap[s.id] = fullName;
         });
+
+        // ثانياً: جلب بيانات المحفظين (empdata)
+        db.transaction("empdata").objectStore("empdata").getAll().onsuccess = (empEvent) => {
+            const teachersMap = {};
+            empEvent.target.result.forEach(emp => {
+                teachersMap[emp.idno] = emp.EMP_NAME;
+            });
+
           db.transaction("records").objectStore("records").index("sortOrderIndex").openCursor(null, "next").onsuccess = (e) => {
         //db.transaction("records").objectStore("records").openCursor(null, 'prev').onsuccess = (e) => {
             const cursor = e.target.result;
             if (cursor) {
                 const r = cursor.value;
                 const studentName = studentsMap[r.student] || "";
-
+                const teacherName = teachersMap[r.teacher] || "";
                 const matchesDate = !fDate || r.date === fDate;
                 const matchesID = !fID || r.student.includes(fID);
 
@@ -996,7 +1004,7 @@ if (r.type == 6) {
                    
                     lastDisplayedData.push({
                       "التاريخ": r.date,
-                      "المحفظ": r.teacher,
+                      "المحفظ": teacherName,
                       "اسم الطالب": studentName,
                       "رقم الطالب": r.student,
                       "النوع": activityName,
@@ -1012,11 +1020,12 @@ if (r.type == 6) {
                     });
 
                     // بناء الصف في الجدول
+                    //<td><b>${studentName}</b><br><small class="text-muted">(${r.student})</small></td>
                     tbody.innerHTML += `
                         <tr>
                             <td>${r.date}</td>
-                            <td>${r.teacher}</td>
-                            <td><b>${studentName}</b><br><small class="text-muted">(${r.student})</small></td>
+                            <td>${teacherName}</td>
+                            <td><b>${studentName}</b></td>
                             <td><span class="badge">${activityName}</span></td>
                             <td style="font-size:11px">${fromText}</td>
                             <td style="font-size:11px">${toText}</td>
