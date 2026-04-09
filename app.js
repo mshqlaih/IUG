@@ -91,7 +91,7 @@ window.onload = () => {
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 4.1); // الإصدار الجديد
+    const request = indexedDB.open(DB_NAME, 5); // الإصدار الجديد
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
@@ -100,6 +100,7 @@ function initDB() {
         }
 
         let store;
+        
         if (!db.objectStoreNames.contains("records")) {
             store = db.createObjectStore("records", { keyPath: "id", autoIncrement: true });
         } else {
@@ -113,8 +114,6 @@ function initDB() {
         if (!store.indexNames.contains("sortOrderIndex")) {
             store.createIndex("sortOrderIndex", "SORT_ORDER", { unique: false });
         }
-
-        store.createIndex("sortOrderIndex", "sortOrder", { unique: false });
         
         let empStore;
         if (!db.objectStoreNames.contains("empdata")) {
