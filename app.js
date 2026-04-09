@@ -109,12 +109,23 @@ function initDB() {
         if (!store.indexNames.contains("student_date_type")) {
             store.createIndex("student_date_type", ["student", "date", "type"], { unique: true });
         }
+        
+        let empStore;
+        if (!db.objectStoreNames.contains("empdata")) {
+            empStore = db.createObjectStore("empdata", { keyPath: "idno"});
+        } else {
+            empStore = e.target.transaction.objectStore("empdata");
+        }
+
     };
 
     request.onsuccess = (e) => {
         db = e.target.result;
         refreshAll();
         normalizeRecords();
+         const teacherID = document.getElementById("teacherID").value;
+          fetchAndStoreEmpData(teacherID);
+
          if (!window._syncOnlineListenerAdded) {
         window._syncOnlineListenerAdded = true;
         window.addEventListener("online", () => {
@@ -2006,4 +2017,48 @@ async function saveTeacherID01() {
         console.error(err);
         alert("❌ فشل جلب اسم المسمع من السيرفر");
     }
+}
+
+function fetchAndStoreEmpData(teacherID) {
+    if (!teacherID) {
+        console.warn("⚠️ لم يتم إدخال رقم الهوية");
+        return;
+    }
+
+    // استدعاء الـ API
+    fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/qmc/employees/${teacherID}`)
+      .then(response => response.json())
+      .then(result => {
+          if (result.items && result.items.length > 0) {
+              const emp = result.items[0];
+
+              // فتح transaction على empdata
+              const tx = db.transaction("empdata", "readwrite");
+              const empStore = tx.objectStore("empdata");
+
+              // تجهيز الكائن للتخزين
+              const empRecord = {
+                  idno: teacherID,          // المفتاح الأساسي
+                  EMP_NAME: emp.EMP_NAME,
+                  CENTER_NO: emp.CENTER_NO,
+                  CENTER_NAME: emp.CENTER_NAME,
+                  CIRCLE_NO: emp.CIRCLE_NO,
+                  CIRCLE_NAME: emp.CIRCLE_NAME
+              };
+
+              // تخزينه في empStore
+              empStore.put(empRecord);
+
+              tx.oncomplete = () => {
+                  console.log("✅ تم تخزين بيانات الموظف بنجاح في empStore");
+              };
+
+              tx.onerror = (err) => {
+                  console.error("❌ خطأ أثناء التخزين:", err);
+              };
+          } else {
+              console.warn("⚠️ لم يتم العثور على بيانات لهذا الرقم");
+          }
+      })
+      .catch(err => console.error("❌ خطأ في جلب البيانات:", err));
 }
