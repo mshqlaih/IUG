@@ -2019,6 +2019,7 @@ async function saveTeacherID01() {
     }
 }
 
+
 function fetchAndStoreEmpData(teacherID) {
     if (!teacherID) {
         console.warn("⚠️ لم يتم إدخال رقم الهوية");
@@ -2027,16 +2028,14 @@ function fetchAndStoreEmpData(teacherID) {
 
     fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/employees/${teacherID}`)
       .then(response => response.json())
-      .then(result => {
-          if (result.items && result.items.length > 0) {
-              const emp = result.items[0]; // أول عنصر من المصفوفة
-
+      .then(emp => {
+          if (emp && emp.emp_name) {
               const tx = db.transaction("empdata", "readwrite");
               const empStore = tx.objectStore("empdata");
 
               const empRecord = {
                   idno: teacherID,
-                  EMP_NAME: emp.emp_name,       // لاحظ الحروف الصغيرة
+                  EMP_NAME: emp.emp_name,
                   CENTER_NO: emp.center_no,
                   CENTER_NAME: emp.center_name,
                   CIRCLE_NO: emp.circle_no,
