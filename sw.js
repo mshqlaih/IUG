@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.2086';
+const CACHE_NAME = 'quran-app-v1.2087';
 const ASSETS = [
   './',
   './index.html',
@@ -61,7 +61,7 @@ function syncRecords() {
     console.log("🔄 بدأ تشغيل syncRecords (الإصدار 9)");
     
     // فتح قاعدة البيانات بالإصدار الأخير
-    const request = indexedDB.open("QuranProjectDB", 8);
+    const request = indexedDB.open("QuranProjectDB", 9);
 
     request.onsuccess = (event) => {
       const db = event.target.result;
