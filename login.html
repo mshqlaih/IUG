@@ -109,18 +109,31 @@
   <!-- JavaScript -->
   <script>
     function saveSettingsToDB(userName, deviceId) {
-    const request = indexedDB.open("QuranProjectDB", 7);
-    request.onsuccess = (event) => {
-        const db = event.target.result;
-        const tx = db.transaction("settings", "readwrite");
-        const store = tx.objectStore("settings");
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open("QuranProjectDB", 7);
         
-        // حفظ القيم بمفاتيح نصية سهلة الوصول
-        store.put(userName, "user_name");
-        store.put(deviceId, "device_id");
-        
-        console.log("✅ تم حفظ الإعدادات في IndexedDB");
-    };
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            const tx = db.transaction("settings", "readwrite");
+            const store = tx.objectStore("settings");
+            
+            store.put(userName, "user_name");
+            store.put(deviceId, "device_id");
+            
+            // ✅ لا نعتبر العملية انتهت إلا عند نجاح الـ Transaction بالكامل
+            tx.oncomplete = () => {
+                console.log("✅ تم حفظ الإعدادات بنجاح");
+                resolve();
+            };
+            
+            tx.onerror = (err) => {
+                console.error("❌ خطأ في الحفظ:", err);
+                reject(err);
+            };
+        };
+
+        request.onerror = (err) => reject(err);
+    });
 }
     async function registerDevice() {
 
@@ -161,8 +174,15 @@
 
     if (data.status === "success") {
       localStorage.setItem("user_name", userName);
-      saveSettingsToDB(userName,deviceId);
-      window.location.href = "index.html";
+      saveSettingsToDB(userName, deviceId)
+        .then(() => {
+            window.location.href = "index.html";
+        })
+        .catch((err) => {
+            console.error("فشل الحفظ في DB، لكن سننتقل على أي حال", err);
+            window.location.href = "index.html";
+        });
+
     } else {
       messageBox.textContent = "❌ " + data.message;
       messageBox.className = "message error";
@@ -173,8 +193,6 @@
     messageBox.className = "message error";
   }
 }
-
-   
   </script>
 
 </body>
