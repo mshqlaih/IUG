@@ -151,6 +151,7 @@ function initDB() {
         normalizeRecords();
          const teacherID = document.getElementById("teacherID").value;
           fetchAndStoreEmpData(teacherID);
+        inspectFullDatabase();
 
          if (!window._syncOnlineListenerAdded) {
         window._syncOnlineListenerAdded = true;
@@ -1514,6 +1515,7 @@ function syncRecordsFromPage() {
       const currentDeviceId = settings ? settings.device_id : localStorage.getItem("device_id");
 
       if (!currentDeviceId) {
+        alert("❌ خطأ: لم يتم العثور على معرف الجهاز");  
         showSyncMessage("❌ خطأ: لم يتم العثور على معرف الجهاز");
         reject("Device ID missing");
         return;
@@ -2003,53 +2005,6 @@ async function onTeacherIDChange() {
   }
 }
 
-async function saveTeacherID01() {
-
-    const id = document.getElementById('teacherID').value;
-    if (!id) {
-        return alert("❌ الرجاء إدخال رقم الهوية");
-    }
-
-    // ✅ التحقق من صيغة الرقم (منطقك القديم)
-    const result = checkIDNumber(id);
-    if (result !== "Y") {
-        return alert("❌ " + result);
-    }
-
-    const cache = getTeacherCache();
-
-    // ✅ 1. موجود مسبقًا
-    if (cache[id]) {
-        alert("✅ المسمع محفوظ مسبقًا: " + cache[id]);
-        return;
-    }
-
-    // ✅ 2. غير موجود → جلب من السيرفر
-    try {
-        const response = await fetch(`/ords/api/teachers/${id}`);
-
-        if (!response.ok) {
-            throw new Error("لم يتم العثور على المسمع");
-        }
-
-        const data = await response.json();
-        const teacherName = data.name;
-
-        if (!teacherName) {
-            throw new Error("الاسم غير متوفر");
-        }
-
-        // ✅ حفظ في الكاش
-        saveTeacherToCache(id, teacherName);
-
-        alert("✅ تم حفظ المسمع: " + teacherName);
-
-    } catch (err) {
-        console.error(err);
-        alert("❌ فشل جلب اسم المسمع من السيرفر");
-    }
-}
-
 
 function fetchAndStoreEmpData(teacherID) {
     if (!teacherID) {
@@ -2093,3 +2048,55 @@ function fetchAndStoreEmpData(teacherID) {
       })
       .catch(err => console.error("❌ خطأ في جلب البيانات:", err));
 }
+
+async function inspectFullDatabase() {
+    const container = document.getElementById("db-viewer-content");
+    container.innerHTML = "🔄 جاري تحميل البيانات...";
+
+    const request = indexedDB.open("QuranProjectDB", 10);
+
+    request.onerror = (e) => container.innerHTML = "❌ فشل فتح القاعدة: " + e.target.error;
+
+    request.onsuccess = async (event) => {
+        const db = event.target.result;
+        const storeNames = Array.from(db.objectStoreNames);
+        container.innerHTML = ""; // مسح رسالة التحميل
+
+        for (const storeName of storeNames) {
+            // إنشاء قسم لكل متجر
+            const section = document.createElement("div");
+            section.className = "store-section";
+            section.innerHTML = `<h3 class="store-title">📦 مخزن: ${storeName}</h3>`;
+            
+            const table = document.createElement("table");
+            const data = await getAllDataFromStore(db, storeName);
+
+            if (data.length === 0) {
+                section.innerHTML += `<p class="empty-msg">لا توجد بيانات في هذا المخزن.</p>`;
+            } else {
+                // إنشاء رؤوس الجدول بناءً على مفاتيح أول كائن
+                const keys = Object.keys(data[0]);
+                let thead = `<thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>`;
+                let tbody = `<tbody>${data.map(row => 
+                    `<tr>${keys.map(k => `<td>${JSON.stringify(row[k])}</td>`).join('')}</tr>`
+                ).join('')}</tbody>`;
+                
+                table.innerHTML = thead + tbody;
+                section.appendChild(table);
+            }
+            container.appendChild(section);
+        }
+    };
+}
+
+// دالة مساعدة لجلب البيانات من مخزن معين
+function getAllDataFromStore(db, storeName) {
+    return new Promise((resolve) => {
+        const tx = db.transaction(storeName, "readonly");
+        const store = tx.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve([]);
+    });
+}
+
