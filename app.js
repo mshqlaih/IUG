@@ -2055,7 +2055,7 @@ async function inspectFullDatabase() {
     const container = document.getElementById("db-viewer-content");
     container.innerHTML = "🔄 جاري تحميل البيانات...";
 
-    const request = indexedDB.open("QuranProjectDB", 10);
+    const request = indexedDB.open("QuranProjectDB");
 
     request.onerror = (e) => container.innerHTML = "❌ فشل فتح القاعدة: " + e.target.error;
 
