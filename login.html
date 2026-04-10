@@ -85,6 +85,30 @@
     .error {
       color: red;
     }
+
+    /* مؤشر التحميل */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* حالة الزر أثناء التحميل */
+button:disabled {
+  background: #95a5a6;
+  cursor: not-allowed;
+}
+
   </style>
 </head>
 <body>
@@ -102,7 +126,8 @@
       <input type="password" id="password" placeholder="أدخل كلمة المرور">
     </div>
 
-    <button onclick="registerDevice()">تسجيل الجهاز</button>
+   <button id="loginBtn" onclick="registerDevice()">تسجيل الجهاز</button>
+
 
     <div id="message" class="message"></div>
   </div>
@@ -141,17 +166,23 @@
     });
 }
 
-    async function registerDevice() {
-
-  const userName   = document.getElementById("username").value.trim();
-  const password   = document.getElementById("password").value.trim();
+  async function registerDevice() {
+  const userName = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
   const messageBox = document.getElementById("message");
+  const loginBtn = document.getElementById("loginBtn");
 
   if (!userName || !password) {
     messageBox.textContent = "❌ جميع الحقول مطلوبة";
     messageBox.className = "message error";
     return;
   }
+
+  // --- 1. بدء حالة التحميل ---
+  loginBtn.disabled = true;
+  const originalText = loginBtn.innerHTML;
+  loginBtn.innerHTML = '<span class="spinner"></span> جاري التحقق...';
+  messageBox.textContent = ""; 
 
   let deviceId = localStorage.getItem("device_id");
   if (!deviceId) {
@@ -164,10 +195,7 @@
       "https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/device/first-login",
       {
         method: "POST",
-        headers: {
-          // ✅ مهم جدًا
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           p_username: userName,
           p_password: password,
@@ -179,26 +207,30 @@
     const data = await response.json();
 
     if (data.status === "success") {
+      messageBox.textContent = "✅ تم التحقق بنجاح، جاري التحويل...";
+      messageBox.className = "message success";
+      
       localStorage.setItem("user_name", userName);
-      saveSettingsToDB(userName, deviceId)
-        .then(() => {
-            window.location.href = "index.html";
-        })
-        .catch((err) => {
-            console.error("فشل الحفظ في DB، لكن سننتقل على أي حال", err);
-            window.location.href = "index.html";
-        });
+      await saveSettingsToDB(userName, deviceId);
+      window.location.href = "index.html";
 
     } else {
       messageBox.textContent = "❌ " + data.message;
       messageBox.className = "message error";
+      // --- 2. إعادة الزر لحالته الأصلية في حال الخطأ ---
+      loginBtn.disabled = false;
+      loginBtn.innerHTML = originalText;
     }
 
   } catch (err) {
     messageBox.textContent = "❌ خطأ في الاتصال بالخادم";
     messageBox.className = "message error";
+    // --- 3. إعادة الزر لحالته الأصلية في حال الفشل ---
+    loginBtn.disabled = false;
+    loginBtn.innerHTML = originalText;
   }
 }
+
   </script>
 
 </body>
