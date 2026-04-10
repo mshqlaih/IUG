@@ -108,6 +108,20 @@
 
   <!-- JavaScript -->
   <script>
+    function saveSettingsToDB(userName, deviceId) {
+    const request = indexedDB.open("QuranProjectDB", 6);
+    request.onsuccess = (event) => {
+        const db = event.target.result;
+        const tx = db.transaction("settings", "readwrite");
+        const store = tx.objectStore("settings");
+        
+        // حفظ القيم بمفاتيح نصية سهلة الوصول
+        store.put(userName, "user_name");
+        store.put(deviceId, "device_id");
+        
+        console.log("✅ تم حفظ الإعدادات في IndexedDB");
+    };
+}
     async function registerDevice() {
 
   const userName   = document.getElementById("username").value.trim();
@@ -147,6 +161,7 @@
 
     if (data.status === "success") {
       localStorage.setItem("user_name", userName);
+      saveSettingsToDB(userName,deviceId);
       window.location.href = "index.html";
     } else {
       messageBox.textContent = "❌ " + data.message;
