@@ -108,25 +108,37 @@
 
   <!-- JavaScript -->
   <script>
-    function saveSettingsToDB(userName, deviceId) {
+   function saveSettingsToDB(userName, deviceId) {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open("QuranProjectDB", 8);
+        // 1. يجب أن يكون الإصدار 9 لتطبيق تغييرات الـ KeyPath
+        const request = indexedDB.open("QuranProjectDB", 9); 
+
         request.onsuccess = (event) => {
             const db = event.target.result;
             const tx = db.transaction("settings", "readwrite");
             const store = tx.objectStore("settings");
 
-            // تخزين كائن يحتوي على الحقول المطلوبة
+            // 2. التأكد من أن القيم ليست فارغة (لو فارغة سيأخذها من localStorage)
+            const finalUserName = userName || localStorage.getItem("user_name");
+            const finalDeviceId = deviceId || localStorage.getItem("device_id");
+
+            console.log("حفظ الإعدادات:", finalUserName, finalDeviceId);
+
+            // 3. التخزين
             store.put({
-                user_name: userName,
-                device_id: deviceId,
+                user_name: finalUserName,
+                device_id: finalDeviceId, // لو هذه القيمة undefined سيظهر الخطأ الذي تراه
                 last_login: new Date().toISOString()
             });
 
             tx.oncomplete = () => resolve();
+            tx.onerror = (err) => reject(err);
         };
+        
+        request.onerror = (err) => reject(err);
     });
 }
+
     async function registerDevice() {
 
   const userName   = document.getElementById("username").value.trim();
