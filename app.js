@@ -106,7 +106,7 @@ loadStaticLookup();
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 7); // الإصدار الجديد
+    const request = indexedDB.open(DB_NAME, 8); // الإصدار الجديد
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
@@ -137,12 +137,12 @@ function initDB() {
             empStore = e.target.transaction.objectStore("empdata");
         }
 
-        let settingsStore;
-        if (!db.objectStoreNames.contains("settings")) {
-            settingsStore = db.createObjectStore("settings", { keyPath: "idno"});
-        } else {
-            settingsStore = e.target.transaction.objectStore("settings");
-        }
+        // داخل initDB في onupgradeneeded
+            if (db.objectStoreNames.contains("settings")) {
+                db.deleteObjectStore("settings"); // حذف القديم لتغيير الهيكلية
+            }
+            // إنشاء المخزن بحيث يكون device_id هو الحقل المفتاح
+            db.createObjectStore("settings", { keyPath: "device_id" });
     };
 
     request.onsuccess = (e) => {
