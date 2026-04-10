@@ -11,6 +11,7 @@
 <button id="installBtn" style="display: none; padding: 10px; background: #000; color: #fff; border: none; border-radius: 5px; margin: 10px;">
     تنزيل التطبيق على الجوال
 </button>
+   
 
     <div id="lastUpdateLabel"  style="text-align:center; 
             font-size:18px; 
@@ -330,6 +331,16 @@
 
     <datalist id="ayatList"></datalist>
 
+     <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const deviceId = localStorage.getItem("device_id");
+
+    // لو لا يوجد جهاز مسجل → ارجع لصفحة الدخول
+    if (!deviceId) {
+      window.location.href = "login.html";
+    }
+  });
+</script>
     <!-- الملفات الخارجية -->
     <script src="quran_data.js"></script>
     <script src="xlsx.full.min.js"></script>
