@@ -110,29 +110,21 @@
   <script>
     function saveSettingsToDB(userName, deviceId) {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open("QuranProjectDB", 7);
-        
+        const request = indexedDB.open("QuranProjectDB", 9);
         request.onsuccess = (event) => {
             const db = event.target.result;
             const tx = db.transaction("settings", "readwrite");
             const store = tx.objectStore("settings");
-            
-            store.put(userName, "user_name");
-            store.put(deviceId, "device_id");
-            
-            // ✅ لا نعتبر العملية انتهت إلا عند نجاح الـ Transaction بالكامل
-            tx.oncomplete = () => {
-                console.log("✅ تم حفظ الإعدادات بنجاح");
-                resolve();
-            };
-            
-            tx.onerror = (err) => {
-                console.error("❌ خطأ في الحفظ:", err);
-                reject(err);
-            };
-        };
 
-        request.onerror = (err) => reject(err);
+            // تخزين كائن يحتوي على الحقول المطلوبة
+            store.put({
+                user_name: userName,
+                device_id: deviceId,
+                last_login: new Date().toISOString()
+            });
+
+            tx.oncomplete = () => resolve();
+        };
     });
 }
     async function registerDevice() {
