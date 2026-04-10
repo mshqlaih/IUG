@@ -155,6 +155,12 @@ function initDB() {
             empStore = e.target.transaction.objectStore("empdata");
         }
 
+        let settingsStore;
+        if (!db.objectStoreNames.contains("settings")) {
+            settingsStore = db.createObjectStore("settings", { keyPath: "idno"});
+        } else {
+            settingsStore = e.target.transaction.objectStore("settings");
+        }
     };
 
     request.onsuccess = (e) => {
