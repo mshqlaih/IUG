@@ -2102,3 +2102,12 @@ function getAllDataFromStore(db, storeName) {
     });
 }
 
+function handleLogout() {
+    if (confirm("هل أنت متأكد من تسجيل الخروج؟ سيتم مسح البيانات المحلية.")) {
+        // 1. مسح LocalStorage (device_id و user_name)
+        localStorage.clear();
+
+            window.location.replace("login.html");
+    }
+}
+
