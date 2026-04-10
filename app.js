@@ -2102,12 +2102,46 @@ function getAllDataFromStore(db, storeName) {
     });
 }
 
-function handleLogout() {
-    if (confirm("هل أنت متأكد من تسجيل الخروج؟ سيتم مسح البيانات المحلية.")) {
-        // 1. مسح LocalStorage (device_id و user_name)
-        localStorage.clear();
+async function handleLogout() {
+    if (!confirm("هل أنت متأكد من تسجيل الخروج؟ سيتم مسح الإعدادات فقط.")) return;
 
+    // 1. حذف عناصر محددة من LocalStorage
+    localStorage.removeItem("teacherID");
+    localStorage.removeItem("user_name");
+    localStorage.removeItem("device_id");
+
+    // 2. تفريغ مخزن settings في IndexedDB
+    const request = indexedDB.open("QuranProjectDB"); // يفتح آخر إصدار متاح تلقائياً
+
+    request.onsuccess = (event) => {
+        const db = event.target.result;
+        
+        // التحقق من وجود المخزن قبل محاولة مسحه لتجنب الأخطاء
+        if (db.objectStoreNames.contains("settings")) {
+            const transaction = db.transaction("settings", "readwrite");
+            const store = transaction.objectStore("settings");
+            
+            const clearRequest = store.clear(); // تفريغ البيانات داخل المخزن
+
+            clearRequest.onsuccess = () => {
+                console.log("✅ تم تفريغ الإعدادات بنجاح");
+                window.location.replace("login.html");
+            };
+
+            clearRequest.onerror = () => {
+                console.error("❌ فشل تفريغ الإعدادات");
+                window.location.replace("login.html");
+            };
+        } else {
+            // إذا لم يكن المخزن موجوداً أصلاً، ننتقل لصفحة الدخول
             window.location.replace("login.html");
-    }
+        }
+    };
+
+    request.onerror = (err) => {
+        console.error("❌ فشل فتح القاعدة للمسح:", err);
+        window.location.replace("login.html");
+    };
 }
+
 
