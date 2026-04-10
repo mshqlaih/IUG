@@ -331,16 +331,15 @@
 
     <datalist id="ayatList"></datalist>
 
-     <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const deviceId = localStorage.getItem("device_id");
+    <script>
+  // نضعه في أعلى الصفحة لضمان التحويل السريع
+  const deviceId = localStorage.getItem("device_id");
 
-    // لو لا يوجد جهاز مسجل → ارجع لصفحة الدخول
-    if (!deviceId) {
-      window.location.href = "login.html";
-    }
-  });
+  if (!deviceId || deviceId === "null" || deviceId === "") {
+    window.location.href = "login.html";
+  }
 </script>
+
     <!-- الملفات الخارجية -->
     <script src="quran_data.js"></script>
     <script src="xlsx.full.min.js"></script>
