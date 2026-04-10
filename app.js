@@ -1040,7 +1040,7 @@ function saveTeacherID() {
 
 // 9. النسخ الاحتياطي
 async function exportBackup() {
-    const data = { students: await getAll("students"), records: await getAll("records"), teacherID: localStorage.getItem('teacherID') };
+    const data = { students: await getAll("students"), records: await getAll("records"),settings : await getAll("settings"), teacherID: localStorage.getItem('teacherID') };
     const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
     a.download = `Backup_${new Date().toLocaleDateString()}.json`; a.click();
