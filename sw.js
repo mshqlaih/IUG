@@ -54,6 +54,15 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+let currentDeviceId = null;
+
+// استقبال الـ Device ID من الصفحة الرئيسية
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SET_DEVICE_ID') {
+    currentDeviceId = event.data.deviceId;
+    console.log("🆔 Service Worker استلم Device ID:", currentDeviceId);
+  }
+});
 // دالة المزامنة مع Debug + postMessage
 function syncRecords() {
   return new Promise((resolve, reject) => {
