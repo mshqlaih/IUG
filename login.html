@@ -148,64 +148,7 @@
     alert(data.message);
   }
 }
-    async function registerDevice01() {
-
-      const userName   = document.getElementById("username").value.trim();
-      const password   = document.getElementById("password").value.trim();
-      const messageBox = document.getElementById("message");
-
-      if (!userName || !password) {
-        messageBox.textContent = "❌ جميع الحقول مطلوبة";
-        messageBox.className = "message error";
-        return;
-      }
-
-      // device_id ثابت للجهاز
-      let deviceId = localStorage.getItem("device_id");
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem("device_id", deviceId);
-      }
-
-      const payload = {
-        user_name: userName,
-        password: password,
-        device_id: deviceId
-      };
-
-      try {
-        const response = await fetch(url, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/x-www-form-urlencoded"
-  },
-  body: new URLSearchParams({
-    user_name: userName,
-    password: password,
-    device_id: deviceId
-  })
-});
-
-        const data = await response.json();
-
-        if (data.status === "success") {
-
-  // حفظ البيانات
-  localStorage.setItem("device_id", deviceId);
-  localStorage.setItem("user_name", userName);
-
-  // ✅ التوجيه إلى الصفحة الرئيسية
-  window.location.href = "index.html";
-} else {
-          messageBox.textContent = "❌ " + data.message;
-          messageBox.className = "message error";
-        }
-
-      } catch (err) {
-        messageBox.textContent = "❌ خطأ في الاتصال بالخادم";
-        messageBox.className = "message error";
-      }
-    }
+   
   </script>
 
 </body>
