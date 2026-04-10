@@ -79,17 +79,17 @@ function syncRecords() {
         const unsynced = getAll.result.filter(r => !r.synced);
         console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
 
-        Promise.all(
-          unsynced.map(record =>
-            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
-              method: "POST",
-              headers: { "Content-Type": "application/json"
-                       },
-              body: JSON.stringify({
-    record,           // بيانات الطالب الأصلية
-    device_id_field: currentDeviceId // إرسال المعرف داخل الـ JSON
-  })
-            .then(async res => {
+       Promise.all(
+  unsynced.map(record =>
+    fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...record,                     // فك محتويات السجل ليكون في المستوى الأول
+        device_id_field: currentDeviceId // إضافة معرف الجهاز معهم
+      }) 
+    }) // <--- كان ينقص إغلاق قوس الـ fetch هنا
+    .then(async res => {
               if (res.ok) {
                 // ✅ نجاح الرفع
                 const txUpdate = db.transaction("records", "readwrite");
