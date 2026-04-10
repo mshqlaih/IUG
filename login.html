@@ -110,34 +110,34 @@
   <!-- JavaScript -->
   
   <script>
-   function saveSettingsToDB(userName, deviceId) {
+ function saveSettingsToDB(userName, deviceId) {
     return new Promise((resolve, reject) => {
-        // 1. يجب أن يكون الإصدار 9 لتطبيق تغييرات الـ KeyPath
-        const request = indexedDB.open("QuranProjectDB", 9); 
+        const request = indexedDB.open("QuranProjectDB", 9); // تأكد أنه 9
 
         request.onsuccess = (event) => {
             const db = event.target.result;
             const tx = db.transaction("settings", "readwrite");
             const store = tx.objectStore("settings");
 
-            // 2. التأكد من أن القيم ليست فارغة (لو فارغة سيأخذها من localStorage)
-            const finalUserName = userName || localStorage.getItem("user_name");
-            const finalDeviceId = deviceId || localStorage.getItem("device_id");
-
-            console.log("حفظ الإعدادات:", finalUserName, finalDeviceId);
-
-            // 3. التخزين
-            store.put({
-                user_name: finalUserName,
-                device_id: finalDeviceId, // لو هذه القيمة undefined سيظهر الخطأ الذي تراه
+            // تأكد من ترتيب المتغيرات واستخدامها داخل الكائن
+            const dataToSave = {
+                user_name: userName,
+                device_id: deviceId, // يجب أن يطابق الاسم في createObjectStore
                 last_login: new Date().toISOString()
-            });
+            };
 
-            tx.oncomplete = () => resolve();
+            console.log("سيتم حفظ هذا الكائن:", dataToSave);
+
+            // هنا نمرر الكائن كاملاً
+            store.put(dataToSave);
+
+            tx.oncomplete = () => {
+                console.log("✅ أخيراً.. تم الحفظ بنجاح!");
+                resolve();
+            };
+            
             tx.onerror = (err) => reject(err);
         };
-        
-        request.onerror = (err) => reject(err);
     });
 }
 
