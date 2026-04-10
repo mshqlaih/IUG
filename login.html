@@ -211,6 +211,7 @@ button:disabled {
       messageBox.className = "message success";
       
       localStorage.setItem("user_name", userName);
+      localStorage.setItem("teacherID", userName);
       await saveSettingsToDB(userName, deviceId);
       window.location.href = "index.html";
 
