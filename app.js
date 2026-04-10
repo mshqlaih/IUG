@@ -15,6 +15,23 @@ if ('serviceWorker' in navigator) {
             };
         };
 
+        // --- إضافة: إرسال الـ Device ID فور اكتمال التسجيل والتحكم ---
+        const sendDeviceId = () => {
+            if (navigator.serviceWorker.controller) {
+                const deviceId = localStorage.getItem("device_id");
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SET_DEVICE_ID',
+                    deviceId: deviceId
+                });
+                console.log("🚀 تم إرسال الـ ID للـ SW بنجاح");
+            }
+        };
+
+        // المحاولة فوراً
+        sendDeviceId();
+
+        // المحاولة عند حدوث تغيير في المتحكم (Controller) لضمان الاستمرارية
+        navigator.serviceWorker.addEventListener('controllerchange', sendDeviceId); 
         
         // استقبال تاريخ آخر تحديث من الـ SW
         navigator.serviceWorker.addEventListener('message', (event) => {
