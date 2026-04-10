@@ -109,7 +109,7 @@
   <!-- JavaScript -->
   <script>
     function saveSettingsToDB(userName, deviceId) {
-    const request = indexedDB.open("QuranProjectDB", 6);
+    const request = indexedDB.open("QuranProjectDB", 7);
     request.onsuccess = (event) => {
         const db = event.target.result;
         const tx = db.transaction("settings", "readwrite");
