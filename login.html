@@ -174,13 +174,17 @@
       };
 
       try {
-        const response = await fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/device/first-login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
-        });
+        const response = await fetch(url, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded"
+  },
+  body: new URLSearchParams({
+    user_name: userName,
+    password: password,
+    device_id: deviceId
+  })
+});
 
         const data = await response.json();
 
