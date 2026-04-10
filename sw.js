@@ -58,32 +58,39 @@ self.addEventListener('activate', (e) => {
 // دالة المزامنة مع Debug + postMessage
 function syncRecords() {
   return new Promise((resolve, reject) => {
-    console.log("🔄 بدأ تشغيل syncRecords");
-    const request = indexedDB.open("QuranProjectDB", 7);
+    console.log("🔄 بدأ تشغيل syncRecords (الإصدار 9)");
+    
+    // فتح قاعدة البيانات بالإصدار الأخير
+    const request = indexedDB.open("QuranProjectDB", 9);
 
     request.onsuccess = (event) => {
       const db = event.target.result;
 
-      // 1. جلب معرف الجهاز من مخزن settings أولاً
+      // 1. جلب كائن الإعدادات من مخزن settings
       const settingsTx = db.transaction("settings", "readonly");
       const settingsStore = settingsTx.objectStore("settings");
-      const deviceRequest = settingsStore.get("device_id");
+      const getSettings = settingsStore.getAll(); // جلب كافة السجلات (عادة يكون سجل واحد)
 
-      deviceRequest.onsuccess = () => {
-        const dbDeviceId = deviceRequest.result;
-
-        if (!dbDeviceId) {
-          console.error("❌ لا يمكن المزامنة: Device ID غير موجود في IndexedDB");
+      getSettings.onsuccess = () => {
+        const settingsList = getSettings.result;
+        
+        // التأكد من وجود بيانات الجهاز
+        if (!settingsList || settingsList.length === 0) {
+          console.error("❌ لا يمكن المزامنة: بيانات الجهاز غير موجودة في IndexedDB");
           return resolve(); 
         }
 
-        // 2. البدء في جلب السجلات غير المزامنة
+        // استخراج device_id من أول سجل متاح
+        const dbDeviceId = settingsList[0].device_id;
+        console.log("🆔 تم جلب معرف الجهاز للمزامنة:", dbDeviceId);
+
+        // 2. البدء في جلب السجلات غير المزامنة من مخزن records
         const tx = db.transaction("records", "readonly");
         const store = tx.objectStore("records");
-        const getAll = store.getAll();
+        const getAllRecords = store.getAll();
 
-        getAll.onsuccess = () => {
-          const unsynced = getAll.result.filter(r => !r.synced);
+        getAllRecords.onsuccess = () => {
+          const unsynced = getAllRecords.result.filter(r => !r.synced);
           console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
 
           if (unsynced.length === 0) return resolve();
@@ -94,35 +101,37 @@ function syncRecords() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  ...record,                   // بيانات الطالب
-                  device_id_field: dbDeviceId  // المعرف المستخرج من DB
+                  ...record,                   // فك محتويات السجل
+                  device_id_field: dbDeviceId  // إضافة معرف الجهاز المسجل
                 })
               })
               .then(async res => {
-                const dbUpdate = event.target.result; // الحصول على قاعدة البيانات للتحديث
+                // فتح قاعدة البيانات مرة أخرى للتحديث (لضمان سياق المعاملة)
+                const dbUpdate = event.target.result;
+                
                 if (res.ok) {
-                  // ✅ نجاح الرفع
+                  // ✅ نجاح الرفع للسيرفر
                   const txUpdate = dbUpdate.transaction("records", "readwrite");
                   const storeUpdate = txUpdate.objectStore("records");
                   record.synced = true;
                   record.syncError = null;
                   storeUpdate.put(record);
 
-                  console.log("✅ تم رفع النشاط بنجاح للجهاز:", dbDeviceId);
+                  console.log("✅ نجاح المزامنة للسجل:", record.id);
 
-                  // إرسال رسالة للصفحة
+                  // إرسال إشعار للصفحة النشطة
                   self.clients.matchAll().then(clients => {
                     clients.forEach(client => {
                       client.postMessage({
                         type: 'SYNC_LOG',
-                        message: "✅ تم رفع النشاط: " + JSON.stringify(record)
+                        message: "✅ تم رفع النشاط بنجاح."
                       });
                     });
                   });
                 } else {
-                  // ❌ فشل من السيرفر
+                  // ❌ فشل من السيرفر (مثل 401 أو 500)
                   const errorText = await res.text();
-                  console.log("❌ فشل رفع النشاط:", errorText);
+                  console.log("❌ فشل السيرفر:", errorText);
 
                   const txUpdate = dbUpdate.transaction("records", "readwrite");
                   const storeUpdate = txUpdate.objectStore("records");
@@ -132,27 +141,23 @@ function syncRecords() {
                 }
               })
               .catch(err => {
-                // ⚠️ خطأ في الاتصال
-                console.error("⚠️ خطأ في الاتصال:", err);
-                const txUpdate = event.target.result.transaction("records", "readwrite");
+                // ⚠️ خطأ شبكة أو انقطاع اتصال
+                console.error("⚠️ خطأ اتصال أثناء المزامنة:", err);
+                const dbErr = event.target.result;
+                const txUpdate = dbErr.transaction("records", "readwrite");
                 const storeUpdate = txUpdate.objectStore("records");
                 record.synced = false;
-                record.syncError = "خطأ في الاتصال: " + err.message;
+                record.syncError = "خطأ اتصال: " + err.message;
                 storeUpdate.put(record);
               })
             )
           ).then(resolve).catch(reject);
         };
       };
-
-      deviceRequest.onerror = () => {
-        console.error("❌ خطأ في الوصول لمخزن الإعدادات");
-        reject("Settings store access error");
-      };
     };
 
     request.onerror = (err) => {
-      console.error("❌ خطأ في فتح قاعدة البيانات:", err);
+      console.error("❌ فشل فتح قاعدة البيانات في SW:", err);
       reject(err);
     };
   });
