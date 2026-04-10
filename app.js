@@ -15,6 +15,7 @@ if ('serviceWorker' in navigator) {
             };
         };
 
+        
         // --- إضافة: إرسال الـ Device ID فور اكتمال التسجيل والتحكم ---
         const sendDeviceId = () => {
             if (navigator.serviceWorker.controller) {
