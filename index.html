@@ -14,6 +14,37 @@
   th { background-color: #3498db; color: white; }
   tr:nth-child(even) { background-color: #f2f2f2; }
   .empty-msg { color: #888; font-style: italic; }
+
+        .logout-btn {
+    position: fixed;
+    top: 15px;
+    left: 15px; /* وضعته لليسار لأن الصفحة RTL */
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.logout-btn:hover {
+    background-color: #c0392b;
+}
+
+/* لمنع تداخل الزر مع المحتوى في الشاشات الصغيرة جداً */
+@media (max-width: 480px) {
+    .logout-btn {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+}
+
 </style>
 </head>
    <script>
@@ -32,6 +63,11 @@
 <button id="installBtn" style="display: none; padding: 10px; background: #000; color: #fff; border: none; border-radius: 5px; margin: 10px;">
     تنزيل التطبيق على الجوال
 </button>
+<button class="logout-btn" onclick="handleLogout()">
+    <span>🚪</span> تسجيل الخروج
+</button>
+
+    
    
 
     <div id="lastUpdateLabel"  style="text-align:center; 
