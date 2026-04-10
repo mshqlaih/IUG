@@ -16,6 +16,13 @@
   .empty-msg { color: #888; font-style: italic; }
 </style>
 </head>
+    <script>
+        // هذا الكود يجب أن يكون أول سطر في الـ Head
+        const deviceId = localStorage.getItem("device_id");
+        if (!deviceId || deviceId === "null" || deviceId === "") {
+            window.location.href = "login.html";
+        }
+    </script>
 <body>
 <button id="installBtn" style="display: none; padding: 10px; background: #000; color: #fff; border: none; border-radius: 5px; margin: 10px;">
     تنزيل التطبيق على الجوال
@@ -345,15 +352,6 @@
     </div>
 
     <datalist id="ayatList"></datalist>
-
-    <script>
-  // نضعه في أعلى الصفحة لضمان التحويل السريع
-  const deviceId = localStorage.getItem("device_id");
-
-  if (!deviceId || deviceId === "null" || deviceId === "") {
-    window.location.href = "login.html";
-  }
-</script>
 
     <!-- الملفات الخارجية -->
     <script src="quran_data.js"></script>
