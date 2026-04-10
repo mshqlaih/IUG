@@ -16,13 +16,18 @@
   .empty-msg { color: #888; font-style: italic; }
 </style>
 </head>
-    <script>
-        // هذا الكود يجب أن يكون أول سطر في الـ Head
+   <script>
+    (function() {
         const deviceId = localStorage.getItem("device_id");
-        if (!deviceId || deviceId === "null" || deviceId === "") {
-            window.location.href = "login.html";
+        const userName = localStorage.getItem("user_name");
+
+        // تحقق صارم: إذا غاب أحدهما، اذهب لصفحة الدخول
+        if (!deviceId || deviceId === "null" || !userName || userName === "null") {
+            window.location.replace("login.html"); // استخدام replace أفضل من href لمنع العودة للخلف
         }
-    </script>
+    })();
+</script>
+
 <body>
 <button id="installBtn" style="display: none; padding: 10px; background: #000; color: #fff; border: none; border-radius: 5px; margin: 10px;">
     تنزيل التطبيق على الجوال
