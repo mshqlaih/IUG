@@ -85,10 +85,10 @@ function syncRecords() {
               method: "POST",
               headers: { "Content-Type": "application/json"
                        },
-              body: JSON.stringify(record,
-                                   device_id_field: currentDeviceId
-                                  )
-            })
+              body: JSON.stringify({
+    record,           // بيانات الطالب الأصلية
+    device_id_field: currentDeviceId // إرسال المعرف داخل الـ JSON
+  })
             .then(async res => {
               if (res.ok) {
                 // ✅ نجاح الرفع
