@@ -117,10 +117,9 @@
 
       const userName   = document.getElementById("username").value.trim();
       const password   = document.getElementById("password").value.trim();
-      const nationalId = document.getElementById("nationalId").value.trim();
       const messageBox = document.getElementById("message");
 
-      if (!userName || !password || !nationalId) {
+      if (!userName || !password) {
         messageBox.textContent = "❌ جميع الحقول مطلوبة";
         messageBox.className = "message error";
         return;
