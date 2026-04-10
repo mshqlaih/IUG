@@ -61,7 +61,7 @@ function syncRecords() {
     console.log("🔄 بدأ تشغيل syncRecords (الإصدار 9)");
     
     // فتح قاعدة البيانات بالإصدار الأخير
-    const request = indexedDB.open("QuranProjectDB", 9);
+    const request = indexedDB.open("QuranProjectDB", 8);
 
     request.onsuccess = (event) => {
       const db = event.target.result;
