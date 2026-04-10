@@ -6,6 +6,15 @@
     <title>نظام QMC لمتابعة الحلقات</title>
      <link rel="stylesheet" href="app.css">
      <link rel="manifest" href="manifest.json">
+    <style>
+  .store-section { margin-bottom: 30px; border: 1px solid #ccc; border-radius: 8px; padding: 15px; background: #f9f9f9; }
+  .store-title { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 13px; }
+  th { background-color: #3498db; color: white; }
+  tr:nth-child(even) { background-color: #f2f2f2; }
+  .empty-msg { color: #888; font-style: italic; }
+</style>
 </head>
 <body>
 <button id="installBtn" style="display: none; padding: 10px; background: #000; color: #fff; border: none; border-radius: 5px; margin: 10px;">
@@ -308,6 +317,12 @@
 
         <!-- شاشة قائمة الطلاب -->
 <div id="studentsListTab" class="tab-content">
+  <div style="padding: 20px; font-family: sans-serif; direction: rtl;">
+  <h2>📊 مستعرض بيانات IndexedDB</h2>
+  <button onclick="inspectFullDatabase()" style="padding: 10px; cursor: pointer;">تحديث البيانات</button>
+  <div id="db-viewer-content"></div>
+</div>
+
   <div class="card">
     <h3>📋 قائمة الطلاب</h3>
     <div class="students-table-wrapper">
@@ -354,16 +369,13 @@
             btn.classList.add('active');
             window.scrollTo(0,0);
              if(tabId === "studentsListTab") {
-    loadStudentsTable();
-  }
-
+                loadStudentsTable();
+              }            
         }
     </script>
     <script src="html2pdf.bundle.min.js"></script>
     <script src="app.js"></script>
-    <script>
-  var vConsole = new window.VConsole();
-</script>
+    
         <div id="toast" class="toast-hidden"></div>
 </body>
 </html>
