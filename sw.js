@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.2084';
+const CACHE_NAME = 'quran-app-v1.2085';
 const ASSETS = [
   './',
   './index.html',
@@ -67,7 +67,7 @@ self.addEventListener('message', (event) => {
 function syncRecords() {
   return new Promise((resolve, reject) => {
     console.log("🔄 بدأ تشغيل syncRecords");
-    const request = indexedDB.open("QuranProjectDB", 6);
+    const request = indexedDB.open("QuranProjectDB", 7);
 
     request.onsuccess = (event) => {
       const db = event.target.result;
