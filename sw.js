@@ -83,10 +83,11 @@ function syncRecords() {
           unsynced.map(record =>
             fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
               method: "POST",
-              headers: { "Content-Type": "application/json",
-                          "X-DEVICE-ID": currentDeviceId
+              headers: { "Content-Type": "application/json"
                        },
-              body: JSON.stringify(record)
+              body: JSON.stringify(record,
+                                   device_id_field: currentDeviceId
+                                  )
             })
             .then(async res => {
               if (res.ok) {
