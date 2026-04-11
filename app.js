@@ -1674,6 +1674,12 @@ document.getElementById("syncBtn").addEventListener("click", () => {
     .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
 });
 
+document.getElementById("pullBtn").addEventListener("click", () => {
+  pullRecordsFromServer()
+    .then(() => console.log("🎉 انتهى سحب البيانات"))
+    .catch(err => console.error("❌ خطأ أثناء السحب:", err));
+});
+
 function showToast(message) {
     const toast = document.getElementById('toast');
     toast.innerText = message;
