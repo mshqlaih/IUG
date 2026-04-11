@@ -2201,23 +2201,19 @@ function migrateOldRecords() {
 
 
 async function pullRecordsFromServer() {
-    // 1. جلب القيمة من التخزين (مثلاً: 700007636)
     const puserName = localStorage.getItem("user_name");
-    
     if (!puserName) return;
 
     try {
-        // 2. استخدام رابطك الكامل والفريد كما هو
-        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/{puserName}`;
-        
+        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
         const response = await fetch(url);
         const data = await response.json();
         const remoteRecords = data.items || [];
 
-        // 3. فتح قاعدة البيانات ودمج البيانات
-        const db = await new Promise(resolve => {
+        const db = await new Promise((resolve, reject) => {
             const req = indexedDB.open("QuranProjectDB");
             req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
         });
 
         const tx = db.transaction("records", "readwrite");
@@ -2225,7 +2221,6 @@ async function pullRecordsFromServer() {
         const index = store.index("student_date_type");
 
         for (const remote of remoteRecords) {
-            // البحث عن السجل لمنع التكرار
             const localId = await new Promise(resolve => {
                 const getReq = index.getKey([Number(remote.student), remote.date, Number(remote.type)]);
                 getReq.onsuccess = (e) => resolve(e.target.result);
@@ -2242,10 +2237,12 @@ async function pullRecordsFromServer() {
             store.put(recordToSave);
         }
 
-        tx.oncomplete = () => {
-            console.log("✅ تم تحديث بيانات الحلقة بنجاح.");
-            if (typeof refreshAll === "function") refreshAll();
-        };
+        await new Promise(resolve => {
+            tx.oncomplete = resolve;
+        });
+
+        console.log("✅ تم تحديث بيانات الحلقة بنجاح.");
+        if (typeof refreshAll === "function") refreshAll();
 
     } catch (err) {
         console.error("❌ خطأ في الوصول للسيرفر:", err);
