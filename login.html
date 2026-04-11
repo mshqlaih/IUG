@@ -187,8 +187,92 @@ button:disabled {
     });
 }
 
+async function registerDevice() {
+  const userName = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const messageBox = document.getElementById("message");
+  const loginBtn = document.getElementById("loginBtn");
 
- async function registerDevice() {
+  if (!userName || !password) {
+    messageBox.textContent = "❌ جميع الحقول مطلوبة";
+    messageBox.className = "message error";
+    return;
+  }
+
+  // --- 1. بدء حالة التحميل وتعطيل الزر ---
+  loginBtn.disabled = true;
+  const originalText = loginBtn.innerHTML;
+  loginBtn.innerHTML = '<span class="spinner"></span> جاري التحقق...';
+  messageBox.textContent = ""; 
+
+  try {
+    const response = await fetch(
+      "https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/device/first-login",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          p_username: userName,
+          p_password: password
+          // ملاحظة: لم نعد نرسل device_id من هنا، السيرفر هو من سيولده ويرسله
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.status === "success") {
+      // --- 2. استلام البيانات السرية من السيرفر وتخزينها ---
+      const serverDeviceId = data.device_id; // الكود السري للجهاز القادم من أوراكل
+      
+      localStorage.setItem("user_name", userName);
+      localStorage.setItem("teacherID", userName);
+      localStorage.setItem("device_id", serverDeviceId); // تخزين البصمة السرية
+
+      // --- 3. إظهار رسالة النجاح وزر التحويل الاحتياطي ---
+      messageBox.innerHTML = `
+        ✅ تم التحقق بنجاح، جاري التحويل...<br>
+        <button id="manualRedirectBtn" style="margin-top:10px; padding:5px 10px; cursor:pointer; background:#28a745; color:#fff; border:none; border-radius:4px;">
+          إضغط هنا إذا لم يتم تحويلك
+        </button>
+      `;
+      messageBox.className = "message success";
+
+      document.getElementById("manualRedirectBtn").onclick = () => {
+          window.location.replace("index.html");
+      };
+
+      try {
+          // حفظ الإعدادات في IndexedDB (مع الكود السري الجديد)
+          await saveSettingsToDB(userName, serverDeviceId);
+          
+          setTimeout(() => {
+              window.location.replace("index.html");
+          }, 800); // زيادة التأخير قليلاً لضمان حفظ البيانات في الجوال
+
+      } catch (dbError) {
+          console.error("فشل حفظ IndexedDB:", dbError);
+          window.location.replace("index.html");
+      }
+
+    } else {
+      // فشل تسجيل الدخول
+      messageBox.textContent = "❌ " + data.message;
+      messageBox.className = "message error";
+      loginBtn.disabled = false;
+      loginBtn.innerHTML = originalText;
+    }
+
+  } catch (err) {
+    console.error("خطأ في الاتصال:", err);
+    messageBox.textContent = "❌ خطأ في الاتصال بالخادم";
+    messageBox.className = "message error";
+    loginBtn.disabled = false;
+    loginBtn.innerHTML = originalText;
+  }
+}
+
+ async function registerDevice01() {
   const userName = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value.trim();
   const messageBox = document.getElementById("message");
