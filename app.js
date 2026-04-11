@@ -566,7 +566,7 @@ function progressToText(value) {
 
 
 // 6. حفظ النشاط
-function saveActivity() {
+async function saveActivity() {
 
     const prog = calculateExactProgress();
 
