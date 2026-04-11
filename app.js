@@ -150,6 +150,7 @@ function initDB() {
     request.onsuccess = (e) => {
         db = e.target.result;
         refreshAll();
+        migrateOldRecords(); 
         normalizeRecords();
          const teacherID = document.getElementById("teacherID").value;
           fetchAndStoreEmpData(teacherID);
@@ -2157,6 +2158,45 @@ async function handleLogout01() {
         console.error("❌ فشل فتح القاعدة للمسح:", err);
         window.location.replace("login.html");
     };
+}
+
+function migrateOldRecords() {
+    // 1. التحقق هل قمنا بالتحديث سابقاً؟ (لتجنب التكرار)
+    if (localStorage.getItem("is_sortOrder_fixed") === "true") return;
+
+    console.log("🚀 جاري تحديث السجلات القديمة للمستخدم...");
+
+    const tx = db.transaction("records", "readwrite");
+    const store = tx.objectStore("records");
+    const cursorRequest = store.openCursor();
+
+    cursorRequest.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+            const record = cursor.value;
+
+            // إذا كان الحقل مفقوداً، نقوم بحقنه
+            if (record.sortOrder === undefined || record.sortOrder === null) {
+                const typeVal = parseInt(record.type);
+                const activityInfo = STATIC_LOOKUP.find(
+                    i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE" 
+                      && parseInt(i.LOOKUP_VALUE) === typeVal
+                );
+
+                record.sortOrder = activityInfo?.SORT_ORDER ?? 999;
+                cursor.update(record);
+            }
+            cursor.continue();
+        }
+    };
+
+    tx.oncomplete = () => {
+        console.log("✅ تم تحديث جميع السجلات بنجاح.");
+        // 2. وضع علامة بأنه تم الانتهاء من هذا الجهاز للأبد
+        localStorage.setItem("is_sortOrder_fixed", "true");
+    };
+
+    tx.onerror = (err) => console.error("❌ فشل تحديث السجلات:", err);
 }
 
 
