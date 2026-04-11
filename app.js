@@ -2102,7 +2102,22 @@ function getAllDataFromStore(db, storeName) {
     });
 }
 
-async function handleLogout() {
+function handleLogout() {
+    if (confirm("هل تريد تسجيل الخروج؟")) {
+        localStorage.removeItem("user_name");
+        localStorage.removeItem("device_id");
+        // تفريغ مخزن الإعدادات كما طلب سابقاً
+        const req = indexedDB.open("QuranProjectDB");
+        req.onsuccess = (e) => {
+            const db = e.target.result;
+            const tx = db.transaction("settings", "readwrite");
+            tx.objectStore("settings").clear();
+            tx.oncomplete = () => window.location.replace("login.html");
+        };
+    }
+}
+
+async function handleLogout01() {
     if (!confirm("هل أنت متأكد من تسجيل الخروج؟ سيتم مسح الإعدادات فقط.")) return;
 
     // 1. حذف عناصر محددة من LocalStorage
