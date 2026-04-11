@@ -2199,4 +2199,55 @@ function migrateOldRecords() {
     tx.onerror = (err) => console.error("❌ فشل تحديث السجلات:", err);
 }
 
+async function pullRecordsFromServer() {
+    const userName = localStorage.getItem("user_name");
+    if (!userName) return;
+
+    try {
+        const response = await fetch(`https://oraclecloudapps.com{userName}`);
+        const data = await response.json();
+        
+        // ORDS يضع النتائج عادةً في مصفوفة تسمى items
+        const remoteRecords = data.items || [];
+
+        const db = await new Promise((resolve) => {
+            const req = indexedDB.open("QuranProjectDB");
+            req.onsuccess = () => resolve(req.result);
+        });
+
+        const tx = db.transaction("records", "readwrite");
+        const store = tx.objectStore("records");
+        const index = store.index("student_date_type");
+
+        remoteRecords.forEach(remote => {
+            // البحث عن السجل المحلي لمنع التكرار (بناءً على الفهرس الفريد)
+            const getRequest = index.getKey([remote.student, remote.date, remote.type]);
+
+            getRequest.onsuccess = (e) => {
+                const localId = e.target.result;
+                
+                const recordToSave = {
+                    ...remote,
+                    synced: true // لأنها قادمة من السيرفر
+                };
+
+                if (localId !== undefined) {
+                    recordToSave.id = localId; // تحديث السجل الموجود
+                } else {
+                    delete recordToSave.id; // إضافة سجل جديد (توليد ID تلقائي)
+                }
+
+                store.put(recordToSave);
+            };
+        });
+
+        tx.oncomplete = () => {
+            console.log(`✅ تم مزامنة ${remoteRecords.length} سجل من الحلقة.`);
+            if (typeof refreshAll === "function") refreshAll();
+        };
+
+    } catch (err) {
+        console.error("❌ فشل سحب البيانات من السيرفر:", err);
+    }
+}
 
