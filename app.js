@@ -2258,6 +2258,7 @@ async function pullRecordsFromServer() {
                 rating:    remote.rating,
                 errors:    Number(remote.errors || 0),
                 sortOrder: Number(remote.sortorder || 999),
+                mark: remote.mark
                 synced:    true // علامة النجاح لأنها قادمة من السيرفر
             };
 
