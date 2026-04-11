@@ -135,54 +135,60 @@ button:disabled {
   <!-- JavaScript -->
   
   <script>
- function saveSettingsToDB(userName, deviceId) {
+function saveSettingsToDB(userName, deviceId) {
     return new Promise((resolve, reject) => {
-        // نفتح قاعدة البيانات بالإصدار المحدد
-        const request = indexedDB.open("QuranProjectDB", 12);
+        // 💡 نفتح بدون رقم إصدار ليفتح آخر إصدار متاح تلقائياً
+        const request = indexedDB.open("QuranProjectDB");
 
-        // في حال كان هناك تبويب آخر مفتوح يمنع التحديث
         request.onblocked = () => {
-            console.warn("❌ قاعدة البيانات معلقة! يرجى إغلاق الصفحات الأخرى.");
-            resolve(); // ننهي الوعد حتى لا تعلق الصفحة، وسنعتمد على localStorage
+            console.warn("❌ قاعدة البيانات معلقة!");
+            resolve(); 
         };
 
         request.onsuccess = (event) => {
             const db = event.target.result;
             
+            // 💡 تحقق من وجود المخزن لتجنب كراش الكود
+            if (!db.objectStoreNames.contains("settings")) {
+                console.error("❌ مخزن settings غير موجود!");
+                db.close();
+                resolve(); // نمرر العملية ليعمل النظام بالـ localStorage
+                return;
+            }
+
             try {
                 const tx = db.transaction("settings", "readwrite");
                 const store = tx.objectStore("settings");
 
                 const dataToSave = {
                     user_name: userName,
-                    device_id: deviceId,
+                    device_id: deviceId, // هو المفتاح الأساسي (KeyPath) كما حددته سابقاً
                     last_login: new Date().toISOString()
                 };
 
-                console.log("جاري حفظ البيانات في IndexedDB...");
                 store.put(dataToSave);
 
                 tx.oncomplete = () => {
-                    console.log("✅ تم الحفظ بنجاح وإغلاق الاتصال.");
-                    db.close(); // 💡 خطوة حاسمة لنجاح التحويل في الجوال
+                    console.log("✅ تم الحفظ بنجاح.");
+                    db.close(); // 💡 ضروري جداً قبل التحويل لصفحة أخرى
                     resolve();
                 };
 
                 tx.onerror = (err) => {
-                    console.error("❌ خطأ في الترانزاكشن:", err);
+                    console.error("❌ خطأ الترانزاكشن:", err);
                     db.close();
-                    reject(err);
+                    resolve(); // نفضل resolve لضمان انتقال المستخدم للصفحة التالية
                 };
             } catch (e) {
-                console.error("❌ حدث خطأ غير متوقع:", e);
+                console.error("❌ خطأ مفاجئ:", e);
                 db.close();
-                resolve(); // نمرر العملية حتى لو فشلت لضمان عدم تعليق المستخدم
+                resolve();
             }
         };
 
         request.onerror = (event) => {
             console.error("❌ فشل فتح IndexedDB:", event.target.error);
-            reject(event.target.error);
+            resolve(); // لا نريد تعطيل المستخدم إذا كانت المشكلة في قاعدة البيانات فقط
         };
     });
 }
