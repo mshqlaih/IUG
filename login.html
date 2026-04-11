@@ -137,36 +137,58 @@ button:disabled {
   <script>
  function saveSettingsToDB(userName, deviceId) {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open("QuranProjectDB", 12); // تأكد أنه 9
+        // نفتح قاعدة البيانات بالإصدار المحدد
+        const request = indexedDB.open("QuranProjectDB", 12);
+
+        // في حال كان هناك تبويب آخر مفتوح يمنع التحديث
+        request.onblocked = () => {
+            console.warn("❌ قاعدة البيانات معلقة! يرجى إغلاق الصفحات الأخرى.");
+            resolve(); // ننهي الوعد حتى لا تعلق الصفحة، وسنعتمد على localStorage
+        };
 
         request.onsuccess = (event) => {
             const db = event.target.result;
-            const tx = db.transaction("settings", "readwrite");
-            const store = tx.objectStore("settings");
-
-            // تأكد من ترتيب المتغيرات واستخدامها داخل الكائن
-            const dataToSave = {
-                user_name: userName,
-                device_id: deviceId, // يجب أن يطابق الاسم في createObjectStore
-                last_login: new Date().toISOString()
-            };
-
-            console.log("سيتم حفظ هذا الكائن:", dataToSave);
-
-            // هنا نمرر الكائن كاملاً
-            store.put(dataToSave);
-
-            tx.oncomplete = () => {
-                console.log("✅ أخيراً.. تم الحفظ بنجاح!");
-                resolve();
-            };
             
-            tx.onerror = (err) => reject(err);
+            try {
+                const tx = db.transaction("settings", "readwrite");
+                const store = tx.objectStore("settings");
+
+                const dataToSave = {
+                    user_name: userName,
+                    device_id: deviceId,
+                    last_login: new Date().toISOString()
+                };
+
+                console.log("جاري حفظ البيانات في IndexedDB...");
+                store.put(dataToSave);
+
+                tx.oncomplete = () => {
+                    console.log("✅ تم الحفظ بنجاح وإغلاق الاتصال.");
+                    db.close(); // 💡 خطوة حاسمة لنجاح التحويل في الجوال
+                    resolve();
+                };
+
+                tx.onerror = (err) => {
+                    console.error("❌ خطأ في الترانزاكشن:", err);
+                    db.close();
+                    reject(err);
+                };
+            } catch (e) {
+                console.error("❌ حدث خطأ غير متوقع:", e);
+                db.close();
+                resolve(); // نمرر العملية حتى لو فشلت لضمان عدم تعليق المستخدم
+            }
+        };
+
+        request.onerror = (event) => {
+            console.error("❌ فشل فتح IndexedDB:", event.target.error);
+            reject(event.target.error);
         };
     });
 }
 
-  async function registerDevice() {
+
+ async function registerDevice() {
   const userName = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value.trim();
   const messageBox = document.getElementById("message");
@@ -207,26 +229,50 @@ button:disabled {
     const data = await response.json();
 
     if (data.status === "success") {
-      messageBox.textContent = "✅ تم التحقق بنجاح، جاري التحويل...";
+      // --- تعديل رسالة النجاح وإضافة زر تحويل يدوي احتياطي ---
+      messageBox.innerHTML = `
+        ✅ تم التحقق بنجاح، جاري التحويل...<br>
+        <button id="manualRedirectBtn" style="margin-top:10px; padding:5px 10px; cursor:pointer; background:#28a745; color:#fff; border:none; border-radius:4px;">
+          إضغط هنا إذا لم يتم تحويلك
+        </button>
+      `;
       messageBox.className = "message success";
       
+      // حفظ البيانات الأساسية
       localStorage.setItem("user_name", userName);
       localStorage.setItem("teacherID", userName);
-      await saveSettingsToDB(userName, deviceId);
-      window.location.href = "index.html";
+
+      // ربط زر التحويل اليدوي فوراً
+      document.getElementById("manualRedirectBtn").onclick = () => {
+          window.location.replace("index.html");
+      };
+
+      try {
+          // محاولة حفظ الإعدادات في قاعدة البيانات
+          await saveSettingsToDB(userName, deviceId);
+          
+          // تحويل تلقائي بعد تأخير بسيط جداً لضمان انتهاء العمليات
+          setTimeout(() => {
+              window.location.replace("index.html");
+          }, 500);
+
+      } catch (dbError) {
+          console.error("فشل حفظ البيانات في IndexedDB ولكن سيتم التحويل:", dbError);
+          // حتى لو فشل IndexedDB، نقوم بالتحويل لأن البيانات في localStorage كافية للتشغيل الأولي
+          window.location.replace("index.html");
+      }
 
     } else {
       messageBox.textContent = "❌ " + data.message;
       messageBox.className = "message error";
-      // --- 2. إعادة الزر لحالته الأصلية في حال الخطأ ---
       loginBtn.disabled = false;
       loginBtn.innerHTML = originalText;
     }
 
   } catch (err) {
+    console.error("خطأ في الاتصال:", err);
     messageBox.textContent = "❌ خطأ في الاتصال بالخادم";
     messageBox.className = "message error";
-    // --- 3. إعادة الزر لحالته الأصلية في حال الفشل ---
     loginBtn.disabled = false;
     loginBtn.innerHTML = originalText;
   }
