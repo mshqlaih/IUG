@@ -2001,6 +2001,110 @@ function migrateOldRecords() {
 
 async function pullRecordsFromServer() {
     const puserName = localStorage.getItem("user_name");
+    const syncContainer = document.getElementById("syncBtnContainer");
+
+    if (!puserName) {
+        console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");
+        return;
+    }
+
+    // 1. إظهار رسالة "جاري التحديث" في الحاوية
+    if (syncContainer) {
+        syncContainer.innerHTML = `<span id="pullStatus" style="margin-inline-end:10px; color:#3498db; font-weight:bold;">🔄 جاري تحديث بيانات الحلقة...</span>`;
+    }
+
+    try {
+        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("فشل الاتصال بالسيرفر");
+        
+        const data = await response.json();
+        const remoteRecords = data.items || [];
+
+        const db = await new Promise((resolve, reject) => {
+            const req = indexedDB.open("QuranProjectDB");
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+
+        const tx = db.transaction("records", "readwrite");
+        const store = tx.objectStore("records");
+        const index = store.index("student_date_type");
+
+        for (const remote of remoteRecords) {
+            // 2. تنظيف البيانات ومعالجة مشكلة "الاسم لا يظهر"
+            const cleanDate = String(remote.date).replace(/[\\"]/g, '').trim();
+            const cleanTeacherId = String(remote.teacher).replace(/[\\"]/g, '').trim();
+            
+            // 💡 ملاحظة: السيرفر يرسل الحقل غالباً كـ teachername (حروف صغيرة)
+            const rawName = remote.teachername || remote.teacherName || remote.TEACHERNAME || "";
+            const cleanTeacherName = String(rawName).replace(/[\\"]/g, '').trim();
+
+            const recordToSave = {
+                student:     Number(remote.student),
+                date:        cleanDate,
+                type:        Number(remote.type),
+                teacher:     cleanTeacherId,
+                teacherName: cleanTeacherName || cleanTeacherId, // استخدام الرقم إذا غاب الاسم
+                fromRange:   Number(remote.fromrange || 0),
+                toRange:     Number(remote.torange || 0),
+                partFrom:    remote.partfrom,
+                partTo:      remote.partto,
+                amount:      Number(remote.amount || 0),
+                rating:      remote.rating,
+                errors:      Number(remote.errors || 0),
+                mark:        remote.mark,
+                sortOrder:   Number(remote.sortorder || 999),
+                synced:      true
+            };
+
+            const localId = await new Promise((resolve) => {
+                const getRequest = index.getKey([recordToSave.student, recordToSave.date, recordToSave.type]);
+                getRequest.onsuccess = (e) => resolve(e.target.result);
+            });
+
+            if (localId !== undefined) {
+                recordToSave.id = localId;
+            } else {
+                delete recordToSave.id;
+            }
+
+            store.put(recordToSave);
+        }
+
+        await new Promise((resolve) => {
+            tx.oncomplete = resolve;
+        });
+
+        // 3. طباعة النجاح في الحاوية
+        if (syncContainer) {
+            const statusEl = document.getElementById("pullStatus");
+            if (statusEl) {
+                statusEl.style.color = "#27ae60";
+                statusEl.innerHTML = `✅ تم تحديث ${remoteRecords.length} سجل بنجاح.`;
+                // إخفاء الرسالة بعد 5 ثوانٍ
+                setTimeout(() => { statusEl.style.opacity = '0'; setTimeout(()=>statusEl.remove(), 1000); }, 5000);
+            }
+        }
+
+        if (typeof refreshAll === "function") refreshAll();
+
+    } catch (err) {
+        console.error("❌ خطأ:", err);
+        if (syncContainer) {
+            const statusEl = document.getElementById("pullStatus");
+            if (statusEl) {
+                statusEl.style.color = "#e74c3c";
+                statusEl.innerHTML = `❌ فشل التحديث.`;
+            }
+        }
+    }
+}
+
+
+async function pullRecordsFromServer00() {
+    const puserName = localStorage.getItem("user_name");
     if (!puserName) {
         console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");
         return;
