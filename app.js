@@ -2249,6 +2249,7 @@ async function pullRecordsFromServer() {
                 date:      cleanDate,
                 type:      cleanType,
                 teacher:   cleanTeacher,
+                teacherName:remote.teacherName,
                 // ربط الحقول القادمة من السيرفر (lowercase) بالحقول المطلوبة في التطبيق (camelCase)
                 fromRange: Number(remote.fromrange || 0),
                 toRange:   Number(remote.torange || 0),
