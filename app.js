@@ -789,9 +789,8 @@ function displayRecords() {
                 const cursor = recEvent.target.result;
                 if (cursor) {
                     const r = cursor.value;
-                    const studentName = studentsMap[r.student] || "";
-                    const teacherName = teachersMap[r.teacher] || r.teacher;
-
+                    const studentName = studentsMap[r.student] || "";                    
+                    const teacherName = r.teacherName || teachersMap[String(r.teacher)] || r.teacher;
                     const matchesDate = !fDate || r.date === fDate;
                     const matchesID   = !fID || r.student.includes(fID);
 
