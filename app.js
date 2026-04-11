@@ -779,18 +779,21 @@ function displayRecords() {
 
         // ثانياً: جلب بيانات المحفظين
         db.transaction("empdata").objectStore("empdata").getAll().onsuccess = (empEvent) => {
-            const teachersMap = {};
-            empEvent.target.result.forEach(emp => {
-                teachersMap[emp.idno] = emp.EMP_NAME;
-            });
+    const teachersMap = {};
+    empEvent.target.result.forEach(emp => {
+        // 💡 توحيد المفتاح ليكون نصاً نظيفاً لضمان التطابق
+        const cleanId = String(emp.idno).trim();
+        teachersMap[cleanId] = emp.EMP_NAME;
+    });
 
             // ثالثاً: جلب السجلات
             db.transaction("records").objectStore("records").index("sortOrderIndex").openCursor(null, "next").onsuccess = (recEvent) => {
                 const cursor = recEvent.target.result;
                 if (cursor) {
                     const r = cursor.value;
-                    const studentName = studentsMap[r.student] || "";                    
-                    const teacherName = r.teacherName || teachersMap[String(r.teacher)] || r.teacher;
+                    const studentName = studentsMap[r.student] || "";   
+                    const currentTeacherId = String(r.teacher).replace(/[\\"]/g, '').trim();
+                   const teacherName = r.teacherName || teachersMap[currentTeacherId] || currentTeacherId;
                     const matchesDate = !fDate || r.date === fDate;
                     const matchesID   = !fID || r.student.includes(fID);
 
@@ -2074,7 +2077,7 @@ async function pullRecordsFromServer() {
         await new Promise((resolve) => {
             tx.oncomplete = resolve;
         });
-
+        
         console.log(`✅ تم تحديث ${remoteRecords.length} سجل بنجاح.`);
 
         // 4. تحديث الشاشة فوراً ليرى المستخدم السجلات الجديدة
