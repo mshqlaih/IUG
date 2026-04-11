@@ -2199,18 +2199,23 @@ function migrateOldRecords() {
     tx.onerror = (err) => console.error("❌ فشل تحديث السجلات:", err);
 }
 
+
 async function pullRecordsFromServer() {
-    const userName = localStorage.getItem("user_name");
-    if (!userName) return;
+    // 1. جلب القيمة من التخزين (مثلاً: 700007636)
+    const puserName = localStorage.getItem("user_name");
+    
+    if (!puserName) return;
 
     try {
-        const response = await fetch(`https://oraclecloudapps.com{userName}`);
-        const data = await response.json();
+        // 2. استخدام رابطك الكامل والفريد كما هو
+        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/{puserName}`;
         
-        // ORDS يضع النتائج عادةً في مصفوفة تسمى items
+        const response = await fetch(url);
+        const data = await response.json();
         const remoteRecords = data.items || [];
 
-        const db = await new Promise((resolve) => {
+        // 3. فتح قاعدة البيانات ودمج البيانات
+        const db = await new Promise(resolve => {
             const req = indexedDB.open("QuranProjectDB");
             req.onsuccess = () => resolve(req.result);
         });
@@ -2219,35 +2224,30 @@ async function pullRecordsFromServer() {
         const store = tx.objectStore("records");
         const index = store.index("student_date_type");
 
-        remoteRecords.forEach(remote => {
-            // البحث عن السجل المحلي لمنع التكرار (بناءً على الفهرس الفريد)
-            const getRequest = index.getKey([remote.student, remote.date, remote.type]);
+        for (const remote of remoteRecords) {
+            // البحث عن السجل لمنع التكرار
+            const localId = await new Promise(resolve => {
+                const getReq = index.getKey([Number(remote.student), remote.date, Number(remote.type)]);
+                getReq.onsuccess = (e) => resolve(e.target.result);
+            });
 
-            getRequest.onsuccess = (e) => {
-                const localId = e.target.result;
-                
-                const recordToSave = {
-                    ...remote,
-                    synced: true // لأنها قادمة من السيرفر
-                };
+            const recordToSave = { ...remote, synced: true };
 
-                if (localId !== undefined) {
-                    recordToSave.id = localId; // تحديث السجل الموجود
-                } else {
-                    delete recordToSave.id; // إضافة سجل جديد (توليد ID تلقائي)
-                }
+            if (localId !== undefined) {
+                recordToSave.id = localId; // تحديث
+            } else {
+                delete recordToSave.id; // إضافة جديد
+            }
 
-                store.put(recordToSave);
-            };
-        });
+            store.put(recordToSave);
+        }
 
         tx.oncomplete = () => {
-            console.log(`✅ تم مزامنة ${remoteRecords.length} سجل من الحلقة.`);
+            console.log("✅ تم تحديث بيانات الحلقة بنجاح.");
             if (typeof refreshAll === "function") refreshAll();
         };
 
     } catch (err) {
-        console.error("❌ فشل سحب البيانات من السيرفر:", err);
+        console.error("❌ خطأ في الوصول للسيرفر:", err);
     }
 }
-
