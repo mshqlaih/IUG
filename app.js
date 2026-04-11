@@ -2205,8 +2205,99 @@ function migrateOldRecords() {
     tx.onerror = (err) => console.error("❌ فشل تحديث السجلات:", err);
 }
 
-
 async function pullRecordsFromServer() {
+    const puserName = localStorage.getItem("user_name");
+    if (!puserName) {
+        console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");
+        return;
+    }
+
+    // إظهار رسالة للمستخدم (اختياري)
+    console.log("📥 جاري سحب بيانات الحلقة من السيرفر...");
+
+    try {
+        // الرابط الصحيح مع تمرير المتغير برمجياً
+        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("فشل الاتصال بالسيرفر");
+        
+        const data = await response.json();
+        const remoteRecords = data.items || [];
+
+        // فتح قاعدة البيانات المحلية
+        const db = await new Promise((resolve, reject) => {
+            const req = indexedDB.open("QuranProjectDB");
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+
+        const tx = db.transaction("records", "readwrite");
+        const store = tx.objectStore("records");
+        const index = store.index("student_date_type");
+
+        for (const remote of remoteRecords) {
+            // 1. تنظيف البيانات (إزالة علامات التنصيص الزائدة وتوحيد الأنواع)
+            const cleanDate = String(remote.date).replace(/[\\"]/g, '').trim();
+            const cleanTeacher = String(remote.teacher).replace(/[\\"]/g, '').trim();
+            const cleanStudent = Number(remote.student);
+            const cleanType = Number(remote.type);
+
+            // 2. بناء كائن السجل مع تصحيح أسماء الأعمدة (Mapping) ليتوافق مع displayRecords
+            const recordToSave = {
+                student:   cleanStudent,
+                date:      cleanDate,
+                type:      cleanType,
+                teacher:   cleanTeacher,
+                // ربط الحقول القادمة من السيرفر (lowercase) بالحقول المطلوبة في التطبيق (camelCase)
+                fromRange: Number(remote.fromrange || 0),
+                toRange:   Number(remote.torange || 0),
+                partFrom:  remote.partfrom,
+                partTo:    remote.partto,
+                amount:    Number(remote.amount || 0),
+                rating:    remote.rating,
+                errors:    Number(remote.errors || 0),
+                sortOrder: Number(remote.sortorder || 999),
+                synced:    true // علامة النجاح لأنها قادمة من السيرفر
+            };
+
+            // 3. البحث باستخدام الفهرس الفريد لمنع التكرار
+            const localId = await new Promise((resolve) => {
+                const getRequest = index.getKey([cleanStudent, cleanDate, cleanType]);
+                getRequest.onsuccess = (e) => resolve(e.target.result);
+            });
+
+            if (localId !== undefined) {
+                // تحديث السجل الموجود بنفس المعرف المحلي
+                recordToSave.id = localId;
+            } else {
+                // إضافة سجل جديد (سيقوم المتصفح بتوليد id تلقائي)
+                delete recordToSave.id;
+            }
+
+            store.put(recordToSave);
+        }
+
+        // انتهاء المعاملة وحفظ البيانات
+        await new Promise((resolve) => {
+            tx.oncomplete = resolve;
+        });
+
+        console.log(`✅ تم تحديث ${remoteRecords.length} سجل بنجاح.`);
+
+        // 4. تحديث الشاشة فوراً ليرى المستخدم السجلات الجديدة
+        if (typeof refreshAll === "function") {
+            refreshAll();
+        } else if (typeof displayRecords === "function") {
+            displayRecords();
+        }
+
+    } catch (err) {
+        console.error("❌ خطأ في مزامنة بيانات الحلقة:", err);
+    }
+}
+
+async function pullRecordsFromServer01() {
     const puserName = localStorage.getItem("user_name");
     if (!puserName) return;
 
