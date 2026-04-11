@@ -360,21 +360,6 @@ function renderOptions(data) {
     });
 }
 
-function renderOptions01(data) {
-    const list = document.getElementById('ayatList');
-    window.AYAH_REVERSE = {};
-    list.innerHTML = "";
-
-    data.forEach(item => {
-        const opt = document.createElement('option');
-        opt.value = item.l;          // النص الظاهر للمستخدم
-        opt.dataset.id = item.id;    // ✅ رقم الآية الحقيقي
-
-         AYAH_REVERSE[item.id] = item.l;
-        list.appendChild(opt);
-    });
-}
-
 // 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
 document.getElementById('studentSelect').addEventListener('change', function() {
     
@@ -547,54 +532,6 @@ function calculateExactProgress() {
     return result;
 }
 
-
-
-
-
-function calculateExactProgress02() {
-    const fromID = parseInt(document.getElementById('rangeFrom').value);
-    const toID   = parseInt(document.getElementById('rangeTo').value);
-
-    if (isNaN(fromID) || isNaN(toID)) return { value: 0 };
-
-    const fromObj = QURAN_DATA.find(i => i.id === fromID);
-    const toObj   = QURAN_DATA.find(i => i.id === toID);
-
-    if (!fromObj || !toObj) return { value: 0 };
-
-    let totalLines = 0;
-
-    // 1. إذا كان التسميع داخل نفس السورة
-    if (fromObj.s === toObj.s) {
-        totalLines = getLinesBetween(fromObj, toObj);
-    } 
-    // 2. إذا انتقل من سورة إلى سورة أخرى (مثل المرسلات إلى الإنسان)
-    else {
-        // أ- حساب أسطر سورة البدء (من آية البدء حتى نهاية السورة)
-        const suraFromAyahs = QURAN_DATA.filter(i => i.s === fromObj.s);
-        const lastAyahFrom = suraFromAyahs[suraFromAyahs.length - 1];
-        totalLines += getLinesBetween(fromObj, lastAyahFrom);
-
-        // ب- حساب أسطر سورة النهاية (من بداية السورة حتى آية النهاية)
-        const suraToAyahs = QURAN_DATA.filter(i => i.s === toObj.s);
-        const firstAyahTo = suraToAyahs[0];
-        totalLines += getLinesBetween(firstAyahTo, toObj);
-        
-        // ملاحظة: هنا تجاهلنا سورة القيامة تماماً لأنها لم تُطلب
-    }
-
-    // حساب الصفحات والكسر العشري الدقيق (للحصول على 2.4)
-    // نستخدم القسمة على 15 للحصول على كسر عشري دقيق
-    let numericValue = (totalLines / 15).toFixed(1); 
-
-    // إذا أردت نظام (ربع، نصف، ثلث) كما فعلنا سابقاً:
-    let pgs = Math.floor(totalLines / 15);
-    let rem = totalLines % 15;
-    // ... منطق الـ frac السابق ...
-
-    return { value: parseFloat(numericValue), lines: totalLines };
-}
-
 // دالة مساعدة لحساب الأسطر بدقة بين أي آيتين في نفس السورة
 function getLinesBetween(obj1, obj2) {
     const start = (obj1.id <= obj2.id) ? obj1 : obj2;
@@ -608,40 +545,6 @@ function getLinesBetween(obj1, obj2) {
     }
     lines += end.le;
     return lines;
-}
-
-
-
-function calculateExactProgress01() {
-    const fromID = parseInt(document.getElementById('rangeFrom').value);
-    const toID   = parseInt(document.getElementById('rangeTo').value);
-
-    if (!fromID || !toID) return;
-
-    const fromObj = QURAN_DATA.find(i => i.id === fromID);
-    const toObj   = QURAN_DATA.find(i => i.id === toID);
-
-    if (!fromObj || !toObj) return;
-
-    const start = (fromObj.id <= toObj.id) ? fromObj : toObj;
-    const end   = (fromObj.id <= toObj.id) ? toObj   : fromObj;
-
-    let lines = (start.p === end.p)
-        ? (end.le - start.ls + 1)
-        : (15 - start.ls + 1) + end.le + ((end.p - start.p - 1) * 15);
-
-    let pgs = Math.floor(lines / 15),
-        rem = lines % 15,
-        frac = 0;
-
-    if (rem >= 1 && rem <= 4) frac = 0.25;
-    else if (rem >= 5 && rem <= 8) frac = 0.5;
-    else if (rem >= 9 && rem <= 12) frac = 0.75;
-    else if (rem >= 13) { pgs++; rem = 0; }
-
-    let numericValue = pgs + frac;
-
-    return { value: numericValue, part: end.j };
 }
 
 // دالة لتحويل القيمة الرقمية إلى نص عربي
@@ -675,6 +578,24 @@ function saveActivity() {
     const onlyDate = new Date(rawDate).toISOString().split("T")[0];
 
     const teacher   = clean(parseInt(document.getElementById('teacherID').value), 0);
+
+    let teacherName = String(teacher); // قيمة افتراضية في حال لم يجد الاسم
+    try {
+        const empTx = db.transaction("empdata", "readonly");
+        const empStore = empTx.objectStore("empdata");
+        // نحول teacherId إلى نص لأن idno في الصورة يبدو كنص
+        const empReq = await new Promise((resolve) => {
+            const req = empStore.get(String(teacher));
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+        });
+        if (empReq) {
+            teacherName = empReq.EMP_NAME;
+        }
+    } catch (e) {
+        console.warn("تعذر جلب اسم المعلم من empdata", e);
+    }
+   
     const student   = clean(parseInt(document.getElementById('studentSelect').value), 0);
     const type      = clean(parseInt(document.getElementById('activityType').value), 0);
     const rating    = clean(parseInt(document.getElementById('rating').value), 0);
@@ -707,28 +628,19 @@ function saveActivity() {
     
 
     const record = {
-        teacher   : teacher,                 // رقم فقط
+        teacher    : teacher,                 // رقم فقط
+        teacherName : teacherName,
         student   : student,
         date      : onlyDate,
         type      : type,
-
         fromRange : fromRange || "",
         toRange   : toRange   || "",
-
         amount    : prog || 0,
-
-        part      : clean(
-                      QURAN_DATA.find(i => i.id === toRange)?.j,
-                      ""
-                    ),
-
         errors    : errors,
         rating    : rating || "",
-
         mark      : mark,
         partFrom  : partFrom || "",
         partTo    : partTo   || "",
-
         synced    : false,
         syncError : "",
         sortOrder : activityInfo?.SORT_ORDER ?? 999,
@@ -756,73 +668,7 @@ function saveActivity() {
         }
     };
 }
-function saveActivity01() {
-    const prog = calculateExactProgress();
-    const rawDate = document.getElementById('activityDate').value;
-    const onlyDate = new Date(rawDate).toISOString().split("T")[0];
 
-    const teacher = parseInt(document.getElementById('teacherID').value) || null;
-    const student = parseInt(document.getElementById('studentSelect').value) || null;
-    const type    = parseInt(document.getElementById('activityType').value) || null;
-    const rating    = parseInt(document.getElementById('rating').value) || null;
-
-    // ✅ الآن القيمة رقم ID فقط
-    const fromRange = parseInt(document.getElementById('rangeFrom').value) || null;
-    const toRange   = parseInt(document.getElementById('rangeTo').value) || null;
-
-    const mark =  parseInt(document.getElementById('mark').value) || null;
-    const partFrom =  parseInt(document.getElementById('partFrom').value) || null;
-    const partTo =  parseInt(document.getElementById('partTo').value) || null;
-
-    if (!teacher || !student || !type) {
-        return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
-    }
-    
-    if ((type === 1 || type === 2 || type === 7 ) && (!fromRange || !toRange)) {
-        return alert("يجب اختيار آيات صحيحة من القائمة");
-    }
-
-    if ((type === 7) && (!partFrom || !partTo)) {
-        return alert("يجب ادخال الجزء من والجزء إلى والعلامة");
-    }
-
-    const record = {
-        teacher: teacher || "---",
-        student: student,
-        date: onlyDate,
-        type: type,
-        fromRange: fromRange,  
-        toRange: toRange,
-        amount: prog || 0,
-        part: QURAN_DATA.find(i => i.id === toRange)?.j || "---",
-        errors: document.getElementById('errors').value || 0,
-        rating: rating,
-        synced: false,
-        mark:mark,
-        partFrom:partFrom,
-        partTo:partTo
-    };
-
-    const tx = db.transaction("records", "readwrite");
-    const store = tx.objectStore("records");
-    const index = store.index("student_date_type");
-
-    const check = index.get([record.student, record.date, record.type]);
-    check.onsuccess = () => {
-        if (check.result) {
-            alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
-        } else {
-            store.add(record).onsuccess = () => {
-                refreshAll();
-                showToast('تم حفظ النشاط بنجاح');
-                resetActivityForm();
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.sync.register('sync-records');
-                });
-            };
-        }
-    };
-}
 // 7. الرادار والإحصائيات
 function updateStatsUI(hifz, muraja, errs, cnt, lastDateStr) {
     document.getElementById('totalHifz').innerText = hifz.toFixed(1);
@@ -1126,61 +972,6 @@ function exportArrayToExcel(data, fileName = "records.xlsx") {
 function exportToExcel() {
     // ✨ تصدير نفس البيانات المعروضة
     exportArrayToExcel(lastDisplayedData,"نشاط التسميع.xlsx");
-}
-function exportToExcel01() {
-  const txRecords = db.transaction("records", "readonly").objectStore("records").getAll();
-  txRecords.onsuccess = e => {
-    const records = e.target.result;
-
-    const txStudents = db.transaction("students", "readonly").objectStore("students").getAll();
-    txStudents.onsuccess = s => {
-      const students = s.target.result;
-
-      const mergedData = records.map(record => {
-        const student = students.find(st => st.id === record.student);
-        const studentName = student
-          ? `${student.fName} ${student.pName} ${student.gName} ${student.lName}`
-          : "غير معروف";
-
-        // ✨ جلب تفاصيل الآيات من QURAN_DATA
-        const fromInfo = QURAN_DATA.find(a => a.id === record.fromRange);
-        const toInfo   = QURAN_DATA.find(a => a.id === record.toRange);
-
-        // استخراج اسم السورة من النص الكامل (l) أو من جدول أسماء السور
-        const fromSurahName = fromInfo ? fromInfo.l.split(" ")[1] : "";
-        const toSurahName   = toInfo   ? toInfo.l.split(" ")[1]   : "";
-
-        const fromText = fromInfo ? `${fromSurahName} (${fromInfo.a})` : record.fromRange;
-        const toText   = toInfo   ? `${toSurahName} (${toInfo.a})`     : record.toRange;
-
-        const activityName = translateLookup("RECITATION_ATTENDANCE_TYPE", record.type);
-        const ratingName = translateLookup("ACTIVITY_GRADE",record.rating);  
-
-        return {
-          "رقم السجل": record.id,
-          "اسم الطالب": studentName,
-          "المحفظ": record.teacher,
-          "التاريخ": record.date,
-          "النوع": activityName,
-          "الجزء": record.part,
-          "من الآية": fromText,
-          "إلى الآية": toText,
-          "التقييم": ratingName,
-          "عدد الصفحات": record.amount,
-          "الأخطاء": record.errors,
-          "الحالة": record.synced 
-            ? "✔ تم الرفع" 
-            : "✘ لم يُرفع"
-        };
-      });
-
-      const ws = XLSX.utils.json_to_sheet(mergedData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Records");
-
-      XLSX.writeFile(wb, "Quran_Report.xlsx");
-    };
-  };
 }
 
 function editStudent(id) {
