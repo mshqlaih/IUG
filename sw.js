@@ -59,7 +59,7 @@ self.addEventListener('activate', (e) => {
 // دالة المزامنة مع Debug + postMessage
 function syncRecords() {
   return new Promise((resolve, reject) => {
-    console.log("🔄 بدأ تشغيل syncRecords (الإصدار 9)");
+    console.log("🔄 بدأ تشغيل syncRecords (الإصدار 12)");
     
     // فتح قاعدة البيانات بالإصدار الأخير
     const request = indexedDB.open("QuranProjectDB", 12);
@@ -164,81 +164,6 @@ function syncRecords() {
   });
 }
 
-function syncRecords01() {
-  return new Promise((resolve, reject) => {
-    console.log("🔄 بدأ تشغيل syncRecords");
-    const request = indexedDB.open("QuranProjectDB", 6);
-
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      const tx = db.transaction("records", "readonly");
-      const store = tx.objectStore("records");
-      const getAll = store.getAll();
-
-      getAll.onsuccess = () => {
-        const unsynced = getAll.result.filter(r => !r.synced);
-        console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
-
-       Promise.all(
-  unsynced.map(record =>
-    fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...record,                     // فك محتويات السجل ليكون في المستوى الأول
-        device_id_field: currentDeviceId // إضافة معرف الجهاز معهم
-      }) 
-    }) // <--- كان ينقص إغلاق قوس الـ fetch هنا
-    .then(async res => {
-              if (res.ok) {
-                // ✅ نجاح الرفع
-                const txUpdate = db.transaction("records", "readwrite");
-                const storeUpdate = txUpdate.objectStore("records");
-                record.synced = true;
-                record.syncError = null;
-                storeUpdate.put(record);
-
-                console.log("✅ تم رفع النشاط:", record);
-
-                // إرسال رسالة للصفحة
-                self.clients.matchAll().then(clients => {
-                  clients.forEach(client => {
-                    client.postMessage({
-                      type: 'SYNC_LOG',
-                      message: "✅ تم رفع النشاط: " + JSON.stringify(record)
-                    });
-                  });
-                });
-              } else {
-                // ❌ فشل من السيرفر → قراءة نص الخطأ
-                const errorText = await res.text();
-                console.log("❌ فشل رفع النشاط:", errorText);
-
-                const txUpdate = db.transaction("records", "readwrite");
-                const storeUpdate = txUpdate.objectStore("records");
-                record.synced = false;
-                record.syncError = errorText; // حفظ نص الخطأ كما هو
-                storeUpdate.put(record);
-              }
-            })
-            .catch(err => {
-              // ⚠️ خطأ في الاتصال (مثل انقطاع الشبكة)
-              console.error("⚠️ خطأ في الاتصال:", err);
-
-              const txUpdate = db.transaction("records", "readwrite");
-              const storeUpdate = txUpdate.objectStore("records");
-              record.synced = false;
-              record.syncError = "خطأ في الاتصال: " + err.message;
-              storeUpdate.put(record);
-            })
-          )
-        ).then(resolve).catch(reject);
-      };
-    };
-
-    request.onerror = (err) => reject(err);
-  });
-}
 
 // حدث المزامنة
 self.addEventListener('sync', (event) => {
