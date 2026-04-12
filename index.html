@@ -289,23 +289,30 @@
         <div id="logsTab" class="tab-content">
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom:10px">
-                    <h3 style="margin:0">📊 سجلات الأنشطة</h3>
-                   <div style="display:flex; gap:8px;">
+    <h3 style="margin:0">📊 سجلات الأنشطة</h3>
+    <div style="display:flex; gap:8px;">
 
-                      <button class="btn-excel" onclick="exportToExcel()">
-                        📊 Excel
-                      </button>
-                    
-                      <button class="btn-pdf" onclick="exportPDF()">
-                        📄 تنزيل PDF
-                      </button>
-                    
-                      <button class="btn-whatsapp" onclick="exportAndSharePDF()">
-                        📤 مشاركة واتساب
-                      </button>
+        <button class="btn-excel" onclick="exportToExcel()">
+            📊 Excel
+        </button>
 
-                    </div>
-                </div>
+        <button class="btn-pdf" onclick="exportPDF()">
+            📄 تنزيل PDF
+        </button>
+
+        <!-- الزر الأصلي للمشاركة كملف PDF -->
+        <button class="btn-whatsapp" onclick="exportAndSharePDF()" style="background-color: #25D366;">
+            📎 مشاركة PDF
+        </button>
+
+        <!-- الزر الجديد للمشاركة كنص سريع (للنت الضعيف) -->
+        <button class="btn-whatsapp" onclick="shareAsWhatsAppText()" style="background-color: #128C7E;">
+            💬 مشاركة نصية
+        </button>
+
+    </div>
+</div>
+                
                 <div class="card" style="background: #f8f9fa; border: 1px solid #dee2e6;">
     <label class="fw-bold mb-2">🔍 تصفية السجلات</label>
     <div class="grid">
