@@ -291,15 +291,23 @@
                 <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom:10px">
     <h3 style="margin:0">📊 سجلات الأنشطة</h3>
     <div style="display:flex; gap:8px;">
-
         <div class="buttons-container">
-    <button class="btn-excel" onclick="exportToExcel()">📊 Excel</button>
-    <button class="btn-pdf" onclick="exportPDF()">📄 تنزيل PDF</button>
-    <button class="btn-whatsapp" onclick="exportAndSharePDF()">📎 مشاركة PDF</button>
-    <button class="btn-text-share" onclick="shareAsWhatsAppText()">💬 مشاركة نصية</button>
-</div>
-
-
+            <button class="btn-excel" onclick="exportToExcel()" title="تصدير إكسل">
+                📊 <span class="btn-text">Excel</span>
+            </button>
+            
+            <button class="btn-pdf" onclick="exportPDF()" title="تنزيل PDF">
+                📄 <span class="btn-text">تنزيل PDF</span>
+            </button>
+        
+            <button class="btn-whatsapp" onclick="exportAndSharePDF()" title="مشاركة PDF">
+                📎 <span class="btn-text">مشاركة PDF</span>
+            </button>
+        
+            <button class="btn-text-share" onclick="shareAsWhatsAppText()" title="مشاركة نصية">
+                💬 <span class="btn-text">مشاركة نصية</span>
+            </button>
+        </div>
     </div>
 </div>
                 
