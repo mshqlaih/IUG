@@ -2291,55 +2291,58 @@ async function pullRecordsFromServer01() {
         console.error("❌ خطأ في الوصول للسيرفر:", err);
     }
 }
-
-
 function shareAsWhatsAppText() {
-    const pdfArea = document.getElementById("pdfArea");
     const dateInput = document.getElementById("filterDate").value;
+    if (!dateInput) return alert("⚠️ يرجى اختيار التاريخ");
 
-    if (!dateInput) {
-        alert("⚠️ يرجى اختيار التاريخ أولاً");
-        return;
-    }
-
-    // 1. تحضير اليوم والتاريخ
     const selectedDate = new Date(dateInput);
     const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-    const dayName = days[selectedDate.getDay()];
-    
-    let msg = `تسميع يوم ${dayName} (${dateInput}) 😇\n`;
+    let msg = `*تقرير تسميع يوم ${days[selectedDate.getDay()]} (${dateInput})* 😇\n`;
     msg += `--------------------------\n`;
 
-    // 2. سحب الصفوف من tbody
     const rows = document.querySelectorAll("#logTable tr");
     
-    if (rows.length === 0) {
-        alert("⚠️ لا توجد بيانات في الجدول حالياً");
-        return;
-    }
-
     rows.forEach(row => {
         const cols = row.querySelectorAll("td");
-        // التأكد من أن الصف ليس فارغاً ويحتوي على بيانات
-        if (cols.length >= 8) {
-            const studentName = cols[2].innerText.trim(); // الطالب
-            const fromPage    = cols[4].innerText.trim(); // من
-            const toPage      = cols[5].innerText.trim(); // إلى
-            const evaluation  = cols[7].innerText.trim(); // التقييم
+        if (cols.length < 10) return;
 
-            // صياغة السطر: ( اسم الطالب ) من صفحة X إلى Y بتقدير مميز
-            msg += `( *${studentName}* ) من ${fromPage} إلى ${toPage} بتقدير *${evaluation}*\n`;
+        const student = cols[2].innerText.trim();    // الطالب
+        const type    = cols[3].innerText.trim();    // النوع
+        const fromP   = cols[4].innerText.trim();    // من
+        const toP     = cols[5].innerText.trim();    // إلى
+        const eval    = cols[7].innerText.trim();    // التقييم
+        const mark    = parseFloat(cols[8].innerText.trim()) || 0; // العلامة
+
+        let line = `( *${student}* ) ${type}`;
+
+        // 1. الأنواع التي تتطلب (من - إلى)
+        const rangeTypes = ["تسميع", "مراجعة", "اختبار جزء", "سرد"];
+        if (rangeTypes.includes(type)) {
+            line += ` من ${fromP} إلى ${toP}`;
         }
+
+        // 2. شروط التقدير والعلامة
+        if (type === "تسميع" || type === "مراجعة") {
+            line += ` بتقدير *${eval}*`;
+        } 
+        else if (type === "اختبار جزء" || type === "سرد") {
+            // العلامة أكبر من 100 تعرض العلامة، وإلا التقدير
+            if (mark >= 100) {
+                line += ` بعلامة *${mark}*`;
+            } else if (eval) {
+                line += ` بتقدير *${eval}*`;
+            }
+        }
+
+        msg += line + `\n`;
     });
 
     msg += `--------------------------\n`;
-    msg += `_تم الإرسال من نظام إدارة التحفيظ_`;
+    msg += `_تم الإرسال عبر نظام إدارة التحفيظ_`;
 
-    // 3. المشاركة
     if (navigator.share) {
         navigator.share({ text: msg });
     } else {
-        const whatsappUrl = `https://wa.me{encodeURIComponent(msg)}`;
-        window.open(whatsappUrl, '_blank');
+        window.open(`https://wa.me{encodeURIComponent(msg)}`);
     }
 }
