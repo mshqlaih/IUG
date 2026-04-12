@@ -2297,7 +2297,7 @@ function shareAsWhatsAppText() {
 
     const selectedDate = new Date(dateInput);
     const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-    let msg = `*تقرير تسميع يوم ${days[selectedDate.getDay()]} (${dateInput})* 😇\n`;
+    let msg = `*📊 تقرير نشاط يوم ${days[selectedDate.getDay()]} (${dateInput})* 😇\n`;
     msg += `--------------------------\n`;
 
     const rows = document.querySelectorAll("#logTable tr");
@@ -2311,10 +2311,19 @@ function shareAsWhatsAppText() {
         const fromP   = cols[4].innerText.trim();    // من
         const toP     = cols[5].innerText.trim();    // إلى
         const eval    = cols[7].innerText.trim();    // التقييم
-        const markText = cols[8].innerText.trim();   // العلامة (نص)
-        const markNum  = parseFloat(markText) || 0;  // العلامة (رقم)
+        const markNum = parseFloat(cols[8].innerText.trim()) || 0; // العلامة
 
-        let line = `( *${student}* ) ${type}`;
+        // تحديد الرمز التعبيري حسب النوع
+        let emoji = "🔹"; 
+        if (type.includes("تسميع")) emoji = "📖";
+        if (type.includes("مراجعة")) emoji = "🔄";
+        if (type.includes("اختبار")) emoji = "✅";
+        if (type.includes("سرد")) emoji = "🏆";
+        if (type.includes("حضور")) emoji = "🟢";
+        if (type.includes("غياب بعذر")) emoji = "🟡";
+        if (type.includes("غياب بدون عذر")) emoji = "🔴";
+
+        let line = `${emoji} ( *${student}* ) ${type}`;
 
         // 1. الأنواع التي تتطلب (من - إلى)
         const rangeTypes = ["تسميع", "مراجعة", "اختبار جزء", "سرد"];
@@ -2325,12 +2334,11 @@ function shareAsWhatsAppText() {
         // 2. معالجة التقدير (إخفاء الصفر)
         let displayEval = (eval === "0" || eval === "") ? "" : ` بتقدير *${eval}*`;
 
-        // 3. شروط العرض الخاصة
+        // 3. شروط العرض الخاصة بالنتائج
         if (type === "تسميع" || type === "مراجعة") {
             line += displayEval;
         } 
         else if (type === "اختبار جزء" || type === "سرد") {
-            // الأولوية للعلامة الرقمية إذا كانت موجودة (أكبر من 0)
             if (markNum > 0) {
                 line += ` بعلامة *${markNum}*`;
             } else {
