@@ -117,58 +117,6 @@ input:focus {
   background: #fff;
 }
 
-button {
-  padding: 14px;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.2s;
-  font-size: 16px;
-}
-
-.btn-save {
-  background: var(--primary);
-  color: white;
-  width: 100%;
-  margin-top: 10px;
-}
-
-.btn-add {
-  background: var(--secondary);
-  color: white;
-  width: 100%;
-}
-
-.btn-excel {
-  background: #1d6f42;
-  color: white;
-  width: auto;
-  padding: 8px 15px;
-  font-size: 13px;
-}
-
-.btn-del {
-    background-color: #fee2e2; /* أحمر فاتح جداً للخلفية */
-    color: #dc2626;           /* أحمر غامق للنص */
-    border: 1px solid #fecaca;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.btn-del:hover {
-    background-color: #dc2626; /* ينعكس اللون عند التمرير */
-    color: white;
-    transform: scale(1.05);
-}
-
 /* تأكد من أن خلية الجدول تسمح بظهور الزر */
 td:last-child {
     min-width: 70px;
@@ -439,4 +387,74 @@ td:nth-last-child(2) {
     font-size: 12px;
     padding: 6px;
   }
+}
+
+/* 1. التنسيق العام للأزرار (أساسي) */
+button {
+  padding: 10px 16px; /* تقليل البادينج قليلاً ليتناسب مع شريط الأدوات */
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+  font-size: 14px; /* حجم خط أنسب للأدوات */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* 2. أزرار شريط الأدوات (Excel, PDF, WhatsApp) */
+/* نلغي الـ 100% هنا لتبقى الأزرار بجانب بعضها */
+.btn-excel {
+  background: #1d6f42;
+  color: white;
+}
+
+.btn-pdf {
+  background: #e11d48; /* لون أحمر هادئ للـ PDF */
+  color: white;
+}
+
+.btn-whatsapp {
+  background: #25d366; /* لون واتساب الأصلي */
+  color: white;
+}
+
+/* زر المشاركة النصية (لون مميز) */
+.btn-text-share {
+  background: #075e54; /* أخضر غامق */
+  color: white;
+}
+
+/* 3. الأزرار الكبيرة (إضافة، حفظ) */
+.btn-save, .btn-add {
+  width: 100%; /* تبقى 100% لأنها داخل نماذج (Forms) */
+  padding: 14px;
+  margin-top: 10px;
+}
+
+.btn-save { background: var(--primary); color: white; }
+.btn-add  { background: var(--secondary); color: white; }
+
+/* 4. زر الحذف الصغير (يبقى كما هو لتفرده) */
+.btn-del {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    padding: 6px 12px;
+    font-size: 11px;
+}
+
+.btn-del:hover {
+    background-color: #dc2626; /* ينعكس اللون عند التمرير */
+    color: white;
+    transform: scale(1.05);
+}
+
+/* 5. حاوية الأزرار لضمان الترتيب */
+.buttons-container {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
