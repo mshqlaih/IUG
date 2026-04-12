@@ -2290,6 +2290,7 @@ async function pullRecordsFromServer01() {
         console.error("❌ خطأ في الوصول للسيرفر:", err);
     }
 }
+
 function shareAsWhatsAppText() {
     const dateInput = document.getElementById("filterDate").value;
     if (!dateInput) return alert("⚠️ يرجى اختيار التاريخ");
@@ -2310,7 +2311,8 @@ function shareAsWhatsAppText() {
         const fromP   = cols[4].innerText.trim();    // من
         const toP     = cols[5].innerText.trim();    // إلى
         const eval    = cols[7].innerText.trim();    // التقييم
-        const mark    = parseFloat(cols[8].innerText.trim()) || 0; // العلامة
+        const markText = cols[8].innerText.trim();   // العلامة (نص)
+        const markNum  = parseFloat(markText) || 0;  // العلامة (رقم)
 
         let line = `( *${student}* ) ${type}`;
 
@@ -2320,16 +2322,19 @@ function shareAsWhatsAppText() {
             line += ` من ${fromP} إلى ${toP}`;
         }
 
-        // 2. شروط التقدير والعلامة
+        // 2. معالجة التقدير (إخفاء الصفر)
+        let displayEval = (eval === "0" || eval === "") ? "" : ` بتقدير *${eval}*`;
+
+        // 3. شروط العرض الخاصة
         if (type === "تسميع" || type === "مراجعة") {
-            line += ` بتقدير *${eval}*`;
+            line += displayEval;
         } 
         else if (type === "اختبار جزء" || type === "سرد") {
-            // العلامة أكبر من 100 تعرض العلامة، وإلا التقدير
-            if (mark >= 100) {
-                line += ` بعلامة *${mark}*`;
-            } else if (eval) {
-                line += ` بتقدير *${eval}*`;
+            // الأولوية للعلامة الرقمية إذا كانت موجودة (أكبر من 0)
+            if (markNum > 0) {
+                line += ` بعلامة *${markNum}*`;
+            } else {
+                line += displayEval;
             }
         }
 
