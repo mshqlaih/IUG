@@ -4,7 +4,6 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
         console.log("نظام العمل أوفلاين نشط");
         
-
         reg.onupdatefound = () => {
             const installingWorker = reg.installing;
             installingWorker.onstatechange = () => {
