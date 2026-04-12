@@ -792,8 +792,8 @@ function displayRecords() {
                 const cursor = recEvent.target.result;
                 if (cursor) {
                     const r = cursor.value;
-                    const studentName = studentsMap[r.student] || "";   
-                    const currentTeacherId = String(r.teacher).replace(/[\\"]/g, '').trim();
+                   const studentName = studentsMap[r.student] || r.student || "غير مدخل";
+                   const currentTeacherId = String(r.teacher).replace(/[\\"]/g, '').trim();
                    const teacherName = r.teacherName || teachersMap[currentTeacherId] || currentTeacherId;
                     const matchesDate = !fDate || r.date === fDate;
                     const matchesID   = !fID || r.student.includes(fID);
