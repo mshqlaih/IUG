@@ -1699,53 +1699,6 @@ function exportAndSharePDF() {
       pdfArea.classList.remove("pdf-mode");
     });
 }
-function exportAndSharePDF01() {
-
-  const pdfArea = document.getElementById("pdfArea");
-
-  // أخفِ الأعمدة غير المطلوبة إن وجدت
-  pdfArea.classList.add("pdf-mode");
-
-  html2pdf()
-    .set({
-      margin: 0.5,
-      filename: 'نشاط_التحفيظ.pdf',
-      image: { type: 'jpeg', quality: 0.75 }, //png
-      html2canvas: {
-        scale: 1.5,
-        backgroundColor: '#ffffff'
-      },
-      jsPDF: {
-        unit: 'cm',
-        format: 'a4',
-        orientation: 'landscape'
-      }
-    })
-    .from(pdfArea)
-    .outputPdf('blob')
-    .then(function (blob) {
-
-      const file = new File(
-        [blob],
-        `Activity_${new Date().toISOString().slice(0,10)}.pdf`,
-        { type: 'application/pdf' }
-      );
-
-      // ✅ مشاركة عبر واتساب
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({
-          title: 'تقرير نشاط التحفيظ',
-          text: 'مرفق تقرير نشاط الطالب',
-          files: [file]
-        });
-      } else {
-        // fallback: تنزيل فقط
-        saveAs(blob, 'نشاط_التحفيظ.pdf');
-      }
-
-      pdfArea.classList.remove("pdf-mode");
-    });
-}
 
 function getSelectedDate() {
   const v = document.getElementById("filterDate").value;
