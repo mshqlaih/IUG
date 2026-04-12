@@ -2292,6 +2292,7 @@ async function pullRecordsFromServer01() {
     }
 }
 
+
 function shareAsWhatsAppText() {
     const pdfArea = document.getElementById("pdfArea");
     const dateInput = document.getElementById("filterDate").value;
@@ -2301,16 +2302,16 @@ function shareAsWhatsAppText() {
         return;
     }
 
-    // تحويل التاريخ المختار إلى كائن تاريخ لجلب اسم اليوم
+    // 1. تحضير اليوم والتاريخ
     const selectedDate = new Date(dateInput);
     const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
     const dayName = days[selectedDate.getDay()];
     
-    // تنسيق العنوان
-    const teachers = "زيد فروانة وأسامة الجمالي";
-    let msg = `تسميع يوم ${dayName} (${dateInput}) لحلقة المحفظين ${teachers} 😇\n\n`;
+    let msg = `تسميع يوم ${dayName} (${dateInput}) 😇\n`;
+    msg += `--------------------------\n`;
 
-    const rows = pdfArea.querySelectorAll("table tbody tr");
+    // 2. سحب الصفوف من tbody
+    const rows = document.querySelectorAll("#logTable tr");
     
     if (rows.length === 0) {
         alert("⚠️ لا توجد بيانات في الجدول حالياً");
@@ -2319,22 +2320,26 @@ function shareAsWhatsAppText() {
 
     rows.forEach(row => {
         const cols = row.querySelectorAll("td");
-        if (cols.length >= 3) {
-            const name  = cols[0].innerText.trim(); 
-            const task  = cols[1].innerText.trim(); 
-            const grade = cols[2].innerText.trim(); 
+        // التأكد من أن الصف ليس فارغاً ويحتوي على بيانات
+        if (cols.length >= 8) {
+            const studentName = cols[2].innerText.trim(); // الطالب
+            const fromPage    = cols[4].innerText.trim(); // من
+            const toPage      = cols[5].innerText.trim(); // إلى
+            const evaluation  = cols[7].innerText.trim(); // التقييم
 
-            msg += `( *${name}* ) تسميع ${task} بتقدير *${grade}* \n`;
+            // صياغة السطر: ( اسم الطالب ) من صفحة X إلى Y بتقدير مميز
+            msg += `( *${studentName}* ) من ${fromPage} إلى ${toPage} بتقدير *${evaluation}*\n`;
         }
     });
 
-    msg += `\n_تم الإرسال من نظام إدارة التحفيظ_`;
+    msg += `--------------------------\n`;
+    msg += `_تم الإرسال من نظام إدارة التحفيظ_`;
 
-    // تنفيذ المشاركة
+    // 3. المشاركة
     if (navigator.share) {
         navigator.share({ text: msg });
     } else {
-        window.open(`https://wa.me{encodeURIComponent(msg)}`, '_blank');
+        const whatsappUrl = `https://wa.me{encodeURIComponent(msg)}`;
+        window.open(whatsappUrl, '_blank');
     }
 }
-
