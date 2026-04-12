@@ -394,7 +394,9 @@ td:nth-last-child(2) {
   }
 
   /* تحويل الأزرار إلى دوائر في الجوال فقط */
-  .buttons-container button {
+  .buttons-container button,
+  .logout-btn 
+  {
     min-width: 45px;
     height: 45px;
     padding: 0;
