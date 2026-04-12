@@ -292,23 +292,13 @@
     <h3 style="margin:0">📊 سجلات الأنشطة</h3>
     <div style="display:flex; gap:8px;">
 
-        <button class="btn-excel" onclick="exportToExcel()">
-            📊 Excel
-        </button>
+        <div class="buttons-container">
+    <button class="btn-excel" onclick="exportToExcel()">📊 Excel</button>
+    <button class="btn-pdf" onclick="exportPDF()">📄 تنزيل PDF</button>
+    <button class="btn-whatsapp" onclick="exportAndSharePDF()">📎 مشاركة PDF</button>
+    <button class="btn-text-share" onclick="shareAsWhatsAppText()">💬 مشاركة نصية</button>
+</div>
 
-        <button class="btn-pdf" onclick="exportPDF()">
-            📄 تنزيل PDF
-        </button>
-
-        <!-- الزر الأصلي للمشاركة كملف PDF -->
-        <button class="btn-whatsapp" onclick="exportAndSharePDF()" style="background-color: #25D366;">
-            📎 مشاركة PDF
-        </button>
-
-        <!-- الزر الجديد للمشاركة كنص سريع (للنت الضعيف) -->
-        <button class="btn-whatsapp" onclick="shareAsWhatsAppText()" style="background-color: #128C7E;">
-            💬 مشاركة نصية
-        </button>
 
     </div>
 </div>
