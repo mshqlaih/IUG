@@ -1808,8 +1808,66 @@ async function onTeacherIDChange() {
   }
 }
 
-
 function fetchAndStoreEmpData(teacherID) {
+    if (!teacherID) {
+        console.warn("⚠️ لم يتم إدخال رقم الهوية");
+        return;
+    }
+
+    const tx = db.transaction("empdata", "readonly");
+    const empStore = tx.objectStore("empdata");
+    const getRequest = empStore.get(teacherID);
+
+    getRequest.onsuccess = () => {
+        if (getRequest.result) {
+            // ✅ الحالة الأولى: البيانات موجودة في الـ Store
+            console.log("📦 تم جلب البيانات من التخزين المحلي (IndexedDB)");
+            displayEmpData(getRequest.result);
+        } else {
+            // 🌐 الحالة الثانية: البيانات غير موجودة، نطلبها من السيرفر
+            fetchDataFromServer(teacherID);
+        }
+    };
+}
+
+// دالة لجلب البيانات من السيرفر وتخزينها
+function fetchDataFromServer(teacherID) {
+    fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/employees/${teacherID}`)
+      .then(response => response.json())
+      .then(emp => {
+          if (emp && emp.emp_name) {
+              const empRecord = {
+                  idno: teacherID,
+                  EMP_NAME: emp.emp_name,
+                  CENTER_NO: emp.center_no,
+                  CENTER_NAME: emp.center_name,
+                  CIRCLE_NO: emp.circle_no,
+                  CIRCLE_NAME: emp.circle_name
+              };
+
+              // تخزين البيانات للمرة القادمة
+              const tx = db.transaction("empdata", "readwrite");
+              tx.objectStore("empdata").put(empRecord);
+              
+              tx.oncomplete = () => {
+                  console.log("✅ تم جلب البيانات من السيرفر وتخزينها");
+                  displayEmpData(empRecord);
+              };
+          } else {
+              console.warn("⚠️ لم يتم العثور على بيانات في السيرفر");
+          }
+      })
+      .catch(err => console.error("❌ خطأ في الاتصال:", err));
+}
+
+// دالة موحدة لعرض البيانات في الواجهة
+function displayEmpData(data) {
+    document.getElementById("empName").textContent = data.EMP_NAME || data.emp_name;
+    document.getElementById("centerInfo").textContent = `${data.CENTER_NO} - ${data.CENTER_NAME}`;
+    document.getElementById("circleInfo").textContent = `${data.CIRCLE_NO} - ${data.CIRCLE_NAME}`;
+}
+
+function fetchAndStoreEmpData01(teacherID) {
     if (!teacherID) {
         console.warn("⚠️ لم يتم إدخال رقم الهوية");
         return;
