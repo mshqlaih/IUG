@@ -907,6 +907,41 @@ function importBackup(input) {
         const d = JSON.parse(e.target.result);
         const tx = db.transaction(["students", "records"], "readwrite");
 
+        if (d.students) {
+            d.students.forEach(s => {
+                // ✅ تحويل المعرف إلى رقم قبل الحفظ
+                if (s.id) {
+                    s.id = Number(s.id); 
+                }
+                tx.objectStore("students").put(s);
+            });
+        }
+
+        if (d.records) {
+            d.records.forEach(r => {
+                // ✅ تحويل المعرف ومعرف الطالب المرتبط به إلى أرقام
+                if (r.id) r.id = Number(r.id);
+                if (r.studentId) r.studentId = Number(r.studentId);
+                
+                tx.objectStore("records").put(r);
+            });
+        }
+
+        tx.oncomplete = () => {
+            showImportMessage(`✅ تم الاستيراد بنجاح وتحويل البيانات لنوع رقمي`);
+            setTimeout(() => location.reload(), 2000);
+        };
+        // ... باقي الكود (onerror)
+    };
+    reader.readAsText(input.files[0]);
+}
+
+function importBackup01(input) {
+    const reader = new FileReader();
+    reader.onload = e => {
+        const d = JSON.parse(e.target.result);
+        const tx = db.transaction(["students", "records"], "readwrite");
+
         let added = 0, updated = 0;
 
         if(d.students) d.students.forEach(s => {
