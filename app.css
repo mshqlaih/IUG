@@ -381,63 +381,68 @@ td:nth-last-child(2) {
   min-width: auto;
 }
 
+/* --- 1. تنسيقات الجوال (يتم تفعيلها فقط في الشاشات الصغيرة) --- */
 @media (max-width: 600px) {
   .table-wrap.responsive th, 
   .table-wrap.responsive td {
     font-size: 12px;
     padding: 6px;
   }
+
+  .btn-text {
+    display: none; /* إخفاء النص */
+  }
+
+  /* تحويل الأزرار إلى دوائر في الجوال فقط */
+  .buttons-container button {
+    min-width: 45px;
+    height: 45px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+
+  .buttons-container button span {
+    font-size: 20px;
+  }
+
+  .buttons-container {
+    justify-content: space-around;
+    width: 100%;
+  }
 }
 
-/* 1. التنسيق العام للأزرار (أساسي) */
+/* --- 2. التنسيق العام للأزرار (للكمبيوتر والجوال) --- */
 button {
-  padding: 10px 16px; /* تقليل البادينج قليلاً ليتناسب مع شريط الأدوات */
+  padding: 10px 16px;
   border: none;
   border-radius: 10px;
   cursor: pointer;
   font-weight: bold;
   transition: 0.2s;
-  font-size: 14px; /* حجم خط أنسب للأدوات */
+  font-size: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
 }
 
-/* 2. أزرار شريط الأدوات (Excel, PDF, WhatsApp) */
-/* نلغي الـ 100% هنا لتبقى الأزرار بجانب بعضها */
-.btn-excel {
-  background: #1d6f42;
-  color: white;
-}
+/* ألوان أزرار الأدوات */
+.btn-excel { background: #1d6f42; color: white; }
+.btn-pdf { background: #e11d48; color: white; }
+.btn-whatsapp { background: #25d366; color: white; }
+.btn-text-share { background: #075e54; color: white; }
 
-.btn-pdf {
-  background: #e11d48; /* لون أحمر هادئ للـ PDF */
-  color: white;
-}
-
-.btn-whatsapp {
-  background: #25d366; /* لون واتساب الأصلي */
-  color: white;
-}
-
-/* زر المشاركة النصية (لون مميز) */
-.btn-text-share {
-  background: #075e54; /* أخضر غامق */
-  color: white;
-}
-
-/* 3. الأزرار الكبيرة (إضافة، حفظ) */
+/* الأزرار الكبيرة (نماذج الإدخال) */
 .btn-save, .btn-add {
-  width: 100%; /* تبقى 100% لأنها داخل نماذج (Forms) */
+  width: 100%;
   padding: 14px;
   margin-top: 10px;
 }
-
 .btn-save { background: var(--primary); color: white; }
-.btn-add  { background: var(--secondary); color: white; }
+.btn-add { background: var(--secondary); color: white; }
 
-/* 4. زر الحذف الصغير (يبقى كما هو لتفرده) */
+/* زر الحذف الصغير */
 .btn-del {
     background-color: #fee2e2;
     color: #dc2626;
@@ -445,14 +450,13 @@ button {
     padding: 6px 12px;
     font-size: 11px;
 }
-
 .btn-del:hover {
-    background-color: #dc2626; /* ينعكس اللون عند التمرير */
+    background-color: #dc2626;
     color: white;
     transform: scale(1.05);
 }
 
-/* 5. حاوية الأزرار لضمان الترتيب */
+/* حاوية الأزرار */
 .buttons-container {
     display: flex;
     gap: 8px;
