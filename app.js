@@ -2291,3 +2291,50 @@ async function pullRecordsFromServer01() {
         console.error("❌ خطأ في الوصول للسيرفر:", err);
     }
 }
+
+function shareAsWhatsAppText() {
+    const pdfArea = document.getElementById("pdfArea");
+    const dateInput = document.getElementById("filterDate").value;
+
+    if (!dateInput) {
+        alert("⚠️ يرجى اختيار التاريخ أولاً");
+        return;
+    }
+
+    // تحويل التاريخ المختار إلى كائن تاريخ لجلب اسم اليوم
+    const selectedDate = new Date(dateInput);
+    const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const dayName = days[selectedDate.getDay()];
+    
+    // تنسيق العنوان
+    const teachers = "زيد فروانة وأسامة الجمالي";
+    let msg = `تسميع يوم ${dayName} (${dateInput}) لحلقة المحفظين ${teachers} 😇\n\n`;
+
+    const rows = pdfArea.querySelectorAll("table tbody tr");
+    
+    if (rows.length === 0) {
+        alert("⚠️ لا توجد بيانات في الجدول حالياً");
+        return;
+    }
+
+    rows.forEach(row => {
+        const cols = row.querySelectorAll("td");
+        if (cols.length >= 3) {
+            const name  = cols[0].innerText.trim(); 
+            const task  = cols[1].innerText.trim(); 
+            const grade = cols[2].innerText.trim(); 
+
+            msg += `( *${name}* ) تسميع ${task} بتقدير *${grade}* \n`;
+        }
+    });
+
+    msg += `\n_تم الإرسال من نظام إدارة التحفيظ_`;
+
+    // تنفيذ المشاركة
+    if (navigator.share) {
+        navigator.share({ text: msg });
+    } else {
+        window.open(`https://wa.me{encodeURIComponent(msg)}`, '_blank');
+    }
+}
+
