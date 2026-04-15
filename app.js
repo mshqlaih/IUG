@@ -2053,6 +2053,103 @@ async function pullRecordsFromServer() {
         return;
     }
 
+    if (syncContainer) {
+        syncContainer.innerHTML = `<span id="pullStatus" style="margin-inline-end:10px; color:#3498db; font-weight:bold;">🔄 جاري تحديث بيانات الحلقة والطلاب...</span>`;
+    }
+
+    try {
+        const db = await new Promise((resolve, reject) => {
+            const req = indexedDB.open("QuranProjectDB");
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+
+        // --- 1. سحب وتخزين السجلات (Records) ---
+        const recordsUrl = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
+        const recordsRes = await fetch(recordsUrl);
+        const recordsData = await recordsRes.json();
+        const remoteRecords = recordsData.items || [];
+
+        const txRec = db.transaction("records", "readwrite");
+        const storeRec = txRec.objectStore("records");
+        const indexRec = storeRec.index("student_date_type");
+
+        for (const remote of remoteRecords) {
+            const recordToSave = {
+                student:     Number(remote.student),
+                date:        String(remote.date).replace(/[\\"]/g, '').trim(),
+                type:        Number(remote.type),
+                teacher:     String(remote.teacher).replace(/[\\"]/g, '').trim(),
+                teacherName: (remote.teachername || remote.teacherName || "").replace(/[\\"]/g, '').trim(),
+                fromRange:   Number(remote.fromrange || 0),
+                toRange:     Number(remote.torange || 0),
+                partFrom:    remote.partfrom,
+                partTo:      remote.partto,
+                amount:      Number(remote.amount || 0),
+                rating:      remote.rating,
+                errors:      Number(remote.errors || 0),
+                mark:        remote.mark,
+                sortOrder:   Number(remote.sortorder || 999),
+                synced:      true
+            };
+
+            const localId = await new Promise(r => {
+                const req = indexRec.getKey([recordToSave.student, recordToSave.date, recordToSave.type]);
+                req.onsuccess = e => r(e.target.result);
+            });
+
+            if (localId !== undefined) recordToSave.id = localId;
+            storeRec.put(recordToSave);
+        }
+
+        // --- 2. سحب وتخزين الطلاب (Students) ---
+        const studentsUrl = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students?puserName=${puserName}`;
+        const studentsRes = await fetch(studentsUrl);
+        if (studentsRes.ok) {
+            const studentsData = await studentsRes.json();
+            const remoteStudents = studentsData.items || [];
+
+            const txStu = db.transaction("students", "readwrite");
+            const storeStu = txStu.objectStore("students");
+
+            for (const s of remoteStudents) {
+                storeStu.put({
+                    id: Number(s.id), // تأكد من مسمى الحقل القادم من السيرفر
+                    fname: s.fname,
+                    pname: s.pname,
+                    gname: s.gname,
+                    lname: s.lname
+                });
+            }
+        }
+
+        // إنهاء العمليات
+        if (syncContainer) {
+            const statusEl = document.getElementById("pullStatus");
+            statusEl.style.color = "#27ae60";
+            statusEl.innerHTML = `✅ تم تحديث البيانات والطلاب بنجاح.`;
+            setTimeout(() => statusEl.remove(), 5000);
+        }
+
+        if (typeof refreshAll === "function") refreshAll();
+
+    } catch (err) {
+        console.error("❌ خطأ:", err);
+        if (syncContainer) {
+            document.getElementById("pullStatus").innerHTML = `❌ فشل التحديث.`;
+        }
+    }
+}
+
+async function pullRecordsFromServer01() {
+    const puserName = localStorage.getItem("user_name");
+    const syncContainer = document.getElementById("syncBtnContainer");
+
+    if (!puserName) {
+        console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");
+        return;
+    }
+
     // 1. إظهار رسالة "جاري التحديث" في الحاوية
     if (syncContainer) {
         syncContainer.innerHTML = `<span id="pullStatus" style="margin-inline-end:10px; color:#3498db; font-weight:bold;">🔄 جاري تحديث بيانات الحلقة...</span>`;
@@ -2060,6 +2157,7 @@ async function pullRecordsFromServer() {
 
     try {
         const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
+        //https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students?puserName=${puserName}
         
         const response = await fetch(url);
         if (!response.ok) throw new Error("فشل الاتصال بالسيرفر");
@@ -2148,148 +2246,6 @@ async function pullRecordsFromServer() {
 }
 
 
-async function pullRecordsFromServer00() {
-    const puserName = localStorage.getItem("user_name");
-    if (!puserName) {
-        console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");
-        return;
-    }
-
-    // إظهار رسالة للمستخدم (اختياري)
-    console.log("📥 جاري سحب بيانات الحلقة من السيرفر...");
-
-    try {
-        // الرابط الصحيح مع تمرير المتغير برمجياً
-        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("فشل الاتصال بالسيرفر");
-        
-        const data = await response.json();
-        const remoteRecords = data.items || [];
-
-        // فتح قاعدة البيانات المحلية
-        const db = await new Promise((resolve, reject) => {
-            const req = indexedDB.open("QuranProjectDB");
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-
-        const tx = db.transaction("records", "readwrite");
-        const store = tx.objectStore("records");
-        const index = store.index("student_date_type");
-
-        for (const remote of remoteRecords) {
-            // 1. تنظيف البيانات (إزالة علامات التنصيص الزائدة وتوحيد الأنواع)
-            const cleanDate = String(remote.date).replace(/[\\"]/g, '').trim();
-            const cleanTeacher = String(remote.teacher).replace(/[\\"]/g, '').trim();
-            const cleanStudent = Number(remote.student);
-            const cleanType = Number(remote.type);
-
-            // 2. بناء كائن السجل مع تصحيح أسماء الأعمدة (Mapping) ليتوافق مع displayRecords
-            const recordToSave = {
-                student:   cleanStudent,
-                date:      cleanDate,
-                type:      cleanType,
-                teacher:   cleanTeacher,
-                teacherName:remote.teacherName,
-                // ربط الحقول القادمة من السيرفر (lowercase) بالحقول المطلوبة في التطبيق (camelCase)
-                fromRange: Number(remote.fromrange || 0),
-                toRange:   Number(remote.torange || 0),
-                partFrom:  remote.partfrom,
-                partTo:    remote.partto,
-                amount:    Number(remote.amount || 0),
-                rating:    remote.rating,
-                errors:    Number(remote.errors || 0),
-                sortOrder: Number(remote.sortorder || 999),
-                mark: remote.mark,
-                synced:    true // علامة النجاح لأنها قادمة من السيرفر
-            };
-
-            // 3. البحث باستخدام الفهرس الفريد لمنع التكرار
-            const localId = await new Promise((resolve) => {
-                const getRequest = index.getKey([cleanStudent, cleanDate, cleanType]);
-                getRequest.onsuccess = (e) => resolve(e.target.result);
-            });
-
-            if (localId !== undefined) {
-                // تحديث السجل الموجود بنفس المعرف المحلي
-                recordToSave.id = localId;
-            } else {
-                // إضافة سجل جديد (سيقوم المتصفح بتوليد id تلقائي)
-                delete recordToSave.id;
-            }
-
-            store.put(recordToSave);
-        }
-
-        // انتهاء المعاملة وحفظ البيانات
-        await new Promise((resolve) => {
-            tx.oncomplete = resolve;
-        });
-        
-        console.log(`✅ تم تحديث ${remoteRecords.length} سجل بنجاح.`);
-
-        // 4. تحديث الشاشة فوراً ليرى المستخدم السجلات الجديدة
-        if (typeof refreshAll === "function") {
-            refreshAll();
-        } else if (typeof displayRecords === "function") {
-            displayRecords();
-        }
-
-    } catch (err) {
-        console.error("❌ خطأ في مزامنة بيانات الحلقة:", err);
-    }
-}
-
-async function pullRecordsFromServer01() {
-    const puserName = localStorage.getItem("user_name");
-    if (!puserName) return;
-
-    try {
-        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
-        const response = await fetch(url);
-        const data = await response.json();
-        const remoteRecords = data.items || [];
-
-        const db = await new Promise((resolve, reject) => {
-            const req = indexedDB.open("QuranProjectDB");
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-
-        const tx = db.transaction("records", "readwrite");
-        const store = tx.objectStore("records");
-        const index = store.index("student_date_type");
-
-        for (const remote of remoteRecords) {
-            const localId = await new Promise(resolve => {
-                const getReq = index.getKey([Number(remote.student), remote.date, Number(remote.type)]);
-                getReq.onsuccess = (e) => resolve(e.target.result);
-            });
-
-            const recordToSave = { ...remote, synced: true };
-
-            if (localId !== undefined) {
-                recordToSave.id = localId; // تحديث
-            } else {
-                delete recordToSave.id; // إضافة جديد
-            }
-
-            store.put(recordToSave);
-        }
-
-        await new Promise(resolve => {
-            tx.oncomplete = resolve;
-        });
-
-        console.log("✅ تم تحديث بيانات الحلقة بنجاح.");
-        if (typeof refreshAll === "function") refreshAll();
-
-    } catch (err) {
-        console.error("❌ خطأ في الوصول للسيرفر:", err);
-    }
-}
 
 function shareAsWhatsAppText() {
     const dateInput = document.getElementById("filterDate").value;
