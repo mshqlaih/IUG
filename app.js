@@ -2086,10 +2086,10 @@ async function pullRecordsFromServer() {
         for (const s of remoteStudents) {
             storeStu.put({
                 id: Number(s.id),
-                fName: s.fName || "",
-                pName: s.pName || "",
-                gName: s.gName || "",
-                lName: s.lName || ""
+                fName: s.fName || s.fname,
+                pName: s.pName || s.pname,
+                gName: s.gName || s.gname,
+                lName: s.lName || s.lname
             });
         }
 
