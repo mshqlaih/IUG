@@ -2064,16 +2064,36 @@ async function pullRecordsFromServer() {
             req.onerror = () => reject(req.error);
         });
 
-        // --- 1. سحب وتخزين السجلات (Records) ---
-        const recordsUrl = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
-        const recordsRes = await fetch(recordsUrl);
-        const recordsData = await recordsRes.json();
-        const remoteRecords = recordsData.items || [];
+        // 1. جلب البيانات من السيرفر بالتوازي لتوفير الوقت
+        const [recordsRes, studentsRes] = await Promise.all([
+            fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`),
+            fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students?puserName=${puserName}`)
+        ]);
 
-        const txRec = db.transaction("records", "readwrite");
-        const storeRec = txRec.objectStore("records");
+        const recordsData = await recordsRes.json();
+        const studentsData = await studentsRes.json();
+
+        const remoteRecords = recordsData.items || [];
+        const remoteStudents = studentsData.items || [];
+
+        // 2. فتح معاملة واحدة لكل من السجلات والطلاب
+        const tx = db.transaction(["records", "students"], "readwrite");
+        const storeRec = tx.objectStore("records");
+        const storeStu = tx.objectStore("students");
         const indexRec = storeRec.index("student_date_type");
 
+        // --- حفظ الطلاب ---
+        for (const s of remoteStudents) {
+            storeStu.put({
+                id: Number(s.id),
+                fname: s.fname || "",
+                pname: s.pname || "",
+                gname: s.gname || "",
+                lname: s.lname || ""
+            });
+        }
+
+        // --- حفظ السجلات ---
         for (const remote of remoteRecords) {
             const recordToSave = {
                 student:     Number(remote.student),
@@ -2102,44 +2122,30 @@ async function pullRecordsFromServer() {
             storeRec.put(recordToSave);
         }
 
-        // --- 2. سحب وتخزين الطلاب (Students) ---
-        const studentsUrl = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students?puserName=${puserName}`;
-        const studentsRes = await fetch(studentsUrl);
-        if (studentsRes.ok) {
-            const studentsData = await studentsRes.json();
-            const remoteStudents = studentsData.items || [];
+        // انتظر حتى تكتمل المعاملة بالكامل
+        await new Promise((resolve, reject) => {
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
 
-            const txStu = db.transaction("students", "readwrite");
-            const storeStu = txStu.objectStore("students");
-
-            for (const s of remoteStudents) {
-                storeStu.put({
-                    id: Number(s.id), // تأكد من مسمى الحقل القادم من السيرفر
-                    fname: s.fname,
-                    pname: s.pname,
-                    gname: s.gname,
-                    lname: s.lname
-                });
-            }
-        }
-
-        // إنهاء العمليات
         if (syncContainer) {
             const statusEl = document.getElementById("pullStatus");
             statusEl.style.color = "#27ae60";
-            statusEl.innerHTML = `✅ تم تحديث البيانات والطلاب بنجاح.`;
+            statusEl.innerHTML = `✅ تم تحديث ${remoteStudents.length} طالب و ${remoteRecords.length} سجل.`;
             setTimeout(() => statusEl.remove(), 5000);
         }
 
         if (typeof refreshAll === "function") refreshAll();
 
     } catch (err) {
-        console.error("❌ خطأ:", err);
+        console.error("❌ خطأ أثناء المزامنة:", err);
         if (syncContainer) {
-            document.getElementById("pullStatus").innerHTML = `❌ فشل التحديث.`;
+            const statusEl = document.getElementById("pullStatus");
+            if (statusEl) statusEl.innerHTML = `❌ فشل التحديث.`;
         }
     }
 }
+
 
 async function pullRecordsFromServer01() {
     const puserName = localStorage.getItem("user_name");
