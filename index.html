@@ -156,7 +156,7 @@
                 <label>الآية من</label>    
                 <div class="input-with-clear">
                     <input list="ayatList" id="rangeFromText" placeholder="مثلاً: بقرة 155" oninput="handleSmartSearch(this); syncAyahID(this, 'rangeFrom')">
-                    <span class="clear-btn" onclick="document.getElementById('rangeFromText').value=''">✖</span> 
+                    <span class="clear-btn" onclick="document.getElementById('rangeFromText').value='';document.getElementById('rangeFrom').value=''">✖</span> 
                     <input type="hidden" id="rangeFrom">                       
                 </div>
             </div> 
@@ -165,7 +165,7 @@
                 <label>الآية إلى</label>    
                 <div class="input-with-clear">
                     <input list="ayatList" id="rangeToText" placeholder="مثلاً: ص 20" oninput="handleSmartSearch(this);syncAyahID(this, 'rangeTo')">
-                    <span class="clear-btn" onclick="document.getElementById('rangeToText').value=''">✖</span>
+                    <span class="clear-btn" onclick="document.getElementById('rangeToText').value='';document.getElementById('rangeTo').value=''">✖</span>
                     <input type="hidden" id="rangeTo">   
                 </div>
             </div>
