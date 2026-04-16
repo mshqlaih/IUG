@@ -208,44 +208,6 @@ function fillAyatSearchList() {
     list.appendChild(fragment);
 }
 
-// ملء الـ Datalist ببيانات أوراكل (TAGNO, Page, Line)
-function fillAyatSearchList01() {
-    const list = document.getElementById('ayatList');
-    
-if (!window.AYAH_REVERSE || Object.keys(window.AYAH_REVERSE).length === 0) {
-        window.AYAH_REVERSE = {};
-    } else {
-        // إذا كانت المصفوفة مليئة بالبيانات، فلا داعي لإعادة تعبئتها وتضييع الوقت
-        console.log("AYAH_REVERSE جاهزة مسبقاً، نكتفي بتعبئة قائمة البحث");
-    }
-    
-    if (typeof QURAN_DATA === 'undefined') return;
-
-    if (typeof window.PAGE_MAX_LINES === 'undefined') {
-        window.PAGE_MAX_LINES = QURAN_DATA.reduce((acc, curr) => {
-            acc[curr.p] = Math.max(acc[curr.p] || 0, curr.le);
-            return acc;
-        }, {});
-        console.log("تم تجهيز بيانات أسطر الصفحات بنجاح ✅");
-    }
-    
-    const fragment = document.createDocumentFragment();
-
-    QURAN_DATA.forEach(item => {
-        const option = document.createElement('option');
-
-        option.value = item.l;         // النص الظاهر للمستخدم
-        option.dataset.id = item.id;   // ✅ رقم الآية الحقيقي (هذا أهم شيء)
-
-         AYAH_REVERSE[item.id] = item.l;
-
-        fragment.appendChild(option);
-    });
-
-    list.innerHTML = "";
-    list.appendChild(fragment);
-}
-
 const activityStyles = {
     "1": { icon: "🗣️", color: "#2ecc71" },
     "2": { icon: "🔄", color: "#3498db" },
