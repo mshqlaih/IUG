@@ -332,8 +332,22 @@ function loadLookups() {
 }
 
 // 3. محرك البحث الذكي (بقرة 155)
-
 function handleSmartSearch(inputEl) {
+    const val = inputEl.value.replace(/^\s+|\s+$/g, '');
+    if (val.length < 1) return;
+    const searchTerms = val.replace(/ال/g, "").split(" ");
+    const filtered = QURAN_DATA.filter(item => {
+        const cleanLabel = item.l.replace(/سورة /g, "")
+                                 .replace(/آية /g, "")
+                                 .replace(/ال/g, "");
+        return searchTerms.every(term => 
+            cleanLabel.indexOf(term) !== -1 || item.l.indexOf(term) !== -1
+        );
+    }).slice(0, 30);
+    renderOptions(filtered);
+}
+
+function handleSmartSearch01(inputEl) {
     const val = inputEl.value.trim();
     if (val.length < 1) return;
     const searchTerms = val.replace("ال", "").split(" ");
