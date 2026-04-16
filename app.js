@@ -2296,3 +2296,67 @@ function shareAsWhatsAppText() {
         window.open(`https://wa.me{encodeURIComponent(msg)}`);
     }
 }
+
+function getLastActivity(studentId, activityType) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME); // الإصدار الجديد
+
+    request.onsuccess = function(event) {
+      const db = event.target.result;
+      const tx = db.transaction("records", "readonly");
+      const store = tx.objectStore("records");
+
+      // الفهرس الذي أنشأته في initDB
+      const index = store.index("student_date_type");
+
+      // نحدد النطاق: نفس الطالب + نفس النوع
+      const range = IDBKeyRange.bound(
+        [studentId, 0, activityType],
+        [studentId, Number.MAX_SAFE_INTEGER, activityType]
+      );
+
+      // نفتح المؤشر بترتيب عكسي (الأحدث أولًا)
+      index.openCursor(range, "prev").onsuccess = function(e) {
+        const cursor = e.target.result;
+        if (cursor) {
+          const record = cursor.value;
+          resolve(record);
+        } else {
+          resolve(null);
+        }
+      };
+
+      tx.oncomplete = function() {
+        db.close();
+      };
+
+      request.onerror = function() {
+        reject("Error opening database");
+      };
+    };
+  });
+}
+
+// حساب الاتجاه والآية التالية
+function getNextAyah(record) {
+  const { fromRang, toRang, type } = record;
+  let direction, nextAyah;
+
+  // تحديد الاتجاه من مقارنة fromRang و toRang
+  if (fromRang < toRang) {
+    direction = "forward";   // من الأمام إلى الخلف
+    nextAyah = toRang + 1;
+  } else {
+    direction = "backward";  // من الخلف إلى الأمام
+    if (fromRang > toRang) {
+      // ما زال في نفس السورة
+      nextAyah = toRang + 1;
+    } else {
+      // انتقل للخلف
+      nextAyah = toRang - 1;
+    }
+  }
+
+  return { direction, nextAyah };
+}
+
