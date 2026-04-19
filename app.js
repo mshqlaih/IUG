@@ -777,7 +777,7 @@ function displayRecords() {
                         let fromText = "";
                         let toText   = "";
 
-                        if (r.type == 6) {
+                        if (r.type == 6 || r.type == 7) {
                             const juzNames = {
                                 1: "الجزء الأول", 2: "الجزء الثاني", 3: "الجزء الثالث",
                                 4: "الجزء الرابع", 5: "الجزء الخامس", 6: "الجزء السادس",
