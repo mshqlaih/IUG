@@ -1594,7 +1594,26 @@ async function handleActivityTypeChange(type) {
     errorsDiv.style.display = 'block';
     ratingDiv.style.display = 'block';
 
-    fillNextAyahFields(document.getElementById('studentSelect').value, type);
+   // ... داخل handleActivityTypeChange ...
+
+// 1. احصل على قيمة الطالب أولاً
+const studentSelect = document.getElementById('studentSelect');
+const studentId = studentSelect ? studentSelect.value : null;
+
+// 2. إذا كان النوع يتطلب آيات وكان الطالب مختاراً
+if (studentId && studentId !== "") {
+    // استدعاء الدالة وانتظارها (يجب أن تكون handleActivityTypeChange معرفة كـ async)
+    await fillNextAyahFields(studentId, type);
+    
+    // 3. بعد ملء الحقول، استدعِ دالة التزامن يدوياً لتجنب NaN
+    const rangeFromText = document.getElementById('rangeFromText');
+    if (rangeFromText.value !== "") {
+        syncAyahID(rangeFromText, 'rangeFrom');
+    }
+} else {
+    console.warn("لم يتم جلب الآية التالية: الطالب غير محدد.");
+}
+
 }
 
 function exportPDF() {
@@ -2379,6 +2398,8 @@ function getNextAyah(record) {
 
 
 async function fillNextAyahFields(studentId, activityType) {
+    console.log("جاري البحث عن آخر نشاط للطالب:", studentId, "لنوع:", activityType);
+
     try {
         // جلب آخر سجل
         const lastRecord = await getLastActivity(studentId, Number(activityType));
