@@ -2396,7 +2396,56 @@ function getNextAyah(record) {
 
   return { direction, nextAyah };
 }
+
 async function fillNextAyahFields(studentId, activityType) {
+    // 1. تحديد الأنواع المسموح لها بالتعبئة التلقائية
+    const allowedTypes = [1, 2, 6, 7];
+    if (!allowedTypes.includes(Number(activityType))) return;
+
+    try {
+        const lastRecord = await getLastActivity(studentId, activityType);
+
+        if (lastRecord) {
+            // 2. حساب الآية التالية من السجل الأخير
+            let result = getNextAyah(lastRecord);
+            let nextId = result.nextAyah;
+
+            // 3. منطق التحقق من التكرار:
+            // إذا كانت الآية المحسوبة (nextId) تقع ضمن النطاق الذي سمعه الطالب في السجل الأخير
+            // (أي أنها محصورة بين من وإلى في النشاط السابق)
+            const isRepeated = (nextId >= lastRecord.fromRange && nextId <= lastRecord.toRange) || 
+                               (nextId <= lastRecord.fromRange && nextId >= lastRecord.toRange);
+
+            if (isRepeated) {
+                console.log("⚠️ الآية مكررة في النشاط السابق، جاري الرجوع خطوة للخلف...");
+                // نقوم بتعديل السجل وهمياً بطرح 1 من النهاية لإعادة الحساب
+                lastRecord.toRange = Number(lastRecord.toRange) - 1;
+                // إعادة استدعاء الدالة بنفس البيانات المحدثة (أو تنفيذ getNextAyah مرة أخرى)
+                result = getNextAyah(lastRecord);
+                nextId = result.nextAyah;
+            }
+
+            // 4. جلب النص وتعبئة الحقول
+            const ayahData = QURAN_DATA.find(item => item.id === nextId);
+            if (ayahData) {
+                const textField = document.getElementById('rangeFromText');
+                const hiddenField = document.getElementById('rangeFrom');
+
+                textField.value = ayahData.l;
+                hiddenField.value = nextId;
+
+                if (typeof syncAyahID === 'function') {
+                    syncAyahID(textField, 'rangeFrom');
+                }
+                console.log("✅ تم التحديث بنجاح للآية:", ayahData.l);
+            }
+        }
+    } catch (error) {
+        console.error("خطأ في معالجة الآية التالية:", error);
+    }
+}
+
+async function fillNextAyahFields01(studentId, activityType) {
     try {
         const lastRecord = await getLastActivity(studentId, activityType);
 
