@@ -2370,39 +2370,40 @@ function getLastActivity(studentId, activityType) {
 
 // حساب الاتجاه والآية التالية
 function getNextAyah(record) {
-  const { fromRang, toRang } = record;
+  // تأكد من أن المسميات في السجل هي فعلاً toRang و fromRang
+  // إذا كانت في قاعدة البيانات بمسميات أخرى، قم بتغييرها هنا
+  const from = Number(record.fromRang || 0);
+  const to = Number(record.toRang || 0);
   let direction, nextAyah;
 
-  // دالة تبحث في QURAN_DATA عن رقم السورة 's' باستخدام المعرف 'id'
+  // دالة مساعدة لمعرفة رقم السورة
   const getSuraId = (id) => {
     const ayah = QURAN_DATA.find(a => a.id === id);
     return ayah ? ayah.s : null;
   };
 
-  const currentSura = getSuraId(toRang);
+  const currentSura = getSuraId(to);
 
-  if (fromRang < toRang) {
+  if (from < to) {
     direction = "forward";
-    nextAyah = toRang + 1; // الاتجاه العادي
+    nextAyah = to + 1;
   } else {
     direction = "backward";
-    
-    // الاختبار: هل الآية التالية (id + 1) تنتمي لنفس السورة؟
-    let potentialNext = toRang + 1;
-    let nextSura = getSuraId(potentialNext);
-
-    if (nextSura !== null && nextSura === currentSura) {
-      // ما زلنا في نفس السورة (مثلاً من آية 6 إلى 7 في الفاتحة)
+    let potentialNext = to + 1;
+    // نختبر إذا كانت الزيادة تبقينا في نفس السورة
+    if (getSuraId(potentialNext) === currentSura) {
       nextAyah = potentialNext;
     } else {
-      // خرجنا من السورة (مثلاً وصلنا لآية 7 في الفاتحة، والآية 8 هي البقرة)
-      // أو لا يوجد آية تالية أصلاً، فنرجع للخلف
-      nextAyah = toRang - 1;
+      nextAyah = to - 1;
     }
   }
 
+  // إذا فشل الحساب لأي سبب، نرجع الآية الأخيرة نفسها كحد أدنى
+  if (isNaN(nextAyah)) nextAyah = to;
+
   return { direction, nextAyah };
 }
+
 
 
 async function fillNextAyahFields(studentId, activityType) {
