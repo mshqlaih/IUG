@@ -2379,37 +2379,26 @@ function getNextAyah(record) {
 
 
 async function fillNextAyahFields(studentId, activityType) {
-  try {
-    // 1. جلب آخر سجل من IndexedDB
-    const lastRecord = await getLastActivity(studentId, activityType);
+    try {
+        // جلب آخر سجل
+        const lastRecord = await getLastActivity(studentId, Number(activityType));
 
-    if (lastRecord) {
-      // 2. حساب الآية التالية (المعرف الرقمي)
-      const result = getNextAyah(lastRecord);
-      const nextId = result.nextAyah;
+        if (lastRecord) {
+            const result = getNextAyah(lastRecord);
+            const nextId = result.nextAyah;
 
-      // 3. استخراج النص المقابل للمعرف من مصفوفة AYAH_REVERSE
-      // (تأكد من استدعاء fillAyatSearchList أولاً لضمان وجود AYAH_REVERSE)
-      const ayahText = window.AYAH_REVERSE && window.AYAH_REVERSE[nextId] 
-                       ? window.AYAH_REVERSE[nextId] 
-                       : "";
+            // التأكد من وجود البيانات في المصفوفة
+            if (window.AYAH_REVERSE && window.AYAH_REVERSE[nextId]) {
+                const textField = document.getElementById('rangeFromText');
+                const hiddenField = document.getElementById('rangeFrom');
 
-      // 4. تعبئة الحقول في HTML
-      const textField = document.getElementById('rangeFromText');
-      const hiddenField = document.getElementById('rangeFrom');
+                textField.value = window.AYAH_REVERSE[nextId];
+                hiddenField.value = nextId;
 
-      if (ayahText) {
-        textField.value = ayahText;   // سيظهر مثلاً: "بقرة 155"
-        hiddenField.value = nextId;   // سيحمل القيمة الرقمية
-        
-        console.log(`تم التحديث: ${ayahText} (${nextId})`);
-      } else {
-        console.warn("لم يتم العثور على نص لهذه الآية في AYAH_REVERSE");
-      }
+                console.log("تم التحديث تلقائياً:", window.AYAH_REVERSE[nextId]);
+            }
+        }
+    } catch (error) {
+        console.error("خطأ في جلب الآية التالية:", error);
     }
-  } catch (error) {
-    console.error("خطأ في جلب النشاط الأخير:", error);
-  }
 }
-
-
