@@ -1580,7 +1580,7 @@ function handleActivityTypeChange(type) {
     }
 
     // -----------------------------------
-    // ✅ 3) الوضع الطبيعي (تسميع/سرد)
+    // ✅ 3) الوضع الطبيعي (تسميع/مراجعة)
     // -----------------------------------
     extraFields.style.display = 'grid';
 
@@ -1594,6 +1594,8 @@ function handleActivityTypeChange(type) {
     // ✅ إظهار الأخطاء والتقييم
     errorsDiv.style.display = 'block';
     ratingDiv.style.display = 'block';
+
+    fillNextAyahFields(studentId, type);
 }
 
 function exportPDF() {
