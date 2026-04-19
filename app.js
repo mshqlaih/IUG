@@ -594,9 +594,10 @@ async function saveActivity() {
         return alert("يجب اختيار آيات صحيحة من القائمة");
     }
 
-    if (type === 7 && (!partFrom || !partTo)) {
-        return alert("يجب إدخال الجزء من وإلى");
-    }
+   if ((type === 7 || type === 6) && (!partFrom || !partTo)) {
+    return alert("يجب إدخال الجزء من وإلى");
+}
+
    const activityInfo = STATIC_LOOKUP.find(
     i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE" 
       && parseInt(i.LOOKUP_VALUE) === type
@@ -2341,26 +2342,40 @@ function getLastActivity(studentId, activityType) {
 
 // حساب الاتجاه والآية التالية
 function getNextAyah(record) {
-  const { fromRang, toRang, type } = record;
+  const { fromRang, toRang } = record;
   let direction, nextAyah;
 
-  // تحديد الاتجاه من مقارنة fromRang و toRang
+  // دالة تبحث في QURAN_DATA عن رقم السورة 's' باستخدام المعرف 'id'
+  const getSuraId = (id) => {
+    const ayah = QURAN_DATA.find(a => a.id === id);
+    return ayah ? ayah.s : null;
+  };
+
+  const currentSura = getSuraId(toRang);
+
   if (fromRang < toRang) {
-    direction = "forward";   // من الأمام إلى الخلف
-    nextAyah = toRang + 1;
+    direction = "forward";
+    nextAyah = toRang + 1; // الاتجاه العادي
   } else {
-    direction = "backward";  // من الخلف إلى الأمام
-    if (fromRang > toRang) {
-      // ما زال في نفس السورة
-      nextAyah = toRang + 1;
+    direction = "backward";
+    
+    // الاختبار: هل الآية التالية (id + 1) تنتمي لنفس السورة؟
+    let potentialNext = toRang + 1;
+    let nextSura = getSuraId(potentialNext);
+
+    if (nextSura !== null && nextSura === currentSura) {
+      // ما زلنا في نفس السورة (مثلاً من آية 6 إلى 7 في الفاتحة)
+      nextAyah = potentialNext;
     } else {
-      // انتقل للخلف
+      // خرجنا من السورة (مثلاً وصلنا لآية 7 في الفاتحة، والآية 8 هي البقرة)
+      // أو لا يوجد آية تالية أصلاً، فنرجع للخلف
       nextAyah = toRang - 1;
     }
   }
 
   return { direction, nextAyah };
 }
+
 
 async function fillNextAyahFields(studentId, activityType) {
   try {
