@@ -2366,17 +2366,14 @@ function getLastActivity(studentId, activityType) {
   });
 }
 
-
-
 // حساب الاتجاه والآية التالية
 function getNextAyah(record) {
-  // تأكد من أن المسميات في السجل هي فعلاً toRang و fromRang
-  // إذا كانت في قاعدة البيانات بمسميات أخرى، قم بتغييرها هنا
-  const from = Number(record.fromRang || 0);
-  const to = Number(record.toRang || 0);
+  // التعديل هنا: استخدام المسميات الصحيحة من قاعدة بياناتك
+  const from = Number(record.fromRange || 0);
+  const to = Number(record.toRange || 0);
+  
   let direction, nextAyah;
 
-  // دالة مساعدة لمعرفة رقم السورة
   const getSuraId = (id) => {
     const ayah = QURAN_DATA.find(a => a.id === id);
     return ayah ? ayah.s : null;
@@ -2390,7 +2387,6 @@ function getNextAyah(record) {
   } else {
     direction = "backward";
     let potentialNext = to + 1;
-    // نختبر إذا كانت الزيادة تبقينا في نفس السورة
     if (getSuraId(potentialNext) === currentSura) {
       nextAyah = potentialNext;
     } else {
@@ -2398,14 +2394,8 @@ function getNextAyah(record) {
     }
   }
 
-  // إذا فشل الحساب لأي سبب، نرجع الآية الأخيرة نفسها كحد أدنى
-  if (isNaN(nextAyah)) nextAyah = to;
-
   return { direction, nextAyah };
 }
-
-
-
 async function fillNextAyahFields(studentId, activityType) {
     try {
         const lastRecord = await getLastActivity(studentId, activityType);
