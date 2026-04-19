@@ -1595,7 +1595,7 @@ function handleActivityTypeChange(type) {
     errorsDiv.style.display = 'block';
     ratingDiv.style.display = 'block';
 
-    fillNextAyahFields(studentId, type);
+    fillNextAyahFields(document.getElementById('studentSelect').value, type);
 }
 
 function exportPDF() {
