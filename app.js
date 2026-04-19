@@ -2406,28 +2406,41 @@ function getNextAyah(record) {
 
 
 async function fillNextAyahFields(studentId, activityType) {
-    console.log("جاري البحث عن آخر نشاط للطالب:", studentId, "لنوع:", activityType);
-
     try {
-        // جلب آخر سجل
-        const lastRecord = await getLastActivity(studentId, Number(activityType));
+        const lastRecord = await getLastActivity(studentId, activityType);
 
         if (lastRecord) {
+            // 1. حساب الآية التالية
             const result = getNextAyah(lastRecord);
             const nextId = result.nextAyah;
 
-            // التأكد من وجود البيانات في المصفوفة
+            // 2. التحقق من وجود النص المقابل للآية
+            // إذا كانت AYAH_REVERSE غير جاهزة، سنحاول جلب النص مباشرة من QURAN_DATA
+            let ayahText = "";
             if (window.AYAH_REVERSE && window.AYAH_REVERSE[nextId]) {
+                ayahText = window.AYAH_REVERSE[nextId];
+            } else {
+                const found = QURAN_DATA.find(a => a.id === nextId);
+                ayahText = found ? found.l : "";
+            }
+
+            if (ayahText) {
+                // 3. تحديث الحقول في HTML
                 const textField = document.getElementById('rangeFromText');
                 const hiddenField = document.getElementById('rangeFrom');
 
-                textField.value = window.AYAH_REVERSE[nextId];
+                textField.value = ayahText;
                 hiddenField.value = nextId;
 
-                console.log("تم التحديث تلقائياً:", window.AYAH_REVERSE[nextId]);
+                // 4. إطلاق حدث التغيير يدوياً لتحديث أي حسابات مرتبطة (مثل التقدم)
+                textField.dispatchEvent(new Event('input'));
+                
+                console.log(`✅ تم ملء الحقول: ${ayahText} (ID: ${nextId})`);
+            } else {
+                console.error("❌ لم نجد نصاً للآية رقم:", nextId);
             }
         }
     } catch (error) {
-        console.error("خطأ في جلب الآية التالية:", error);
+        console.error("❌ خطأ أثناء تعبئة الحقول:", error);
     }
 }
