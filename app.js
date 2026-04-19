@@ -2330,19 +2330,21 @@ function getLastActivity(studentId, activityType) {
       const store = tx.objectStore("records");
       const index = store.index("student_date_type");
 
-      // الترتيب الصحيح حسب الفهرس: [student, date, type]
-      // نضع التاريخ من 0 إلى أقصى رقم لجلب كل التواريخ لهذا الطالب وهذا النوع
+      // بما أن التاريخ نص، نستخدم مدى نصي يبدأ من "0" إلى "9" 
+      // ليغطي أي تاريخ يبدأ بسنة مثل "2026"
       const range = IDBKeyRange.bound(
-        [studentId, 0, Number(activityType)],
-        [studentId, Number.MAX_SAFE_INTEGER, Number(activityType)]
+        [studentId, "0", Number(activityType)],
+        [studentId, "9", Number(activityType)]
       );
 
-      // نستخدم "prev" لجلب الأحدث (أكبر تاريخ)
+      // نفتح المؤشر بترتيب تنازلي (الأحدث تاريخاً سيظهر أولاً)
       index.openCursor(range, "prev").onsuccess = function(e) {
         const cursor = e.target.result;
         if (cursor) {
+          console.log("✅ تم العثور على آخر سجل:", cursor.value);
           resolve(cursor.value);
         } else {
+          console.log("❌ لم يتم العثور على سجل سابق.");
           resolve(null);
         }
       };
@@ -2353,6 +2355,7 @@ function getLastActivity(studentId, activityType) {
     request.onerror = () => reject("Error opening database");
   });
 }
+
 
 // حساب الاتجاه والآية التالية
 function getNextAyah(record) {
