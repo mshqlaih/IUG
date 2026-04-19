@@ -2320,6 +2320,7 @@ function shareAsWhatsAppText() {
     }
 }
 
+
 function getLastActivity(studentId, activityType) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME);
@@ -2330,21 +2331,30 @@ function getLastActivity(studentId, activityType) {
       const store = tx.objectStore("records");
       const index = store.index("student_date_type");
 
-      // بما أن التاريخ نص، نستخدم مدى نصي يبدأ من "0" إلى "9" 
-      // ليغطي أي تاريخ يبدأ بسنة مثل "2026"
+      // نفتح المدى لكل السجلات الخاصة بهذا الطالب (بغض النظر عن التاريخ والنوع حالياً)
+      // التاريخ يبدأ من "0" والنوع من 0 لضمان شمول كل شيء
       const range = IDBKeyRange.bound(
-        [studentId, "0", Number(activityType)],
-        [studentId, "9", Number(activityType)]
+        [Number(studentId), "0", 0],
+        [Number(studentId), "9", 99]
       );
 
-      // نفتح المؤشر بترتيب تنازلي (الأحدث تاريخاً سيظهر أولاً)
+      // نفتح المؤشر بترتيب تنازلي (الأحدث أولاً)
       index.openCursor(range, "prev").onsuccess = function(e) {
         const cursor = e.target.result;
         if (cursor) {
-          console.log("✅ تم العثور على آخر سجل:", cursor.value);
-          resolve(cursor.value);
+          const record = cursor.value;
+          
+          // فلترة برمجية مرنة للنوع: تقارن القيمة سواء كانت نصاً أو رقماً
+          if (String(record.type) === String(activityType)) {
+            console.log("✅ وجدنا آخر نشاط مطابق:", record);
+            resolve(record);
+            return; // توقف فور إيجاد الأحدث
+          }
+          
+          // إذا لم يطابق النوع، انتقل للسجل الذي قبله (أقدم منه)
+          cursor.continue();
         } else {
-          console.log("❌ لم يتم العثور على سجل سابق.");
+          console.log("❌ لا يوجد سجلات مطابقة لهذا الطالب وهذا النوع.");
           resolve(null);
         }
       };
@@ -2355,6 +2365,7 @@ function getLastActivity(studentId, activityType) {
     request.onerror = () => reject("Error opening database");
   });
 }
+
 
 
 // حساب الاتجاه والآية التالية
