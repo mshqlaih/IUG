@@ -1209,6 +1209,7 @@ function populateSelectFromLookups(selectId, meaningCode) {
 
 // دالة لتحديث السجلات القديمة
 function normalizeRecords() {
+    return;
     if (!db) {
         console.error("قاعدة البيانات غير مهيأة بعد");
         return;
@@ -1982,6 +1983,7 @@ async function handleLogout01() {
 }
 
 function migrateOldRecords() {
+    return;
     // 1. التحقق هل قمنا بالتحديث سابقاً؟ (لتجنب التكرار)
     if (localStorage.getItem("is_sortOrder_fixed") === "true") return;
 
