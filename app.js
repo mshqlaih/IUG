@@ -1516,7 +1516,7 @@ function resetActivityForm() {
     console.log("تم تنظيف النموذج بنجاح 🧹");
 }
 
-function handleActivityTypeChange(type) {
+async function handleActivityTypeChange(type) {
 
     const extraFields = document.getElementById('extraFieldsContainer');
 
