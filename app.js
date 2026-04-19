@@ -2322,41 +2322,35 @@ function shareAsWhatsAppText() {
 
 function getLastActivity(studentId, activityType) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME); // الإصدار الجديد
+    const request = indexedDB.open(DB_NAME);
 
     request.onsuccess = function(event) {
       const db = event.target.result;
       const tx = db.transaction("records", "readonly");
       const store = tx.objectStore("records");
-
-      // الفهرس الذي أنشأته في initDB
       const index = store.index("student_date_type");
 
-      // نحدد النطاق: نفس الطالب + نفس النوع
+      // الترتيب الصحيح حسب الفهرس: [student, date, type]
+      // نضع التاريخ من 0 إلى أقصى رقم لجلب كل التواريخ لهذا الطالب وهذا النوع
       const range = IDBKeyRange.bound(
-        [studentId, 0, activityType],
-        [studentId, Number.MAX_SAFE_INTEGER, activityType]
+        [studentId, 0, Number(activityType)],
+        [studentId, Number.MAX_SAFE_INTEGER, Number(activityType)]
       );
 
-      // نفتح المؤشر بترتيب عكسي (الأحدث أولًا)
+      // نستخدم "prev" لجلب الأحدث (أكبر تاريخ)
       index.openCursor(range, "prev").onsuccess = function(e) {
         const cursor = e.target.result;
         if (cursor) {
-          const record = cursor.value;
-          resolve(record);
+          resolve(cursor.value);
         } else {
           resolve(null);
         }
       };
 
-      tx.oncomplete = function() {
-        db.close();
-      };
-
-      request.onerror = function() {
-        reject("Error opening database");
-      };
+      tx.oncomplete = () => db.close();
     };
+
+    request.onerror = () => reject("Error opening database");
   });
 }
 
