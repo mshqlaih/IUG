@@ -1536,7 +1536,7 @@ function handleActivityTypeChange(type) {
     const hideForTypes = [3, 4, 5];
 
     // النوع الذي يُظهر فقط examdiv
-    const showOnlyExamDiv = 6;
+    const showOnlyExamDiv = [6, 7];
 
     // -----------------------------------
     // ✅ 1) إخفاء جميع الحقول كاملة
@@ -1561,7 +1561,7 @@ function handleActivityTypeChange(type) {
     // -----------------------------------
     // ✅ 2) إظهار الأجزاء فقط (examdiv)
     // -----------------------------------
-    if (Number(type) === showOnlyExamDiv) {
+   if (showOnlyExamDiv.includes(Number(type))) {
 
         extraFields.style.display = 'grid';
 
