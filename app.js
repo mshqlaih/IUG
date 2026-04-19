@@ -589,7 +589,7 @@ async function saveActivity() {
         return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
     }
 
-    if ((type === 1 || type === 2 || type === 7) && (!fromRange || !toRange)) {
+    if ((type === 1 || type === 2) && (!fromRange || !toRange)) {
         return alert("يجب اختيار آيات صحيحة من القائمة");
     }
 
