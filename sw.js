@@ -1,70 +1,64 @@
-const CACHE_NAME = 'quran-app-v1.2144';
-const ASSETS = [
-  './',
-  './index.html',
-  './app.css',
-  './quran_data.js',
-  './app.js',
-  './xlsx.full.min.js',
-  './bootstrap.bundle.min.js',
-  './students.json',
-  './STATIC_LOOKUP.json',
-  './manifest.json',
-  './html2pdf.bundle.min.js',
-  './login.html'
+const CACHE_NAME = 'quran-app-v1.3';
+// الأساسي للإقلاع offline — فشل أي ملف لا يُفشّل التثبيت
+const CORE = [
+  './', './index.html', './login.html', './app.css', './app.js',
+  './quran_data.js', './students.json', './STATIC_LOOKUP.json',
+  './manifest.json', './bootstrap.bundle.min.js', './icon.png'
 ];
+// ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت
+const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js'];
 
-// تثبيت الملفات في الذاكرة
+// تثبيت الملفات في الذاكرة (مرن: فشل ملف لا يكسر الكل)
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
   self.skipWaiting();
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.allSettled(CORE.map((u) => cache.add(u)));   // الأساسي
+    Promise.allSettled(OPTIONAL.map((u) => cache.add(u)));     // في الخلفية
+  })());
 });
 
-// تشغيل التطبيق من الكاش
-
-self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((res) => {
-      return res || fetch(e.request).catch(() => {
-        // إذا فشل النت وما في كاش، أرجع الصفحة الرئيسية
-        return caches.match('./index.html');
-      });
-    })
-  );
-});
-/*
-self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((res) => res || fetch(e.request))
-  );
-});
-*/
 // تفعيل النسخة الجديدة وحذف الكاش القديم
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log("جاري حذف الكاش القديم...", key);
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => {
-      self.clients.claim();
-      self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'LAST_UPDATE',
-            date: new Date().toLocaleString("ar-EG")
-          });
-        });
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    // إبلاغ الصفحة بآخر تحديث (مستخدم في app.js)
+    const clients = await self.clients.matchAll();
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'LAST_UPDATE',
+        date: new Date().toLocaleString("ar-EG")
       });
-    })
-  );
+    });
+  })());
+});
+
+// تشغيل التطبيق من الكاش (cache-first مع تحديث صامت + تمرير طلبات API للشبكة)
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  let url; try { url = new URL(req.url); } catch { return; }
+  if (url.origin !== self.location.origin) return;            // مرّر طلبات API الخارجية للشبكة
+
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(req, { ignoreSearch: true });
+    if (cached) {
+      fetch(req).then((r) => { if (r && r.ok) cache.put(req, r.clone()); }).catch(() => {}); // تحديث صامت
+      return cached;
+    }
+    try {
+      const r = await fetch(req);
+      if (r && r.ok && r.type === 'basic') cache.put(req, r.clone());
+      return r;
+    } catch {
+      if (req.mode === 'navigate')
+        return (await cache.match('./index.html', { ignoreSearch: true })) || Response.error();
+      return Response.error();
+    }
+  })());
 });
 
 

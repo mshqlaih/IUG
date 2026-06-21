@@ -26,6 +26,120 @@ if ('serviceWorker' in navigator) {
     }).catch(err => console.log("خطأ في تسجيل الـ SW:", err));
 }
 
+// --- مزامنة احتياطية للصفحة (iOS لا يدعم Background Sync) ---
+// هل Background Sync مدعوم؟ (متوفر في Chrome/Android، غير متوفر في Safari/iOS)
+const SUPPORTS_BG_SYNC = ('serviceWorker' in navigator) && ('SyncManager' in window);
+
+// موزِّع المزامنة: يستخدم Background Sync إن وُجد، وإلا يزامن من الصفحة مباشرة
+function requestSync() {
+    if (SUPPORTS_BG_SYNC) {
+        navigator.serviceWorker.ready
+            .then(reg => reg.sync.register('sync-records'))
+            .catch(err => {
+                console.warn("⚠️ فشل تسجيل Background Sync، التحويل للمزامنة الصفحية:", err);
+                syncRecordsFromPage();
+            });
+    } else {
+        // iOS / متصفحات بلا Background Sync
+        syncRecordsFromPage();
+    }
+}
+
+let _syncInProgress = false;
+
+// نسخة الصفحة من syncRecords الموجودة في sw.js (نفس المنطق والوجهة)
+function syncRecordsFromPage() {
+    if (_syncInProgress) return Promise.resolve();   // منع التشغيل المتزامن
+    if (!navigator.onLine) return Promise.resolve();  // لا فائدة بدون اتصال
+    _syncInProgress = true;
+
+    return new Promise((resolve) => {
+        const request = indexedDB.open("QuranProjectDB", 12);
+
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+
+            // 1. جلب device_id من مخزن settings
+            const settingsTx = db.transaction("settings", "readonly");
+            const getSettings = settingsTx.objectStore("settings").getAll();
+
+            getSettings.onsuccess = () => {
+                const settingsList = getSettings.result;
+                if (!settingsList || settingsList.length === 0) {
+                    console.error("❌ لا يمكن المزامنة: بيانات الجهاز غير موجودة");
+                    _syncInProgress = false;
+                    return resolve();
+                }
+                const dbDeviceId = settingsList[0].device_id;
+
+                // 2. جلب السجلات غير المزامنة
+                const tx = db.transaction("records", "readonly");
+                const getAllRecords = tx.objectStore("records").getAll();
+
+                getAllRecords.onsuccess = () => {
+                    const unsynced = getAllRecords.result.filter(r => !r.synced);
+                    console.log("📦 (صفحة) عدد السجلات غير المزامنة:", unsynced.length);
+                    if (unsynced.length === 0) {
+                        _syncInProgress = false;
+                        return resolve();
+                    }
+
+                    Promise.all(
+                        unsynced.map(record =>
+                            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ ...record, device_id_field: dbDeviceId })
+                            })
+                            .then(async res => {
+                                const txU = db.transaction("records", "readwrite");
+                                const storeU = txU.objectStore("records");
+                                if (res.ok) {
+                                    record.synced = true;
+                                    record.syncError = null;
+                                    storeU.put(record);
+                                    console.log("✅ (صفحة) نجاح المزامنة للسجل:", record.id);
+                                } else {
+                                    const errorText = await res.text();
+                                    record.synced = false;
+                                    record.syncError = errorText;
+                                    storeU.put(record);
+                                    console.log("❌ (صفحة) فشل السيرفر:", errorText);
+                                }
+                            })
+                            .catch(err => {
+                                console.error("⚠️ (صفحة) خطأ اتصال أثناء المزامنة:", err);
+                                const txE = db.transaction("records", "readwrite");
+                                txE.objectStore("records").put(
+                                    { ...record, synced: false, syncError: "خطأ اتصال: " + err.message }
+                                );
+                            })
+                        )
+                    ).then(() => {
+                        if (typeof showToast === "function") showToast("✅ تمت مزامنة الأنشطة");
+                        if (typeof refreshAll === "function") refreshAll();
+                        _syncInProgress = false;
+                        resolve();
+                    });
+                };
+            };
+        };
+
+        request.onerror = (err) => {
+            console.error("❌ (صفحة) فشل فتح قاعدة البيانات:", err);
+            _syncInProgress = false;
+            resolve();
+        };
+    });
+}
+
+// مُحفّز iOS: مزامنة عند إعادة فتح/إظهار التطبيق (يعوّض غياب Background Sync)
+if (!SUPPORTS_BG_SYNC) {
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") requestSync();
+    });
+}
+
 window.addEventListener("DOMContentLoaded", () => {
     const lastUpdate = localStorage.getItem("lastUpdate");
     if (lastUpdate) {
@@ -159,9 +273,7 @@ function initDB() {
         window._syncOnlineListenerAdded = true;
         window.addEventListener("online", () => {
             console.log("📶 الإنترنت عاد، تسجيل المزامنة...");
-            navigator.serviceWorker.ready.then(reg => {
-                reg.sync.register('sync-records');
-            });
+            requestSync();
         });
     }
 
@@ -637,9 +749,7 @@ async function saveActivity() {
                 showToast("تم حفظ النشاط بنجاح");
                 resetActivityForm();
 
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.sync.register("sync-records");
-                });
+                requestSync();
             };
         }
     };
