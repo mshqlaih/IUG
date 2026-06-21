@@ -63,6 +63,17 @@ body {
   line-height: 1.2;
 }
 
+.tab-btn i {
+  font-size: 24px;
+  display: block;
+}
+
+.tab-btn span {
+  display: block;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
 .tab-btn:hover {
   background: #ebebeb;
   color: #616161;

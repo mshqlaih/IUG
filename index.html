@@ -11,6 +11,7 @@
     <link rel="apple-touch-icon" href="icon.png">
      <link rel="stylesheet" href="app.css">
      <link rel="manifest" href="manifest.json">
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .logout-btn {
     background-color: #e74c3c;
@@ -108,25 +109,25 @@
 
 <body>
     <header class="app-header">
-        <span class="app-title">🕌 متابعة الحلقات</span>
+        <span class="app-title"><i class="fas fa-mosque" style="margin-left: 8px;"></i>متابعة الحلقات</span>
         <div class="header-actions">
-            <button id="installBtn" class="install-btn" style="display:none;">⬇️ <span class="btn-text">تثبيت</span></button>
+            <button id="installBtn" class="install-btn" style="display:none;"><i class="fas fa-download"></i> <span class="btn-text">تثبيت</span></button>
             <button class="logout-btn" onclick="handleLogout()" title="تسجيل الخروج">
-                🚪 <span class="btn-text">خروج</span>
+                <i class="fas fa-sign-out-alt"></i> <span class="btn-text">خروج</span>
             </button>
         </div>
     </header>
 
     <div class="status-banner">
-        <span class="status-chip">✔ جاهز للعمل offline</span>
+        <span class="status-chip"><i class="fas fa-circle" style="color: #34a853; font-size: 10px;"></i> جاهز للعمل offline</span>
         <span>التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.</span>
     </div>
 
     <div id="lastUpdateLabel" class="last-update">📅 آخر تحديث: -</div>
     <div class="tabs-header">
-        <button class="tab-btn active" onclick="openTab('activityTab', this)"><span style="font-size: 28px; display: block; margin-bottom: 4px;">📝</span>النشاط</button>
-        <button class="tab-btn" onclick="openTab('studentsTab', this)"><span style="font-size: 28px; display: block; margin-bottom: 4px;">👥</span>الطلاب</button>
-        <button class="tab-btn" onclick="openTab('logsTab', this)"><span style="font-size: 28px; display: block; margin-bottom: 4px;">📊</span>السجلات</button>
+        <button class="tab-btn active" onclick="openTab('activityTab', this)"><i class="fas fa-pen-to-square"></i><span>النشاط</span></button>
+        <button class="tab-btn" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلاب</span></button>
+        <button class="tab-btn" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>السجلات</span></button>
     </div>
 
     <div class="container">
@@ -308,13 +309,13 @@
        </div> 
     </div>          
 
-    <button class="btn-save" onclick="saveActivity()">حفظ سجل النشاط ✅</button>
+    <button class="btn-save" onclick="saveActivity()"><i class="fas fa-save"></i> حفظ سجل النشاط</button>
 </div>
         </div>            
         <!-- شاشة إدارة الطلاب -->
         <div id="studentsTab" class="tab-content">
             <div class="card">
-                <h3>👥 طلابي</h3>
+                <h3><i class="fas fa-users"></i> طلابي</h3>
                 <div class="grid">
                     <input type="number" id="stuID" placeholder="رقم الهوية">
                     <input type="text" id="fName" placeholder="الاسم الأول">
@@ -322,7 +323,7 @@
                     <input type="text" id="gName" placeholder="الجد">
                     <input type="text" id="lName" placeholder="العائلة">
                 </div>
-                <button class="btn-add" onclick="saveStudent()" style="margin-top:10px">حفظ / تحديث بيانات الطالب</button>
+                <button class="btn-add" onclick="saveStudent()" style="margin-top:10px"><i class="fas fa-check"></i> حفظ / تحديث بيانات الطالب</button>
                 <div class="table-wrap">
                     <table>
                         <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>تعديل</th></tr></thead>
@@ -333,13 +334,13 @@
 
             <!-- إضافة طالب من القائمة الرئيسية -->
             <div class="card">
-                <h3>📋 إضافة من قائمة الطلاب الرئيسية</h3>
-                <p style="font-size:12px; color:#666; margin:4px 0 10px">اضغط ➕ لإضافة الطالب إلى قائمة طلابك.</p>
+                <h3><i class="fas fa-list"></i> إضافة من قائمة الطلاب الرئيسية</h3>
+                <p style="font-size:12px; color:#666; margin:4px 0 10px"><i class="fas fa-plus-circle" style="color: #34a853;"></i> اضغط لإضافة الطالب إلى قائمة طلابك.</p>
                 <div class="students-table-wrapper">
                     <table id="studentsTable">
                         <thead>
                             <tr>
-                                <th style="width:40px;">➕</th>
+                                <th style="width:40px;"><i class="fas fa-plus"></i></th>
                                 <th>رقم الهوية</th>
                                 <th>الاسم الأول</th>
                                 <th>اسم الأب</th>
@@ -359,30 +360,30 @@
             <div class="section-note">يمكنك تصفية السجلات أو تصديرها ومزامنتها دون فقدان البيانات.</div>
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom:10px">
-    <h3 style="margin:0">📊 سجلات الأنشطة</h3>
+    <h3 style="margin:0"><i class="fas fa-chart-line"></i> سجلات الأنشطة</h3>
     <div style="display:flex; gap:8px;">
         <div class="buttons-container">
             <button class="btn-excel" onclick="exportToExcel()" title="تصدير إكسل">
-                📊 <span class="btn-text">Excel</span>
+                <i class="fas fa-file-excel"></i> <span class="btn-text">Excel</span>
             </button>
             
             <button class="btn-pdf" onclick="exportPDF()" title="تنزيل PDF">
-                📄 <span class="btn-text">تنزيل PDF</span>
+                <i class="fas fa-file-pdf"></i> <span class="btn-text">تنزيل PDF</span>
             </button>
         
             <button class="btn-whatsapp" onclick="exportAndSharePDF()" title="مشاركة PDF">
-                📎 <span class="btn-text">مشاركة PDF</span>
+                <i class="fas fa-share-alt"></i> <span class="btn-text">مشاركة PDF</span>
             </button>
         
             <button class="btn-text-share" onclick="shareAsWhatsAppText()" title="مشاركة نصية">
-                💬 <span class="btn-text">مشاركة نصية</span>
+                <i class="fas fa-comment"></i> <span class="btn-text">مشاركة نصية</span>
             </button>
         </div>
     </div>
 </div>
                 
                 <div class="card" style="background: #f8f9fa; border: 1px solid #dee2e6;">
-    <label class="fw-bold mb-2">🔍 تصفية السجلات</label>
+    <label class="fw-bold mb-2"><i class="fas fa-filter" style="margin-left: 6px;"></i>تصفية السجلات</label>
     <div class="grid">
         <div class="field">
             <label>عرض حسب التاريخ</label>
@@ -393,7 +394,7 @@
             <input type="number" id="filterStudentID" placeholder="أدخل رقم الهوية" oninput="displayRecords()">
         </div>
         <div class="field" style="display: flex; align-items: flex-end;">
-            <button onclick="resetFilters()" style="background: #6c757d; color: white; padding: 10px;">إعادة تعيين 🔄</button>
+            <button onclick="resetFilters()" style="background: #6c757d; color: white; padding: 10px;"><i class="fas fa-redo"></i> إعادة تعيين</button>
         </div>
     </div>
 </div>
@@ -401,8 +402,8 @@
                 <div class="table-wrap">
                     <div id="syncBtnContainer" style="margin-bottom:10px; text-align:right;"></div>
                     <div class="sync-actions">
-                        <button id="syncBtn" class="btn-sync">🔄 <span class="btn-text">مزامنة البيانات</span></button>
-                        <button id="pullBtn" class="btn-pull">⬇️ <span class="btn-text">سحب البيانات</span></button>
+                        <button id="syncBtn" class="btn-sync"><i class="fas fa-sync-alt"></i> <span class="btn-text">مزامنة البيانات</span></button>
+                        <button id="pullBtn" class="btn-pull"><i class="fas fa-cloud-download-alt"></i> <span class="btn-text">سحب البيانات</span></button>
                     </div>
                     <div id="pdfArea" dir="rtl">
                     <table id="mainLogTable">
@@ -429,10 +430,10 @@
             </div>
             <!-- نسخة احتياطية -->
             <div class="card" style="background:#f8f9fa; border:1px dashed #ccc; text-align:center">
-                <label>النسخ الاحتياطي للقاعدة</label>
-                <div style="display:flex; gap:10px; margin-top:10px">
-                    <button onclick="exportBackup()" style="background:#6c757d; color:white">تصدير النسخة</button>
-                    <button onclick="document.getElementById('importFile').click()" style="background:#17a2b8; color:white">استيراد نسخة</button>
+                <label><i class="fas fa-database"></i> النسخ الاحتياطي للقاعدة</label>
+                <div style="display:flex; gap:10px; margin-top:10px; justify-content: center;">
+                    <button onclick="exportBackup()" style="background:#6c757d; color:white"><i class="fas fa-download"></i> تصدير النسخة</button>
+                    <button onclick="document.getElementById('importFile').click()" style="background:#17a2b8; color:white"><i class="fas fa-upload"></i> استيراد نسخة</button>
                 </div>
                 <input type="file" id="importFile" style="display:none" onchange="importBackup(this)">
             </div>
