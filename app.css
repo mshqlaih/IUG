@@ -307,6 +307,56 @@ th {
     transition: all 0.3s ease;
 }
 
+.card-light {
+    background: #f4fbff;
+    border: 1px solid #dceaf5;
+}
+
+.status-banner {
+    background: #ffffff;
+    border: 1px solid #dfe3ea;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin: 10px auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    max-width: 1000px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    color: #41464e;
+    font-size: 14px;
+}
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #e8f0fe;
+    color: #1967d2;
+    font-weight: 700;
+}
+
+.section-title {
+    color: #1a73e8;
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+
+.section-note {
+    color: #5f6368;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0 0 18px;
+}
+
+.inline-btn {
+    width: auto !important;
+    padding: 10px 18px !important;
+}
+
 .toast-hidden {
     opacity: 0;
     visibility: hidden;
