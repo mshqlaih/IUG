@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.31';
+const CACHE_NAME = 'quran-app-v1.32';
 // الأساسي للإقلاع offline — فشل أي ملف لا يُفشّل التثبيت
 const CORE = [
   './', './index.html', './login.html', './app.css', './app.js',
