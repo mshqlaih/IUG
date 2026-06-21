@@ -30,107 +30,31 @@ if ('serviceWorker' in navigator) {
 // هل Background Sync مدعوم؟ (متوفر في Chrome/Android، غير متوفر في Safari/iOS)
 const SUPPORTS_BG_SYNC = ('serviceWorker' in navigator) && ('SyncManager' in window);
 
+let _syncInProgress = false;
+
 // موزِّع المزامنة: يستخدم Background Sync إن وُجد، وإلا يزامن من الصفحة مباشرة
+// (يستدعي syncRecordsFromPage المعرّفة أدناه — النسخة المعتمدة على db العام)
 function requestSync() {
+    if (_syncInProgress || !navigator.onLine) return;   // منع التشغيل المتزامن / لا فائدة بدون اتصال
     if (SUPPORTS_BG_SYNC) {
         navigator.serviceWorker.ready
             .then(reg => reg.sync.register('sync-records'))
             .catch(err => {
                 console.warn("⚠️ فشل تسجيل Background Sync، التحويل للمزامنة الصفحية:", err);
-                syncRecordsFromPage();
+                runPageSync();
             });
     } else {
         // iOS / متصفحات بلا Background Sync
-        syncRecordsFromPage();
+        runPageSync();
     }
 }
 
-let _syncInProgress = false;
-
-// نسخة الصفحة من syncRecords الموجودة في sw.js (نفس المنطق والوجهة)
-function syncRecordsFromPage() {
-    if (_syncInProgress) return Promise.resolve();   // منع التشغيل المتزامن
-    if (!navigator.onLine) return Promise.resolve();  // لا فائدة بدون اتصال
+// غلاف يرفع علم التقدّم حول المزامنة الصفحية ثم يُنزله مهما كانت النتيجة
+function runPageSync() {
     _syncInProgress = true;
-
-    return new Promise((resolve) => {
-        const request = indexedDB.open("QuranProjectDB", 12);
-
-        request.onsuccess = (event) => {
-            const db = event.target.result;
-
-            // 1. جلب device_id من مخزن settings
-            const settingsTx = db.transaction("settings", "readonly");
-            const getSettings = settingsTx.objectStore("settings").getAll();
-
-            getSettings.onsuccess = () => {
-                const settingsList = getSettings.result;
-                if (!settingsList || settingsList.length === 0) {
-                    console.error("❌ لا يمكن المزامنة: بيانات الجهاز غير موجودة");
-                    _syncInProgress = false;
-                    return resolve();
-                }
-                const dbDeviceId = settingsList[0].device_id;
-
-                // 2. جلب السجلات غير المزامنة
-                const tx = db.transaction("records", "readonly");
-                const getAllRecords = tx.objectStore("records").getAll();
-
-                getAllRecords.onsuccess = () => {
-                    const unsynced = getAllRecords.result.filter(r => !r.synced);
-                    console.log("📦 (صفحة) عدد السجلات غير المزامنة:", unsynced.length);
-                    if (unsynced.length === 0) {
-                        _syncInProgress = false;
-                        return resolve();
-                    }
-
-                    Promise.all(
-                        unsynced.map(record =>
-                            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ ...record, device_id_field: dbDeviceId })
-                            })
-                            .then(async res => {
-                                const txU = db.transaction("records", "readwrite");
-                                const storeU = txU.objectStore("records");
-                                if (res.ok) {
-                                    record.synced = true;
-                                    record.syncError = null;
-                                    storeU.put(record);
-                                    console.log("✅ (صفحة) نجاح المزامنة للسجل:", record.id);
-                                } else {
-                                    const errorText = await res.text();
-                                    record.synced = false;
-                                    record.syncError = errorText;
-                                    storeU.put(record);
-                                    console.log("❌ (صفحة) فشل السيرفر:", errorText);
-                                }
-                            })
-                            .catch(err => {
-                                console.error("⚠️ (صفحة) خطأ اتصال أثناء المزامنة:", err);
-                                const txE = db.transaction("records", "readwrite");
-                                txE.objectStore("records").put(
-                                    { ...record, synced: false, syncError: "خطأ اتصال: " + err.message }
-                                );
-                            })
-                        )
-                    ).then(() => {
-                        if (typeof showToast === "function") showToast("✅ تمت مزامنة الأنشطة");
-                        if (typeof refreshAll === "function") refreshAll();
-                        _syncInProgress = false;
-                        resolve();
-                    });
-                };
-            };
-        };
-
-        request.onerror = (err) => {
-            console.error("❌ (صفحة) فشل فتح قاعدة البيانات:", err);
-            _syncInProgress = false;
-            resolve();
-        };
-    });
+    Promise.resolve(syncRecordsFromPage())
+        .catch(err => console.error("❌ خطأ أثناء المزامنة:", err))
+        .finally(() => { _syncInProgress = false; });
 }
 
 // مُحفّز iOS: مزامنة عند إعادة فتح/إظهار التطبيق (يعوّض غياب Background Sync)
@@ -267,7 +191,6 @@ function initDB() {
         normalizeRecords();
          const teacherID = document.getElementById("teacherID").value;
           fetchAndStoreEmpData(teacherID);
-        inspectFullDatabase();
 
          if (!window._syncOnlineListenerAdded) {
         window._syncOnlineListenerAdded = true;
@@ -848,6 +771,17 @@ function translateLookup(code, value) {
 
 let lastDisplayedData = []; // ✨ متغيّر عام لتخزين النتائج
 
+// شارة حالة المزامنة: مزامَن / بانتظار / خطأ (التفاصيل تظهر عند الضغط/المرور)
+function syncStatusBadge(r) {
+    if (r.synced) return '<span class="sync-badge sync-ok">✅ مزامَن</span>';
+    const err = (extractArabicError(r.syncError) || "").trim();
+    if (err) {
+        const safe = err.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<span class="sync-badge sync-err" title="${safe}" data-err="${safe}" onclick="alert(this.dataset.err)">⚠️ خطأ</span>`;
+    }
+    return '<span class="sync-badge sync-wait">⏳ بانتظار</span>';
+}
+
 function displayRecords() {
     const tbody = document.getElementById('logTable');
     tbody.innerHTML = '';
@@ -940,12 +874,7 @@ function displayRecords() {
                                 <td>${ratingName}</td>
                                 <td>${r.mark}</td>
                                 <td class="no-pdf">${r.errors}</td>
-                                <td class="no-pdf">
-                                    ${r.synced 
-                                        ? '<span style="color:green">✔ تم الرفع</span>' 
-                                        : '<span style="color:red">✘ لم يُرفع</span>'}
-                                    </br>${errorText}
-                                </td>
+                                <td class="no-pdf">${syncStatusBadge(r)}</td>
                                 <td class="no-pdf"><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
                             </tr>`;
                     }
@@ -2003,57 +1932,6 @@ function fetchAndStoreEmpData01(teacherID) {
           }
       })
       .catch(err => console.error("❌ خطأ في جلب البيانات:", err));
-}
-
-async function inspectFullDatabase() {
-    const container = document.getElementById("db-viewer-content");
-    container.innerHTML = "🔄 جاري تحميل البيانات...";
-
-    const request = indexedDB.open("QuranProjectDB");
-
-    request.onerror = (e) => container.innerHTML = "❌ فشل فتح القاعدة: " + e.target.error;
-
-    request.onsuccess = async (event) => {
-        const db = event.target.result;
-        const storeNames = Array.from(db.objectStoreNames);
-        container.innerHTML = ""; // مسح رسالة التحميل
-
-        for (const storeName of storeNames) {
-            // إنشاء قسم لكل متجر
-            const section = document.createElement("div");
-            section.className = "store-section";
-            section.innerHTML = `<h3 class="store-title">📦 مخزن: ${storeName}</h3>`;
-            
-            const table = document.createElement("table");
-            const data = await getAllDataFromStore(db, storeName);
-
-            if (data.length === 0) {
-                section.innerHTML += `<p class="empty-msg">لا توجد بيانات في هذا المخزن.</p>`;
-            } else {
-                // إنشاء رؤوس الجدول بناءً على مفاتيح أول كائن
-                const keys = Object.keys(data[0]);
-                let thead = `<thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead>`;
-                let tbody = `<tbody>${data.map(row => 
-                    `<tr>${keys.map(k => `<td>${JSON.stringify(row[k])}</td>`).join('')}</tr>`
-                ).join('')}</tbody>`;
-                
-                table.innerHTML = thead + tbody;
-                section.appendChild(table);
-            }
-            container.appendChild(section);
-        }
-    };
-}
-
-// دالة مساعدة لجلب البيانات من مخزن معين
-function getAllDataFromStore(db, storeName) {
-    return new Promise((resolve) => {
-        const tx = db.transaction(storeName, "readonly");
-        const store = tx.objectStore(storeName);
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve([]);
-    });
 }
 
 function handleLogout() {

@@ -12,28 +12,15 @@
      <link rel="stylesheet" href="app.css">
      <link rel="manifest" href="manifest.json">
     <style>
-  .store-section { margin-bottom: 30px; border: 1px solid #ccc; border-radius: 8px; padding: 15px; background: #f9f9f9; }
-  .store-title { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 13px; }
-  th { background-color: #3498db; color: white; }
-  tr:nth-child(even) { background-color: #f2f2f2; }
-  .empty-msg { color: #888; font-style: italic; }
-
         .logout-btn {
-    position: fixed;
-    top: 5px;
-    left: 15px; /* وضعته لليسار لأن الصفحة RTL */
     background-color: #e74c3c;
     color: white;
     border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
+    padding: 8px 14px;
+    border-radius: 8px;
     font-size: 14px;
     cursor: pointer;
-    z-index: 9999;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 5px;
 }
@@ -42,11 +29,10 @@
     background-color: #c0392b;
 }
 
-/* لمنع تداخل الزر مع المحتوى في الشاشات الصغيرة جداً */
 @media (max-width: 480px) {
     .logout-btn {
-        padding: 5px 10px;
-        font-size: 10px;
+        padding: 6px 10px;
+        font-size: 12px;
     }
 }
 
@@ -65,29 +51,21 @@
 </script>
 
 <body>
-<button id="installBtn" style="display: none; padding: 10px; background: #000; color: #fff; border: none; border-radius: 5px; margin: 10px;">
-    تنزيل التطبيق على الجوال
-</button>
-    
-<button class="logout-btn" onclick="handleLogout()" title="تسجيل الخروج">
-    <span>🚪</span> <span class="btn-text">تسجيل الخروج</span>
-</button>
+    <header class="app-header">
+        <span class="app-title">🕌 متابعة الحلقات</span>
+        <div class="header-actions">
+            <button id="installBtn" class="install-btn" style="display:none;">⬇️ <span class="btn-text">تثبيت</span></button>
+            <button class="logout-btn" onclick="handleLogout()" title="تسجيل الخروج">
+                🚪 <span class="btn-text">خروج</span>
+            </button>
+        </div>
+    </header>
 
-    <div id="lastUpdateLabel"  style="text-align:center; 
-            font-size:18px; 
-            font-weight:bold; 
-            color:#222; 
-            background-color:#f0f0f0; 
-            padding:10px; 
-            border-radius:6px; 
-            box-shadow:0 2px 6px rgba(0,0,0,0.2)">
-    📅 آخر تحديث: -
-</div>
+    <div id="lastUpdateLabel" class="last-update">📅 آخر تحديث: -</div>
     <div class="tabs-header">
         <button class="tab-btn active" onclick="openTab('activityTab', this)">📝 النشاط</button>
         <button class="tab-btn" onclick="openTab('studentsTab', this)">👥 الطلاب</button>
         <button class="tab-btn" onclick="openTab('logsTab', this)">📊 السجلات</button>
-        <button class="tab-btn" onclick="openTab('studentsListTab', this)">📋 قائمة الطلاب</button>
     </div>
 
     <div class="container">
@@ -273,7 +251,7 @@
         <!-- شاشة إدارة الطلاب -->
         <div id="studentsTab" class="tab-content">
             <div class="card">
-                <h3>👥 إدارة الطلاب</h3>
+                <h3>👥 طلابي</h3>
                 <div class="grid">
                     <input type="number" id="stuID" placeholder="رقم الهوية">
                     <input type="text" id="fName" placeholder="الاسم الأول">
@@ -286,6 +264,27 @@
                     <table>
                         <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>تعديل</th></tr></thead>
                         <tbody id="studentsList"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- إضافة طالب من القائمة الرئيسية -->
+            <div class="card">
+                <h3>📋 إضافة من قائمة الطلاب الرئيسية</h3>
+                <p style="font-size:12px; color:#666; margin:4px 0 10px">اضغط ➕ لإضافة الطالب إلى قائمة طلابك.</p>
+                <div class="students-table-wrapper">
+                    <table id="studentsTable">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">➕</th>
+                                <th>رقم الهوية</th>
+                                <th>الاسم الأول</th>
+                                <th>اسم الأب</th>
+                                <th>اسم الجد</th>
+                                <th>اسم العائلة</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -336,8 +335,10 @@
 
                 <div class="table-wrap">
                     <div id="syncBtnContainer" style="margin-bottom:10px; text-align:right;"></div>
-                    <button id="syncBtn">🔄 مزامنة البيانات</button>
-                    <button id="pullBtn">🔄 سحب البيانات</button>
+                    <div class="sync-actions">
+                        <button id="syncBtn" class="btn-sync">🔄 <span class="btn-text">مزامنة البيانات</span></button>
+                        <button id="pullBtn" class="btn-pull">⬇️ <span class="btn-text">سحب البيانات</span></button>
+                    </div>
                     <div id="pdfArea" dir="rtl">
                     <table id="mainLogTable">
                         <thead>
@@ -372,33 +373,6 @@
             </div>
         </div>
 
-        <!-- شاشة قائمة الطلاب -->
-<div id="studentsListTab" class="tab-content">
-  <div style="padding: 20px; font-family: sans-serif; direction: rtl;">
-  <h2>📊 مستعرض بيانات IndexedDB</h2>
-  <button onclick="inspectFullDatabase()" style="padding: 10px; cursor: pointer;">تحديث البيانات</button>
-  <div id="db-viewer-content"></div>
-</div>
-
-  <div class="card">
-    <h3>📋 قائمة الطلاب</h3>
-    <div class="students-table-wrapper">
-      <table id="studentsTable">
-        <thead>
-          <tr>
-            <th style="width:40px;">➕</th>
-            <th>رقم الهوية</th>
-            <th>الاسم الأول</th>
-            <th>اسم الأب</th>
-            <th>اسم الجد</th>
-            <th>اسم العائلة</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-</div>
     </div>
 
     <datalist id="ayatList"></datalist>
@@ -416,9 +390,9 @@
             document.getElementById(tabId).classList.add('active');
             btn.classList.add('active');
             window.scrollTo(0,0);
-             if(tabId === "studentsListTab") {
+             if(tabId === "studentsTab") {
                 loadStudentsTable();
-              }            
+              }
         }
     </script>
     <script src="html2pdf.bundle.min.js"></script>

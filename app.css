@@ -464,3 +464,65 @@ button {
     gap: 8px;
     flex-wrap: wrap;
 }
+
+/* شارات حالة المزامنة */
+.sync-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+.sync-ok   { background: #e6f4ea; color: #137333; }   /* أخضر */
+.sync-wait { background: #fef7e0; color: #9a6700; }   /* كهرماني */
+.sync-err  { background: #fce8e6; color: #c5221f; cursor: pointer; }  /* أحمر — قابل للضغط لعرض التفاصيل */
+
+/* أزرار المزامنة وسحب البيانات */
+.sync-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.btn-sync { background: var(--primary); color: #fff; }
+.btn-pull { background: #0b8043; color: #fff; }
+.btn-sync:hover { background: #1763c7; }
+.btn-pull:hover { background: #0a6e39; }
+
+/* ترويسة التطبيق */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.app-title {
+    font-weight: bold;
+    font-size: 16px;
+    color: var(--primary);
+}
+.header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.install-btn { background: #202124; color: #fff; padding: 8px 14px; }
+.install-btn:hover { background: #000; }
+
+/* شريط آخر تحديث */
+.last-update {
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #444;
+    background: #f0f0f0;
+    padding: 8px;
+    margin: 10px;
+    border-radius: 8px;
+}
