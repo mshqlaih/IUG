@@ -99,10 +99,19 @@
     (function() {
         const deviceId = localStorage.getItem("device_id");
         const userName = localStorage.getItem("user_name");
-
-        // تحقق صارم: إذا غاب أحدهما، اذهب لصفحة الدخول
-        if (!deviceId || deviceId === "null" || !userName || userName === "null") {
-            window.location.replace("login.html"); // استخدام replace أفضل من href لمنع العودة للخلف
+        
+        // إذا كان هناك بيانات محفوظة → اسمح بالدخول (حتى لو offline)
+        if (deviceId && deviceId !== "null" && userName && userName !== "null") {
+            return; // البقاء في الصفحة
+        }
+        
+        // إذا لم توجد بيانات محفوظة، تحقق من الاتصال
+        if (navigator.onLine) {
+            // online و بدون بيانات → انقل إلى login
+            window.location.replace("login.html");
+        } else {
+            // offline و بدون بيانات → اعرض رسالة تحذيرية
+            console.warn("⚠️ أنت offline وبدون بيانات دخول محفوظة. يرجى الاتصال بالإنترنت أولاً.");
         }
     })();
 </script>

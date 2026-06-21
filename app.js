@@ -1,5 +1,22 @@
 // استدعاء ملف Service Worker للعمل أوفلاين
 // --- 1. تسجيل الـ Service Worker وإدارة التحديثات ---
+
+// معالج تغيير حالة الاتصال (Online/Offline)
+window.addEventListener('online', () => {
+    console.log('✔ عاد الاتصال بالإنترنت');
+    const deviceId = localStorage.getItem("device_id");
+    const userName = localStorage.getItem("user_name");
+    // إذا لم تكن هناك بيانات محفوظة بعد عودة الاتصال، انقل إلى صفحة الدخول
+    if (!deviceId || deviceId === "null" || !userName || userName === "null") {
+        console.log('🔄 لا توجد بيانات محفوظة، الانتقال إلى صفحة الدخول...');
+        window.location.replace("login.html");
+    }
+});
+
+window.addEventListener('offline', () => {
+    console.log('❌ فُقد الاتصال بالإنترنت، يعمل التطبيق offline الآن');
+});
+
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
         console.log("نظام العمل أوفلاين نشط");        
