@@ -25,7 +25,7 @@ body {
   padding-bottom: 90px;
 }
 
-/* التبويبات السفلية الثابتة بنمط الجوال */
+/* التبويبات السفلية الثابتة بتصميم احترافي (Flutter Style) */
 .tabs-header {
   display: flex;
   background: #ffffff;
@@ -34,33 +34,46 @@ body {
   left: 0;
   right: 0;
   z-index: 1001;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.10);
-  border-top: 1px solid #e0e0e0;
-}
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.12);
+  border-top: 1px solid #e8eaed;
+  height: 80px;
+  align-items: center;
+  justify-content: space-around;
+}}
 
 .tab-btn {
   flex: 1;
-  padding: 10px 0;
+  padding: 0;
   border: none;
   background: none;
-  color: #5f6368;
-  font-weight: 600;
+  color: #80868b;
+  font-weight: 500;
   cursor: pointer;
-  font-size: 0.82rem;
-  transition: all 0.3s ease;
+  font-size: 0.75rem;
+  transition: all 0.25s ease;
   border-top: 3px solid transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 0;
+  min-height: 72px;
+  line-height: 1.2;
 }
 
-/* تأثير التبويب المختار (Active) ✅ */
+.tab-btn:hover {
+  background: rgba(26, 115, 232, 0.04);
+  color: #5f6368;
+}
+
+/* تأثير التبويب المختار (Active) - لون أزرق احترافي */
 .tab-btn.active {
   color: #1a73e8;
   border-top: 3px solid #1a73e8;
-  background: #f7fbff;
+}
+
+.tab-btn.active:hover {
+  background: rgba(26, 115, 232, 0.08);
 }
 
 /* تحسين حركة ظهور المحتوى */
