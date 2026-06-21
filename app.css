@@ -22,41 +22,45 @@ body {
   max-width: 1000px;
   margin: auto;
   padding: 10px;
+  padding-bottom: 90px;
 }
 
-/* التبويبات العلوية بنظام الماتيريال ديزاين (أبيض وأزرق) */
+/* التبويبات السفلية الثابتة بنمط الجوال */
 .tabs-header {
   display: flex;
-  background: #ffffff; /* خلفية بيضاء تجعل التطبيق أنظف */
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08); /* ظل خفيف وناعم */
-  border-bottom: 1px solid #e0e0e0;
+  background: #ffffff;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.10);
+  border-top: 1px solid #e0e0e0;
 }
 
 .tab-btn {
   flex: 1;
-  padding: 15px 5px;
+  padding: 10px 0;
   border: none;
   background: none;
-  color: #5f6368; /* رمادي هادئ للنصوص */
+  color: #5f6368;
   font-weight: 600;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   transition: all 0.3s ease;
-  border-bottom: 3px solid transparent;
+  border-top: 3px solid transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
 }
 
 /* تأثير التبويب المختار (Active) ✅ */
 .tab-btn.active {
-  color: #1a73e8; /* أزرق جوجل الرسمي */
-  border-bottom: 3px solid #1a73e8; /* خط سفلي أزرق واضح */
-  background: #f8fbff; /* خلفية زرقاء باهتة جداً */
+  color: #1a73e8;
+  border-top: 3px solid #1a73e8;
+  background: #f7fbff;
 }
 
 /* تحسين حركة ظهور المحتوى */
