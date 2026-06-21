@@ -23,12 +23,24 @@ self.addEventListener('install', (e) => {
 });
 
 // تشغيل التطبيق من الكاش
+
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((res) => {
+      return res || fetch(e.request).catch(() => {
+        // إذا فشل النت وما في كاش، أرجع الصفحة الرئيسية
+        return caches.match('./index.html');
+      });
+    })
+  );
+});
+/*
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((res) => res || fetch(e.request))
   );
 });
-
+*/
 // تفعيل النسخة الجديدة وحذف الكاش القديم
 self.addEventListener('activate', (e) => {
   e.waitUntil(
