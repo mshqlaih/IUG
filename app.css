@@ -659,3 +659,30 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     flex-shrink: 0;
 }
 .ios-install-close:hover { background: rgba(25,103,210,0.08); }
+
+/* ===== توحيد لغة التصميم مع شاشة الدخول ===== */
+.card { border-radius: 16px; box-shadow: 0 6px 20px rgba(13,71,161,0.06); }
+
+input, select {
+  border: 1.5px solid #e1e7ef;
+  border-radius: 12px;
+  background: #f7f9fc;
+  transition: border-color .2s, background .2s, box-shadow .2s;
+}
+input:focus, select:focus {
+  border-color: #1976D2;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(25,118,210,0.12);
+}
+
+/* الأزرار الأساسية: تدرّج + رفعة عند المرور */
+.btn-save, .btn-sync { background: linear-gradient(135deg, #1976D2, #0d47a1); }
+.btn-add, .btn-pull  { background: linear-gradient(135deg, #34a853, #1e7e34); }
+.btn-save:hover, .btn-add:hover, .btn-sync:hover, .btn-pull:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(13,71,161,0.22);
+}
+
+/* الترويسة بلمسة متدرّجة خفيفة */
+.app-header { background: linear-gradient(135deg, #ffffff, #f3f8ff); }
+.app-title  { color: #0d47a1; }
