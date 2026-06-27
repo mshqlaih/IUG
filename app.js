@@ -1403,15 +1403,8 @@ function syncRecordsFromPage() {
 
         Promise.all(
           unsynced.map(record =>
-            fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              // ✅ تعديل: دمج الـ device_id_field مع بيانات السجل
-              body: JSON.stringify({
-                ...record,
-                device_id_field: currentDeviceId
-              })
-            })
+            // ✅ موحّد: عبر QMC (يضيف X-Device-Id + يبقي device_id_field للتوافق)
+            QMC.uploadRecord(record)
             .then(async res => {
               if (res.ok) {
                 const txUpdate = db.transaction("records", "readwrite");
@@ -1806,22 +1799,10 @@ async function resolveTeacherName(teacherID) {
     return cache[teacherID];
   }
 
-  // ✅ 2. غير موجود → جلب من السيرفر
+  // ✅ 2. غير موجود → جلب من السيرفر (موحّد عبر QMC؛ يصلح خطأ الاقتباس السابق)
   try {
-    const response = await fetch(
-      'https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/employees/${teacherID}',
-      { method: "GET" }
-    );
-
-    if (!response.ok) {
-      throw new Error("Teacher not found");
-    }
-
-    const data = await response.json();
-
-    // نفترض أن السيرفر يرجع:
-    // { "name": "فلان علان" }
-    const teacherName = data.name;
+    const data = await QMC.getEmployee(teacherID);
+    const teacherName = data.emp_name || data.name;
 
     // ✅ خزنه محليًا
     saveTeacherToCache(teacherID, teacherName);
@@ -1873,8 +1854,7 @@ function fetchAndStoreEmpData(teacherID) {
 
 // دالة لجلب البيانات من السيرفر وتخزينها
 function fetchDataFromServer(teacherID) {
-    fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/employees/${teacherID}`)
-      .then(response => response.json())
+    QMC.getEmployee(teacherID)
       .then(emp => {
           if (emp && emp.emp_name) {
               const empRecord = {
@@ -2068,14 +2048,11 @@ async function pullRecordsFromServer() {
             req.onerror = () => reject(req.error);
         });
 
-        // 1. جلب البيانات من السيرفر بالتوازي لتوفير الوقت
-        const [recordsRes, studentsRes] = await Promise.all([
-            fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`),
-            fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students?puserName=${puserName}`)
+        // 1. جلب البيانات من السيرفر بالتوازي (موحّد عبر QMC مع X-Device-Id)
+        const [recordsData, studentsData] = await Promise.all([
+            QMC.pullCircleActivity(puserName),
+            QMC.pullStudents(puserName)
         ]);
-
-        const recordsData = await recordsRes.json();
-        const studentsData = await studentsRes.json();
 
         const remoteRecords = recordsData.items || [];
         const remoteStudents = studentsData.items || [];
