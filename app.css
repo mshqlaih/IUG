@@ -608,3 +608,54 @@ button {
     margin: 10px;
     border-radius: 8px;
 }
+
+/* ===== المرحلة 4: تحسينات الواجهة ===== */
+
+/* لمسات تناسق للأزرار (ضغط/تعطيل موحّد) */
+button:active { transform: scale(0.98); }
+button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+/* لافتة تحديث PWA (تظهر عند توفّر نسخة جديدة) */
+.update-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    max-width: 1000px;
+    margin: 10px auto 0;
+    padding: 10px 14px;
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 12px;
+    color: #8a6d00;
+    font-size: 14px;
+    font-weight: 600;
+}
+.update-reload-btn { background: #f59e0b; color: #fff; padding: 8px 16px; }
+.update-reload-btn:hover { background: #d98a06; }
+
+/* لافتة «إضافة إلى الشاشة الرئيسية» لـ iPhone */
+.ios-install-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    max-width: 1000px;
+    margin: 10px auto 0;
+    padding: 10px 14px;
+    background: #e8f0fe;
+    border: 1px solid #c6dafc;
+    border-radius: 12px;
+    color: #1967d2;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.ios-install-text { display: flex; align-items: center; gap: 8px; }
+.ios-install-close {
+    background: transparent;
+    color: #1967d2;
+    padding: 4px 10px;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+.ios-install-close:hover { background: rgba(25,103,210,0.08); }

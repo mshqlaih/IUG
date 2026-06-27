@@ -24,9 +24,9 @@ if ('serviceWorker' in navigator) {
             const installingWorker = reg.installing;
             installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    if (confirm("تم تحميل تحديثات جديدة للنظام. هل تريد التفعيل الآن؟")) {
-                        location.reload(); 
-                    }
+                    // لافتة غير معطِّلة بدل confirm
+                    const b = document.getElementById('updateBanner');
+                    if (b) b.style.display = 'flex';
                 }
             };
         };
@@ -89,6 +89,52 @@ window.addEventListener("DOMContentLoaded", () => {
             label.innerText = "📅 آخر تحديث: " + lastUpdate;
         }
     }
+});
+
+// --- لافتة iPhone «إضافة إلى الشاشة الرئيسية» (iOS لا يدعم beforeinstallprompt) ---
+function isIos() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent || navigator.platform || "");
+}
+function isInStandalone() {
+    return window.navigator.standalone === true ||
+           window.matchMedia('(display-mode: standalone)').matches;
+}
+function maybeShowIosBanner() {
+    const banner = document.getElementById('iosInstallBanner');
+    if (!banner) return;
+    if (isIos() && !isInStandalone() &&
+        localStorage.getItem('iosBannerDismissed') !== '1') {
+        banner.style.display = 'flex';
+    }
+}
+function dismissIosBanner() {
+    const banner = document.getElementById('iosInstallBanner');
+    if (banner) banner.style.display = 'none';
+    localStorage.setItem('iosBannerDismissed', '1');
+}
+
+// --- شريط الحالة الديناميكي (متّصل/دون اتصال) ---
+function updateStatusBanner() {
+    const chip = document.getElementById('statusChip');
+    const text = document.getElementById('statusChipText');
+    const note = document.getElementById('statusChipNote');
+    if (!chip || !text) return;
+    const dot = chip.querySelector('i');
+    if (navigator.onLine) {
+        if (dot) dot.style.color = '#34a853';
+        text.textContent = 'متّصل';
+        if (note) note.textContent = 'يمكنك المزامنة وسحب البيانات الآن.';
+    } else {
+        if (dot) dot.style.color = '#9aa0a6';
+        text.textContent = 'يعمل دون اتصال';
+        if (note) note.textContent = 'التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.';
+    }
+}
+window.addEventListener('online', updateStatusBanner);
+window.addEventListener('offline', updateStatusBanner);
+window.addEventListener('DOMContentLoaded', () => {
+    updateStatusBanner();
+    maybeShowIosBanner();
 });
 // --- 2. إدارة ظهور أيقونة (زر) تثبيت التطبيق PWA ---
 let deferredPrompt;
@@ -204,8 +250,6 @@ function initDB() {
     request.onsuccess = (e) => {
         db = e.target.result;
         refreshAll();
-        migrateOldRecords(); 
-        normalizeRecords();
          const teacherID = document.getElementById("teacherID").value;
           fetchAndStoreEmpData(teacherID);
 
@@ -356,17 +400,6 @@ function handleSmartSearch(inputEl) {
         return searchTerms.every(term => 
             cleanLabel.indexOf(term) !== -1 || item.l.indexOf(term) !== -1
         );
-    }).slice(0, 30);
-    renderOptions(filtered);
-}
-
-function handleSmartSearch01(inputEl) {
-    const val = inputEl.value.trim();
-    if (val.length < 1) return;
-    const searchTerms = val.replace("ال", "").split(" ");
-    const filtered = QURAN_DATA.filter(item => {
-        const cleanLabel = item.l.replace("سورة ", "").replace("آية ", "").replace("ال", "");
-        return searchTerms.every(term => cleanLabel.includes(term) || item.l.includes(term));
     }).slice(0, 30);
     renderOptions(filtered);
 }
@@ -967,40 +1000,6 @@ function importBackup(input) {
     reader.readAsText(input.files[0]);
 }
 
-function importBackup01(input) {
-    const reader = new FileReader();
-    reader.onload = e => {
-        const d = JSON.parse(e.target.result);
-        const tx = db.transaction(["students", "records"], "readwrite");
-
-        let added = 0, updated = 0;
-
-        if(d.students) d.students.forEach(s => {
-            tx.objectStore("students").put(s);
-        });
-
-        if(d.records) d.records.forEach(r => {
-            const store = tx.objectStore("records");
-            const req = store.put(r);
-            req.onsuccess = () => {
-                // put يعيد المفتاح، نعتبره تحديث أو إضافة
-                updated++; // هنا نعتبر كل عملية put تحديث أو إضافة ناجحة
-            };
-        });
-
-        tx.oncomplete = () => {
-            showImportMessage(`✅ تم الاستيراد بنجاح<br>تم تحديث/إضافة ${updated} سجل`);
-            setTimeout(() => location.reload(), 2000); // إعادة تحميل بعد ثانيتين
-        };
-
-        tx.onerror = err => {
-            console.error("خطأ:", err.target.error);
-            showImportMessage("❌ فشل الاستيراد: " + err.target.error, true);
-        };
-    };
-    reader.readAsText(input.files[0]);
-}
-
 // دالة لعرض الرسالة داخل الصفحة
 function showImportMessage(msg, isError=false) {
     let box = document.getElementById("importMessage");
@@ -1263,105 +1262,6 @@ function populateSelectFromLookups(selectId, meaningCode) {
         .catch(error => console.error("❌ خطأ في تحميل الثوابت:", error));
 }
 
-// دالة لتحديث السجلات القديمة
-function normalizeRecords() {
-    return;
-    if (!db) {
-        console.error("قاعدة البيانات غير مهيأة بعد");
-        return;
-    }
-
-    loadLookups().then(() => {
-        const tx = db.transaction("records", "readonly");
-        const store = tx.objectStore("records");
-
-        store.openCursor().onsuccess = (e) => {
-            const cursor = e.target.result;
-            if (cursor) {
-                const r = cursor.value;
-                let updated = false;
-
-                // ✅ معالجة type
-                if (typeof r.type === "string") {
-                    const trimmed = r.type.trim();
-                    if (!isNaN(Number(trimmed))) {
-                        console.log("تحويل type:", r.type, "→", Number(trimmed));
-                        r.type = Number(trimmed);
-                        updated = true;
-                    } else {
-                        for (const [val, name] of Object.entries(lookupMap["RECITATION_ATTENDANCE_TYPE"] || {})) {
-                            if (name.trim() === trimmed) {
-                                console.log("تحويل type:", r.type, "→", Number(val));
-                                r.type = Number(val);
-                                updated = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // ✅ معالجة rating
-                if (typeof r.rating === "string") {
-                    const trimmed = r.rating.trim();
-                    if (!isNaN(Number(trimmed))) {
-                        console.log("تحويل rating:", r.rating, "→", Number(trimmed));
-                        r.rating = Number(trimmed);
-                        updated = true;
-                    } else {
-                        for (const [val, name] of Object.entries(lookupMap["ACTIVITY_GRADE"] || {})) {
-                            if (name.trim() === trimmed) {
-                                console.log("تحويل rating:", r.rating, "→", Number(val));
-                                r.rating = Number(val);
-                                updated = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // ✅ teacher و student إذا كانوا نصوص رقمية
-                if (typeof r.teacher === "string" && !isNaN(Number(r.teacher))) {
-                    console.log("تحويل teacher:", r.teacher, "→", Number(r.teacher));
-                    r.teacher = Number(r.teacher);
-                    updated = true;
-                }
-                if (typeof r.student === "string" && !isNaN(Number(r.student))) {
-                    console.log("تحويل student:", r.student, "→", Number(r.student));
-                    r.student = Number(r.student);
-                    updated = true;
-                }
-
-                // إذا تم تعديل السجل → افتح transaction جديد واحفظه
-                if (updated) {
-                    const tx2 = db.transaction("records", "readwrite");
-                    const store2 = tx2.objectStore("records");
-                    const updateRequest = store2.put(r); // put يكتب السجل مباشرة
-
-                    updateRequest.onsuccess = () => {
-                        console.log("✅ تم حفظ السجل بنجاح:", r.id);
-                    };
-                    updateRequest.onerror = (event) => {
-                        console.error("❌ فشل حفظ السجل:", r.id, event.target.error);
-                    };
-
-                    tx2.oncomplete = () => {
-                        console.log("🎉 انتهى تحديث السجل:", r.id);
-                    };
-                    tx2.onerror = (event) => {
-                        console.error("❌ خطأ في المعاملة للسجل:", r.id, event.target.error);
-                    };
-                }
-
-                cursor.continue();
-            }
-        };
-
-        tx.oncomplete = () => {
-            console.log("🎯 انتهت عملية الفحص لجميع السجلات");
-        };
-    });
-}
-
 function syncRecordsFromPage() {
   return new Promise((resolve, reject) => {
     if (!db) {
@@ -1438,72 +1338,6 @@ function syncRecordsFromPage() {
     };
   });
 }
-
-function syncRecordsFromPage01() {
-  return new Promise((resolve, reject) => {
-    if (!db) {
-      reject("⚠️ قاعدة البيانات غير مهيأة بعد");
-      return;
-    }
-
-    const tx = db.transaction("records", "readonly");
-    const store = tx.objectStore("records");
-    const getAll = store.getAll();
-
-    getAll.onsuccess = () => {
-      const unsynced = getAll.result.filter(r => !r.synced);
-      console.log("📦 عدد السجلات غير المزامنة:", unsynced.length);
-
-      if (unsynced.length === 0) {
-        showSyncMessage("✅ لا توجد سجلات تحتاج مزامنة");
-        displayRecords(); // تحديث الجدول مباشرة
-        resolve();
-        return;
-      }
-
-      Promise.all(
-        unsynced.map(record =>
-          fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(record)
-          })
-          .then(async res => {
-            if (res.ok) {
-              const txUpdate = db.transaction("records", "readwrite");
-              const storeUpdate = txUpdate.objectStore("records");
-              record.synced = true;
-              record.syncError = null;
-              storeUpdate.put(record);
-            } else {
-              const errorText = await res.text();
-              record.synced = false;
-              record.syncError = errorText;
-              const txUpdate = db.transaction("records", "readwrite");
-              txUpdate.objectStore("records").put(record);
-            }
-          })
-          .catch(err => {
-            record.synced = false;
-            record.syncError = "خطأ في الاتصال: " + err.message;
-            const txUpdate = db.transaction("records", "readwrite");
-            txUpdate.objectStore("records").put(record);
-          })
-        )
-      )
-      .then(() => {
-        // ✅ رسالة واحدة فقط بعد اكتمال العملية
-        showSyncMessage("✅ تمت عملية المزامنة");
-        displayRecords(); // تحديث الجدول بعد المزامنة
-        resolve();
-      })
-      .catch(reject);
-    };
-
-    getAll.onerror = (err) => reject(err);
-  });
-}
-
 
 // دالة لعرض رسالة في الصفحة
 function showSyncMessage(msg) {
@@ -1888,49 +1722,6 @@ function displayEmpData(data) {
     document.getElementById("circleInfo").textContent = `${data.CIRCLE_NO} - ${data.CIRCLE_NAME}`;
 }
 
-function fetchAndStoreEmpData01(teacherID) {
-    if (!teacherID) {
-        console.warn("⚠️ لم يتم إدخال رقم الهوية");
-        return;
-    }
-
-    fetch(`https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/employees/${teacherID}`)
-      .then(response => response.json())
-      .then(emp => {
-          if (emp && emp.emp_name) {
-              const tx = db.transaction("empdata", "readwrite");
-              const empStore = tx.objectStore("empdata");
-
-              const empRecord = {
-                  idno: teacherID,
-                  EMP_NAME: emp.emp_name,
-                  CENTER_NO: emp.center_no,
-                  CENTER_NAME: emp.center_name,
-                  CIRCLE_NO: emp.circle_no,
-                  CIRCLE_NAME: emp.circle_name
-              };
-
-              empStore.put(empRecord);
-
-              tx.oncomplete = () => {
-                  console.log("✅ تم تخزين بيانات الموظف بنجاح في empStore");
-                  // عرض البيانات في الصفحة
-              document.getElementById("empName").textContent = emp.emp_name;
-              document.getElementById("centerInfo").textContent = `${emp.center_no} - ${emp.center_name}`;
-              document.getElementById("circleInfo").textContent = `${emp.circle_no} - ${emp.circle_name}`;
-
-              };
-
-              tx.onerror = (err) => {
-                  console.error("❌ خطأ أثناء التخزين:", err);
-              };
-          } else {
-              console.warn("⚠️ لم يتم العثور على بيانات لهذا الرقم");
-          }
-      })
-      .catch(err => console.error("❌ خطأ في جلب البيانات:", err));
-}
-
 function handleLogout() {
     if (confirm("هل تريد تسجيل الخروج؟")) {
         localStorage.removeItem("user_name");
@@ -1944,88 +1735,6 @@ function handleLogout() {
             tx.oncomplete = () => window.location.replace("login.html");
         };
     }
-}
-
-async function handleLogout01() {
-    if (!confirm("هل أنت متأكد من تسجيل الخروج؟ سيتم مسح الإعدادات فقط.")) return;
-
-    // 1. حذف عناصر محددة من LocalStorage
-    localStorage.removeItem("teacherID");
-    localStorage.removeItem("user_name");
-    localStorage.removeItem("device_id");
-
-    // 2. تفريغ مخزن settings في IndexedDB
-    const request = indexedDB.open("QuranProjectDB"); // يفتح آخر إصدار متاح تلقائياً
-
-    request.onsuccess = (event) => {
-        const db = event.target.result;
-        
-        // التحقق من وجود المخزن قبل محاولة مسحه لتجنب الأخطاء
-        if (db.objectStoreNames.contains("settings")) {
-            const transaction = db.transaction("settings", "readwrite");
-            const store = transaction.objectStore("settings");
-            
-            const clearRequest = store.clear(); // تفريغ البيانات داخل المخزن
-
-            clearRequest.onsuccess = () => {
-                console.log("✅ تم تفريغ الإعدادات بنجاح");
-                window.location.replace("login.html");
-            };
-
-            clearRequest.onerror = () => {
-                console.error("❌ فشل تفريغ الإعدادات");
-                window.location.replace("login.html");
-            };
-        } else {
-            // إذا لم يكن المخزن موجوداً أصلاً، ننتقل لصفحة الدخول
-            window.location.replace("login.html");
-        }
-    };
-
-    request.onerror = (err) => {
-        console.error("❌ فشل فتح القاعدة للمسح:", err);
-        window.location.replace("login.html");
-    };
-}
-
-function migrateOldRecords() {
-    return;
-    // 1. التحقق هل قمنا بالتحديث سابقاً؟ (لتجنب التكرار)
-    if (localStorage.getItem("is_sortOrder_fixed") === "true") return;
-
-    console.log("🚀 جاري تحديث السجلات القديمة للمستخدم...");
-
-    const tx = db.transaction("records", "readwrite");
-    const store = tx.objectStore("records");
-    const cursorRequest = store.openCursor();
-
-    cursorRequest.onsuccess = (e) => {
-        const cursor = e.target.result;
-        if (cursor) {
-            const record = cursor.value;
-
-            // إذا كان الحقل مفقوداً، نقوم بحقنه
-            if (record.sortOrder === undefined || record.sortOrder === null) {
-                const typeVal = parseInt(record.type);
-                const activityInfo = STATIC_LOOKUP.find(
-                    i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE" 
-                      && parseInt(i.LOOKUP_VALUE) === typeVal
-                );
-
-                record.sortOrder = activityInfo?.SORT_ORDER ?? 999;
-                cursor.update(record);
-            }
-            cursor.continue();
-        }
-    };
-
-    tx.oncomplete = () => {
-        console.log("✅ تم تحديث جميع السجلات بنجاح.");
-        // 2. وضع علامة بأنه تم الانتهاء من هذا الجهاز للأبد
-        localStorage.setItem("is_sortOrder_fixed", "true");
-    };
-
-    tx.onerror = (err) => console.error("❌ فشل تحديث السجلات:", err);
 }
 
 async function pullRecordsFromServer() {
@@ -2126,112 +1835,6 @@ async function pullRecordsFromServer() {
         }
     }
 }
-
-
-async function pullRecordsFromServer01() {
-    const puserName = localStorage.getItem("user_name");
-    const syncContainer = document.getElementById("syncBtnContainer");
-
-    if (!puserName) {
-        console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");
-        return;
-    }
-
-    // 1. إظهار رسالة "جاري التحديث" في الحاوية
-    if (syncContainer) {
-        syncContainer.innerHTML = `<span id="pullStatus" style="margin-inline-end:10px; color:#3498db; font-weight:bold;">🔄 جاري تحديث بيانات الحلقة...</span>`;
-    }
-
-    try {
-        const url = `https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/circleActivity/${puserName}`;
-        //https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students?puserName=${puserName}
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("فشل الاتصال بالسيرفر");
-        
-        const data = await response.json();
-        const remoteRecords = data.items || [];
-
-        const db = await new Promise((resolve, reject) => {
-            const req = indexedDB.open("QuranProjectDB");
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-
-        const tx = db.transaction("records", "readwrite");
-        const store = tx.objectStore("records");
-        const index = store.index("student_date_type");
-
-        for (const remote of remoteRecords) {
-            // 2. تنظيف البيانات ومعالجة مشكلة "الاسم لا يظهر"
-            const cleanDate = String(remote.date).replace(/[\\"]/g, '').trim();
-            const cleanTeacherId = String(remote.teacher).replace(/[\\"]/g, '').trim();
-            
-            // 💡 ملاحظة: السيرفر يرسل الحقل غالباً كـ teachername (حروف صغيرة)
-            const rawName = remote.teachername || remote.teacherName || remote.TEACHERNAME || "";
-            const cleanTeacherName = String(rawName).replace(/[\\"]/g, '').trim();
-
-            const recordToSave = {
-                student:     Number(remote.student),
-                date:        cleanDate,
-                type:        Number(remote.type),
-                teacher:     cleanTeacherId,
-                teacherName: cleanTeacherName || cleanTeacherId, // استخدام الرقم إذا غاب الاسم
-                fromRange:   Number(remote.fromrange || 0),
-                toRange:     Number(remote.torange || 0),
-                partFrom:    remote.partfrom,
-                partTo:      remote.partto,
-                amount:      Number(remote.amount || 0),
-                rating:      remote.rating,
-                errors:      Number(remote.errors || 0),
-                mark:        remote.mark,
-                sortOrder:   Number(remote.sortorder || 999),
-                synced:      true
-            };
-
-            const localId = await new Promise((resolve) => {
-                const getRequest = index.getKey([recordToSave.student, recordToSave.date, recordToSave.type]);
-                getRequest.onsuccess = (e) => resolve(e.target.result);
-            });
-
-            if (localId !== undefined) {
-                recordToSave.id = localId;
-            } else {
-                delete recordToSave.id;
-            }
-
-            store.put(recordToSave);
-        }
-
-        await new Promise((resolve) => {
-            tx.oncomplete = resolve;
-        });
-
-        // 3. طباعة النجاح في الحاوية
-        if (syncContainer) {
-            const statusEl = document.getElementById("pullStatus");
-            if (statusEl) {
-                statusEl.style.color = "#27ae60";
-                statusEl.innerHTML = `✅ تم تحديث ${remoteRecords.length} سجل بنجاح.`;
-                // إخفاء الرسالة بعد 5 ثوانٍ
-                setTimeout(() => { statusEl.style.opacity = '0'; setTimeout(()=>statusEl.remove(), 1000); }, 5000);
-            }
-        }
-
-        if (typeof refreshAll === "function") refreshAll();
-
-    } catch (err) {
-        console.error("❌ خطأ:", err);
-        if (syncContainer) {
-            const statusEl = document.getElementById("pullStatus");
-            if (statusEl) {
-                statusEl.style.color = "#e74c3c";
-                statusEl.innerHTML = `❌ فشل التحديث.`;
-            }
-        }
-    }
-}
-
 
 
 function shareAsWhatsAppText() {
@@ -2427,42 +2030,3 @@ async function fillNextAyahFields(studentId, activityType) {
     }
 }
 
-async function fillNextAyahFields01(studentId, activityType) {
-    try {
-        const lastRecord = await getLastActivity(studentId, activityType);
-
-        if (lastRecord) {
-            // 1. حساب الآية التالية
-            const result = getNextAyah(lastRecord);
-            const nextId = result.nextAyah;
-
-            // 2. التحقق من وجود النص المقابل للآية
-            // إذا كانت AYAH_REVERSE غير جاهزة، سنحاول جلب النص مباشرة من QURAN_DATA
-            let ayahText = "";
-            if (window.AYAH_REVERSE && window.AYAH_REVERSE[nextId]) {
-                ayahText = window.AYAH_REVERSE[nextId];
-            } else {
-                const found = QURAN_DATA.find(a => a.id === nextId);
-                ayahText = found ? found.l : "";
-            }
-
-            if (ayahText) {
-                // 3. تحديث الحقول في HTML
-                const textField = document.getElementById('rangeFromText');
-                const hiddenField = document.getElementById('rangeFrom');
-
-                textField.value = ayahText;
-                hiddenField.value = nextId;
-
-                // 4. إطلاق حدث التغيير يدوياً لتحديث أي حسابات مرتبطة (مثل التقدم)
-                textField.dispatchEvent(new Event('input'));
-                
-                console.log(`✅ تم ملء الحقول: ${ayahText} (ID: ${nextId})`);
-            } else {
-                console.error("❌ لم نجد نصاً للآية رقم:", nextId);
-            }
-        }
-    } catch (error) {
-        console.error("❌ خطأ أثناء تعبئة الحقول:", error);
-    }
-}

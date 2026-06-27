@@ -127,9 +127,24 @@
         </div>
     </header>
 
+    <!-- لافتة تحديث PWA (تظهر عند توفّر نسخة جديدة) -->
+    <div id="updateBanner" class="update-banner" style="display:none;">
+        <span><i class="fas fa-rotate"></i> يتوفّر تحديث جديد للتطبيق.</span>
+        <button class="update-reload-btn" onclick="location.reload()">تحديث الآن</button>
+    </div>
+
+    <!-- لافتة الإضافة للشاشة الرئيسية (iPhone) -->
+    <div id="iosInstallBanner" class="ios-install-banner" style="display:none;">
+        <span class="ios-install-text">
+            <i class="fas fa-mobile-screen-button"></i>
+            <span>لتثبيت التطبيق على iPhone: اضغط <i class="fas fa-arrow-up-from-bracket"></i> ثم «إضافة إلى الشاشة الرئيسية».</span>
+        </span>
+        <button class="ios-install-close" onclick="dismissIosBanner()" aria-label="إغلاق">✕</button>
+    </div>
+
     <div class="status-banner">
-        <span class="status-chip"><i class="fas fa-circle" style="color: #34a853; font-size: 10px;"></i> جاهز للعمل offline</span>
-        <span>التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.</span>
+        <span id="statusChip" class="status-chip"><i class="fas fa-circle" style="color: #34a853; font-size: 10px;"></i> <span id="statusChipText">جاهز للعمل offline</span></span>
+        <span id="statusChipNote">التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.</span>
     </div>
 
     <div id="lastUpdateLabel" class="last-update">📅 آخر تحديث: -</div>

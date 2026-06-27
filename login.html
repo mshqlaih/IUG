@@ -109,6 +109,21 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* إظهار/إخفاء كلمة المرور */
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-left: 42px; }
+.pw-toggle {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 18px;
+  user-select: none;
+  opacity: 0.7;
+}
+.pw-toggle:hover { opacity: 1; }
+
   </style>
 </head>
 <body>
@@ -123,7 +138,10 @@ button:disabled {
 
     <div class="form-group">
       <label for="password">كلمة المرور</label>
-      <input type="password" id="password" placeholder="أدخل كلمة المرور">
+      <div class="pw-wrap">
+        <input type="password" id="password" placeholder="أدخل كلمة المرور">
+        <span class="pw-toggle" id="pwToggle" onclick="togglePw()" title="إظهار/إخفاء كلمة المرور">👁</span>
+      </div>
     </div>
 
    <button id="loginBtn" onclick="registerDevice()">تسجيل الجهاز</button>
@@ -135,6 +153,13 @@ button:disabled {
   <!-- JavaScript -->
   
   <script>
+function togglePw() {
+  const p = document.getElementById('password');
+  const t = document.getElementById('pwToggle');
+  if (p.type === 'password') { p.type = 'text'; if (t) t.textContent = '🙈'; }
+  else { p.type = 'password'; if (t) t.textContent = '👁'; }
+}
+
 function saveSettingsToDB(userName, deviceId) {
     return new Promise((resolve, reject) => {
         // 💡 نفتح بدون رقم إصدار ليفتح آخر إصدار متاح تلقائياً
@@ -278,95 +303,6 @@ async function registerDevice() {
   }
 }
 
- async function registerDevice01() {
-  const userName = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const messageBox = document.getElementById("message");
-  const loginBtn = document.getElementById("loginBtn");
-
-  if (!userName || !password) {
-    messageBox.textContent = "❌ جميع الحقول مطلوبة";
-    messageBox.className = "message error";
-    return;
-  }
-
-  // --- 1. بدء حالة التحميل ---
-  loginBtn.disabled = true;
-  const originalText = loginBtn.innerHTML;
-  loginBtn.innerHTML = '<span class="spinner"></span> جاري التحقق...';
-  messageBox.textContent = ""; 
-
-  let deviceId = localStorage.getItem("device_id");
-  if (!deviceId) {
-    deviceId = crypto.randomUUID();
-    localStorage.setItem("device_id", deviceId);
-  }
-
-  try {
-    const response = await fetch(
-      "https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/device/first-login",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          p_username: userName,
-          p_password: password,
-          device_id: deviceId
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (data.status === "success") {
-      // --- تعديل رسالة النجاح وإضافة زر تحويل يدوي احتياطي ---
-      messageBox.innerHTML = `
-        ✅ تم التحقق بنجاح، جاري التحويل...<br>
-        <button id="manualRedirectBtn" style="margin-top:10px; padding:5px 10px; cursor:pointer; background:#28a745; color:#fff; border:none; border-radius:4px;">
-          إضغط هنا إذا لم يتم تحويلك
-        </button>
-      `;
-      messageBox.className = "message success";
-      
-      // حفظ البيانات الأساسية
-      localStorage.setItem("user_name", userName);
-      localStorage.setItem("teacherID", userName);
-
-      // ربط زر التحويل اليدوي فوراً
-      document.getElementById("manualRedirectBtn").onclick = () => {
-          window.location.replace("index.html");
-      };
-
-      try {
-          // محاولة حفظ الإعدادات في قاعدة البيانات
-          await saveSettingsToDB(userName, deviceId);
-          
-          // تحويل تلقائي بعد تأخير بسيط جداً لضمان انتهاء العمليات
-          setTimeout(() => {
-              window.location.replace("index.html");
-          }, 500);
-
-      } catch (dbError) {
-          console.error("فشل حفظ البيانات في IndexedDB ولكن سيتم التحويل:", dbError);
-          // حتى لو فشل IndexedDB، نقوم بالتحويل لأن البيانات في localStorage كافية للتشغيل الأولي
-          window.location.replace("index.html");
-      }
-
-    } else {
-      messageBox.textContent = "❌ " + data.message;
-      messageBox.className = "message error";
-      loginBtn.disabled = false;
-      loginBtn.innerHTML = originalText;
-    }
-
-  } catch (err) {
-    console.error("خطأ في الاتصال:", err);
-    messageBox.textContent = "❌ خطأ في الاتصال بالخادم";
-    messageBox.className = "message error";
-    loginBtn.disabled = false;
-    loginBtn.innerHTML = originalText;
-  }
-}
 
   </script>
 
