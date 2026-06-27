@@ -8,144 +8,144 @@
 
   <!-- CSS -->
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(120deg, #2c3e50, #3498db);
-      height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: linear-gradient(135deg, #1976D2 0%, #0d47a1 100%);
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       margin: 0;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
     }
+    /* أشكال زخرفية خفيفة في الخلفية */
+    body::before, body::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+    }
+    body::before { width: 320px; height: 320px; top: -120px; right: -80px; }
+    body::after  { width: 240px; height: 240px; bottom: -100px; left: -60px; }
 
     .login-card {
+      position: relative;
+      z-index: 1;
       background: #fff;
-      width: 360px;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-    }
-
-    .login-card h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-      color: #555;
-    }
-
-    input {
       width: 100%;
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 14px;
+      max-width: 380px;
+      padding: 34px 28px 28px;
+      border-radius: 20px;
+      box-shadow: 0 20px 45px rgba(0,0,0,0.25);
+      animation: cardUp .5s cubic-bezier(.2,.7,.2,1);
+    }
+    @keyframes cardUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
-    input:focus {
-      border-color: #3498db;
+    .brand { text-align: center; margin-bottom: 22px; }
+    .brand .logo {
+      width: 72px; height: 72px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1976D2, #0d47a1);
+      box-shadow: 0 8px 18px rgba(13,71,161,0.35);
+      font-size: 34px; line-height: 1; margin-bottom: 12px;
+    }
+    .brand h2 { margin: 0; font-size: 20px; color: #1f2933; }
+    .brand p  { margin: 6px 0 0; font-size: 13px; color: #7b8794; }
+
+    .form-group { margin-bottom: 16px; }
+    label {
+      display: block; margin-bottom: 7px;
+      font-size: 13px; font-weight: 600; color: #52606d;
+    }
+
+    .input-wrap { position: relative; }
+    .input-wrap input {
+      width: 100%;
+      padding: 13px 42px 13px 14px;   /* مساحة للأيقونة على اليمين (RTL) */
+      border: 1.5px solid #e1e7ef;
+      border-radius: 12px;
+      font-size: 16px;                 /* 16px يمنع تكبير iOS التلقائي */
+      background: #f7f9fc;
+      transition: border-color .2s, background .2s, box-shadow .2s;
       outline: none;
     }
-
-    button {
-      width: 100%;
-      background: #3498db;
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
-      margin-top: 10px;
+    .input-wrap input:focus {
+      border-color: #1976D2;
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(25,118,210,0.12);
     }
-
-    button:hover {
-      background: #2980b9;
+    .field-icon {
+      position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+      font-size: 15px; opacity: .5; pointer-events: none;
     }
-
-    .message {
-      margin-top: 15px;
-      text-align: center;
-      font-size: 14px;
+    /* كلمة المرور: مساحة لزر العين على اليسار */
+    #password { padding-left: 44px; }
+    .pw-toggle {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      cursor: pointer; font-size: 18px; opacity: .6; user-select: none;
     }
+    .pw-toggle:hover { opacity: 1; }
 
-    .success {
-      color: green;
+    #loginBtn {
+      width: 100%; margin-top: 8px; padding: 14px;
+      border: none; border-radius: 12px;
+      background: linear-gradient(135deg, #1976D2, #0d47a1);
+      color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+      transition: transform .15s, box-shadow .2s, opacity .2s;
+      box-shadow: 0 8px 18px rgba(13,71,161,0.3);
     }
+    #loginBtn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(13,71,161,0.4); }
+    #loginBtn:active { transform: translateY(0); }
+    #loginBtn:disabled { opacity: .7; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    .error {
-      color: red;
-    }
+    .message { margin-top: 16px; text-align: center; font-size: 14px; line-height: 1.6; }
+    .success { color: #137333; }
+    .error   { color: #c5221f; }
 
     /* مؤشر التحميل */
-.spinner {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255,255,255,.3);
-  border-radius: 50%;
-  border-top-color: #fff;
-  animation: spin 1s ease-in-out infinite;
-  margin-left: 10px;
-  vertical-align: middle;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* حالة الزر أثناء التحميل */
-button:disabled {
-  background: #95a5a6;
-  cursor: not-allowed;
-}
-
-/* إظهار/إخفاء كلمة المرور */
-.pw-wrap { position: relative; }
-.pw-wrap input { padding-left: 42px; }
-.pw-toggle {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  cursor: pointer;
-  font-size: 18px;
-  user-select: none;
-  opacity: 0.7;
-}
-.pw-toggle:hover { opacity: 1; }
-
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,.35);
+      border-radius: 50%; border-top-color: #fff;
+      animation: spin 1s linear infinite;
+      margin-left: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
   <div class="login-card">
-    <h2>تسجيل الدخول لأول مرة</h2>
+    <div class="brand">
+      <span class="logo">🕌</span>
+      <h2>تسجيل الدخول لأول مرة</h2>
+      <p>أدخل بياناتك لتفعيل الجهاز</p>
+    </div>
 
     <div class="form-group">
       <label for="username">اسم المستخدم</label>
-      <input type="text" id="username" placeholder="أدخل اسم المستخدم">
+      <div class="input-wrap">
+        <span class="field-icon">👤</span>
+        <input type="text" id="username" inputmode="numeric" placeholder="أدخل اسم المستخدم">
+      </div>
     </div>
 
     <div class="form-group">
       <label for="password">كلمة المرور</label>
-      <div class="pw-wrap">
+      <div class="input-wrap">
+        <span class="field-icon">🔒</span>
         <input type="password" id="password" placeholder="أدخل كلمة المرور">
         <span class="pw-toggle" id="pwToggle" onclick="togglePw()" title="إظهار/إخفاء كلمة المرور">👁</span>
       </div>
     </div>
 
-   <button id="loginBtn" onclick="registerDevice()">تسجيل الجهاز</button>
-
+    <button id="loginBtn" onclick="registerDevice()">تسجيل الجهاز</button>
 
     <div id="message" class="message"></div>
   </div>
