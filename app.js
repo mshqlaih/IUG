@@ -1586,8 +1586,9 @@ function resetActivityForm() {
     document.getElementById('partTo').value = "";
     document.getElementById('mark').value = "";
 
-    // 2. إعادة الأخطاء للصفر
+    // 2. إعادة الأخطاء للصفر والتقييم للفراغ
     document.getElementById('errors').value = 0;
+    document.getElementById('rating').value = "";
     
     // 4. (اختياري) إبقاء اسم الطالب أو تصفيره حسب رغبتك
     document.getElementById('studentSelect').value = ""; 
@@ -1652,9 +1653,11 @@ async function handleActivityTypeChange(type) {
         rangeToDiv.style.display   = 'none';
         if (surahDiv) surahDiv.style.display = 'none';
 
-        // ✅ إخفاء الأخطاء والتقييم
+        // ✅ إخفاء الأخطاء
         errorsDiv.style.display = 'none';
-        ratingDiv.style.display = 'none';
+
+        // ✅ إظهار التقييم (مطلوب في اختبار الجزء والسرد أيضاً)
+        ratingDiv.style.display = 'block';
 
         return;
     }
