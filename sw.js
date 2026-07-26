@@ -1,8 +1,8 @@
-const CACHE_NAME = 'quran-app-v1.43';
+const CACHE_NAME = 'quran-app-v1.45';
 // الأساسي للإقلاع offline — فشل أي ملف لا يُفشّل التثبيت
 const CORE = [
   './', './index.html', './login.html', './app.css', './app.js', './api.js',
-  './quran_data.js', './students.json', './STATIC_LOOKUP.json',
+  './quran_data.js', './STATIC_LOOKUP.json',
   './manifest.json', './bootstrap.bundle.min.js', './icon.png'
 ];
 // ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت
@@ -33,6 +33,13 @@ self.addEventListener('activate', (e) => {
       });
     });
   })());
+});
+
+// الرد على استفسار الصفحة عن رقم النسخة (المصدر الوحيد: CACHE_NAME أعلاه)
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'GET_VERSION' && e.source) {
+    e.source.postMessage({ type: 'APP_VERSION', version: CACHE_NAME });
+  }
 });
 
 // تشغيل التطبيق من الكاش (cache-first مع تحديث صامت + تمرير طلبات API للشبكة)

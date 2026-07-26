@@ -32,11 +32,22 @@ if ('serviceWorker' in navigator) {
         };
 
     
-        // استقبال تاريخ آخر تحديث من الـ SW
+        // استقبال الرسائل من الـ SW (تاريخ آخر تحديث + رقم النسخة)
         navigator.serviceWorker.addEventListener('message', (event) => {
-            if (event.data.type === 'LAST_UPDATE') {
-                localStorage.setItem("lastUpdate", event.data.date);
-                document.getElementById("lastUpdateLabel").innerText = "📅 آخر تحديث: " + event.data.date;
+            const data = event.data || {};
+
+            if (data.type === 'LAST_UPDATE') {
+                localStorage.setItem("lastUpdate", data.date);
+                const label = document.getElementById("lastUpdateLabel");
+                if (label) label.innerText = "📅 آخر تحديث: " + data.date;
+                const settingsLabel = document.getElementById("settingsLastUpdate");
+                if (settingsLabel) settingsLabel.textContent = data.date;
+            }
+
+            if (data.type === 'APP_VERSION') {
+                localStorage.setItem("appVersion", data.version);
+                const el = document.getElementById("appVersion");
+                if (el) el.textContent = data.version;
             }
         });
 
@@ -130,8 +141,12 @@ function updateStatusBanner() {
         if (note) note.textContent = 'التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.';
     }
 }
-window.addEventListener('online', updateStatusBanner);
-window.addEventListener('offline', updateStatusBanner);
+function onConnectivityChange() {
+    updateStatusBanner();
+    if (typeof refreshSettingsInfo === 'function') refreshSettingsInfo();
+}
+window.addEventListener('online', onConnectivityChange);
+window.addEventListener('offline', onConnectivityChange);
 window.addEventListener('DOMContentLoaded', () => {
     updateStatusBanner();
     maybeShowIosBanner();
@@ -180,15 +195,23 @@ let db;
 window.AYAH_REVERSE = {};
 let STATIC_LOOKUP = [];
 // 1. تشغيل النظام عند التحميل
+// هوية المسمّع = اسم المستخدم الذي سجّل الدخول (لا يُدخل يدوياً)
+// teacherID مُبقاة كاحتياط للتثبيتات القديمة التي سجّلت الدخول قبل هذا التغيير.
+function getCurrentUser() {
+    return String(
+        localStorage.getItem("user_name") ||
+        localStorage.getItem("teacherID") ||
+        ""
+    ).trim();
+}
+
 window.onload = () => {
     fillAyatSearchList();
     loadStaticLookup();
     initDB();
     document.getElementById('activityDate').valueAsDate = new Date();
-    const savedID = localStorage.getItem('teacherID');
-    if(savedID) document.getElementById('teacherID').value = savedID;
-    // استدعاء الدالة عند تحميل التطبيق
-    
+    requestAppVersion();
+    refreshSettingsInfo();
 };
 
 function loadStaticLookup() {
@@ -250,8 +273,8 @@ function initDB() {
     request.onsuccess = (e) => {
         db = e.target.result;
         refreshAll();
-         const teacherID = document.getElementById("teacherID").value;
-          fetchAndStoreEmpData(teacherID);
+        fetchAndStoreEmpData(getCurrentUser());
+        refreshSettingsInfo();
 
          if (!window._syncOnlineListenerAdded) {
         window._syncOnlineListenerAdded = true;
@@ -825,7 +848,8 @@ async function saveActivity() {
 
     const onlyDate = new Date(rawDate).toISOString().split("T")[0];
 
-    const teacher   = clean(parseInt(document.getElementById('teacherID').value), 0);
+    // هوية المسمّع تأتي من اسم المستخدم المسجَّل، لا من إدخال يدوي
+    const teacher   = clean(parseInt(getCurrentUser()), 0);
 
     let teacherName = String(teacher); // قيمة افتراضية في حال لم يجد الاسم
     try {
@@ -858,8 +882,12 @@ async function saveActivity() {
     const errors    = clean(parseInt(document.getElementById('errors').value), 0);
 
     // ✅ تحقق أساسي
-    if (!teacher || !student || !type) {
-        return alert("يجب إدخال المحفظ والطالب ونوع النشاط");
+    if (!teacher) {
+        return alert("تعذّر التعرّف على المسمّع. يرجى تسجيل الخروج ثم الدخول من جديد.");
+    }
+
+    if (!student || !type) {
+        return alert("يجب اختيار الطالب ونوع النشاط");
     }
 
     if ((type === 1 || type === 2) && (!fromRange || !toRange)) {
@@ -1131,21 +1159,9 @@ function resetFilters() {
 }
 
 function deleteRecord(id) { if(confirm("حذف؟")) db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); }
-function saveTeacherID() {
-    const id = document.getElementById('teacherID').value;
-    const result = checkIDNumber(id);
-
-    if (result === "Y") {
-        localStorage.setItem('teacherID', id);
-        alert("✅ تم الحفظ بنجاح");
-    } else {
-        alert("❌ " + result);
-    }
-}
-
 // 9. النسخ الاحتياطي
 async function exportBackup() {
-    const data = { students: await getAll("students"), records: await getAll("records"),settings : await getAll("settings"), teacherID: localStorage.getItem('teacherID') };
+    const data = { students: await getAll("students"), records: await getAll("records"),settings : await getAll("settings"), teacherID: getCurrentUser() };
     const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
     a.download = `Backup_${new Date().toLocaleDateString()}.json`; a.click();
@@ -1350,57 +1366,6 @@ function extractArabicError(errorObj) {
   return textToSearch.substring(0, 200); // إرجاع أول جزء من النص إذا لم يطابق ما سبق
 }
 
-async function loadStudentsTable() {
-  const response = await fetch("students.json");
-  const data = await response.json();
-
-  const tbody = document.querySelector("#studentsTable tbody");
-  tbody.innerHTML = "";
-
-  data.forEach(student => {
-    const tr = document.createElement("tr");
-
-    // أول عمود: زر الإضافة
-    const addTd = document.createElement("td");
-    const addBtn = document.createElement("button");
-    addBtn.textContent = "➕";
-    addBtn.style.cursor = "pointer";
-    addBtn.style.background = "none";
-    addBtn.style.border = "none";
-    addBtn.style.fontSize = "18px"; // حجم الأيقونة فقط
-    addBtn.style.color = "var(--primary)";
-
-    addBtn.addEventListener("click", () => addStudent({
-      id: student.ID_NO,
-      fName: student.FIRST_NAME,
-      pName: student.FATHER_NAME,
-      gName: student.GFATHER_NAME,
-      lName: student.FAMILY_NAME
-    }));
-
-    addTd.appendChild(addBtn);
-    tr.appendChild(addTd);
-
-    // باقي الأعمدة
-    ["ID_NO","FIRST_NAME","FATHER_NAME","GFATHER_NAME","FAMILY_NAME"].forEach(key => {
-      const td = document.createElement("td");
-      td.textContent = student[key];
-      tr.appendChild(td);
-    });
-
-    tbody.appendChild(tr);
-  });
-    
-}
-
-function addStudent(student) {
-  const tx = db.transaction("students", "readwrite");
-  const store = tx.objectStore("students");
-  store.put(student);
-  tx.oncomplete = () => console.log("تمت إضافة الطالب:", student);
-  refreshAll();   
-}
-
 function convertStringIDsToNumbers() {
     const tx = db.transaction("students", "readwrite");
     const store = tx.objectStore("students");
@@ -1530,9 +1495,20 @@ function syncRecordsFromPage() {
   });
 }
 
+// حاوية رسائل المزامنة: شاشة الإعدادات إن كانت مفتوحة، وإلا شاشة السجلات
+function getSyncMessageContainer() {
+  const settingsTab = document.getElementById("settingsTab");
+  if (settingsTab && settingsTab.classList.contains("active")) {
+    return document.getElementById("settingsSyncStatus") ||
+           document.getElementById("syncBtnContainer");
+  }
+  return document.getElementById("syncBtnContainer");
+}
+
 // دالة لعرض رسالة في الصفحة
 function showSyncMessage(msg) {
-  const container = document.getElementById("syncBtnContainer");
+  const container = getSyncMessageContainer();
+  if (!container) return;
   const alertBox = document.createElement("div");
   alertBox.textContent = msg;
   alertBox.style.background = "#d4edda";   // أخضر فاتح
@@ -1547,17 +1523,28 @@ function showSyncMessage(msg) {
   setTimeout(() => alertBox.remove(), 5000);
 }
 
-document.getElementById("syncBtn").addEventListener("click", () => {
-  syncRecordsFromPage()
-    .then(() => console.log("🎉 انتهت المزامنة"))
-    .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
-});
+function bindClick(id, handler) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("click", handler);
+}
 
-document.getElementById("pullBtn").addEventListener("click", () => {
+const onSyncClick = () => {
+  syncRecordsFromPage()
+    .then(() => { console.log("🎉 انتهت المزامنة"); refreshSettingsInfo(); })
+    .catch(err => console.error("❌ خطأ أثناء المزامنة:", err));
+};
+
+const onPullClick = () => {
   pullRecordsFromServer()
-    .then(() => console.log("🎉 انتهى سحب البيانات"))
+    .then(() => { console.log("🎉 انتهى سحب البيانات"); refreshSettingsInfo(); })
     .catch(err => console.error("❌ خطأ أثناء السحب:", err));
-});
+};
+
+// أزرار شاشة السجلات + نظيراتها في شاشة الإعدادات
+bindClick("syncBtn", onSyncClick);
+bindClick("pullBtn", onPullClick);
+bindClick("settingsSyncBtn", onSyncClick);
+bindClick("settingsPullBtn", onPullClick);
 
 function showToast(message) {
     const toast = document.getElementById('toast');
@@ -1816,61 +1803,12 @@ function clean(value, fallback = "") {
   return value;
 }
 
-function getTeacherCache() {
-  return JSON.parse(localStorage.getItem("teacher_cache")) || {};
-}
-
-function saveTeacherToCache(id, name) {
-  const cache = getTeacherCache();
-  cache[id] = name;
-  localStorage.setItem("teacher_cache", JSON.stringify(cache));
-}
-
-async function resolveTeacherName(teacherID) {
-
-  const cache = getTeacherCache();
-
-  // ✅ 1. موجود محليًا
-  if (cache[teacherID]) {
-    return cache[teacherID];
-  }
-
-  // ✅ 2. غير موجود → جلب من السيرفر (موحّد عبر QMC؛ يصلح خطأ الاقتباس السابق)
-  try {
-    const data = await QMC.getEmployee(teacherID);
-    const teacherName = data.emp_name || data.name;
-
-    // ✅ خزنه محليًا
-    saveTeacherToCache(teacherID, teacherName);
-
-    return teacherName;
-
-  } catch (err) {
-    console.error(err);
-    return ""; // أو "غير معروف"
-  }
-}
-
-async function onTeacherIDChange() {
-  const id = document.getElementById("teacherID").value;
-  if (!id) return;
-
-  const name = await resolveTeacherName(id);
-
-  if (name) {
-    console.log("اسم المسمع:", name);
-    // إن أحببت عرضه:
-    // document.getElementById("teacherName").textContent = name;
-  } else {
-    alert("لم يتم العثور على المسمّع");
-  }
-}
-
 function fetchAndStoreEmpData(teacherID) {
     if (!teacherID) {
-        console.warn("⚠️ لم يتم إدخال رقم الهوية");
+        console.warn("⚠️ لا يوجد مستخدم مسجَّل، تعذّر جلب بيانات الموظف");
         return;
     }
+    if (!db) return;
 
     const tx = db.transaction("empdata", "readonly");
     const empStore = tx.objectStore("empdata");
@@ -1890,7 +1828,7 @@ function fetchAndStoreEmpData(teacherID) {
 
 // دالة لجلب البيانات من السيرفر وتخزينها
 function fetchDataFromServer(teacherID) {
-    QMC.getEmployee(teacherID)
+    return QMC.getEmployee(teacherID)
       .then(emp => {
           if (emp && emp.emp_name) {
               const empRecord = {
@@ -1905,23 +1843,124 @@ function fetchDataFromServer(teacherID) {
               // تخزين البيانات للمرة القادمة
               const tx = db.transaction("empdata", "readwrite");
               tx.objectStore("empdata").put(empRecord);
-              
-              tx.oncomplete = () => {
-                  console.log("✅ تم جلب البيانات من السيرفر وتخزينها");
-                  displayEmpData(empRecord);
-              };
-          } else {
-              console.warn("⚠️ لم يتم العثور على بيانات في السيرفر");
+
+              return new Promise((resolve, reject) => {
+                  tx.oncomplete = () => {
+                      console.log("✅ تم جلب البيانات من السيرفر وتخزينها");
+                      displayEmpData(empRecord);
+                      resolve(empRecord);
+                  };
+                  tx.onerror = () => reject(tx.error);
+              });
           }
-      })
-      .catch(err => console.error("❌ خطأ في الاتصال:", err));
+          console.warn("⚠️ لم يتم العثور على بيانات في السيرفر");
+          throw new Error("لم يتم العثور على بيانات الموظف");
+      });
 }
 
-// دالة موحدة لعرض البيانات في الواجهة
+/* =========================================================
+   شاشة الإعدادات: بيانات المستخدم + نسخة التطبيق + المزامنة
+   ========================================================= */
+
+// تحديث بيانات الموظف يدوياً من السيرفر (زر في شاشة الإعدادات)
+function refreshEmpData() {
+    const status = document.getElementById('empRefreshStatus');
+    const user = getCurrentUser();
+
+    const show = (msg, color) => {
+        if (!status) return;
+        status.textContent = msg;
+        status.style.color = color;
+    };
+
+    if (!user) return show("❌ لا يوجد مستخدم مسجَّل. أعد تسجيل الدخول.", "#c0392b");
+    if (!navigator.onLine) return show("⚠️ لا يوجد اتصال بالإنترنت حالياً.", "#e67e22");
+
+    show("🔄 جارٍ التحديث من السيرفر…", "#3498db");
+
+    fetchDataFromServer(user)
+        .then(() => {
+            show("✅ تم تحديث بياناتك.", "#27ae60");
+            refreshSettingsInfo();
+            setTimeout(() => show("", ""), 4000);
+        })
+        .catch(err => {
+            console.error("❌ تعذر تحديث بيانات الموظف:", err);
+            show("❌ تعذّر التحديث: " + (err.message || "خطأ في الاتصال"), "#c0392b");
+        });
+}
+
+// طلب رقم النسخة من الـ Service Worker (المصدر الوحيد: CACHE_NAME في sw.js)
+function requestAppVersion() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready
+        .then(reg => {
+            const target = reg.active || navigator.serviceWorker.controller;
+            if (target) target.postMessage({ type: 'GET_VERSION' });
+        })
+        .catch(err => console.warn("تعذّر طلب رقم النسخة:", err));
+}
+
+// عدّ السجلات التي لم تُرفع بعد
+function countPendingRecords() {
+    return new Promise(resolve => {
+        if (!db) return resolve(null);
+        try {
+            db.transaction("records").objectStore("records").getAll().onsuccess = (e) => {
+                resolve((e.target.result || []).filter(r => !r.synced).length);
+            };
+        } catch (err) {
+            console.warn("تعذّر عدّ السجلات المعلّقة:", err);
+            resolve(null);
+        }
+    });
+}
+
+// تعبئة كل بطاقات شاشة الإعدادات
+async function refreshSettingsInfo() {
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    const user = getCurrentUser();
+    set('settingsUserName', user || "غير مسجَّل");
+
+    const deviceId = localStorage.getItem("device_id") || "";
+    set('settingsDeviceId', deviceId ? maskDeviceId(deviceId) : "-");
+
+    set('appVersion', localStorage.getItem("appVersion") || "-");
+    set('settingsLastUpdate', localStorage.getItem("lastUpdate") || "-");
+    set('settingsOnline', navigator.onLine ? "متصل ✅" : "دون اتصال ⚠️");
+
+    const pending = await countPendingRecords();
+    set('settingsPending', pending === null ? "-" : String(pending));
+}
+
+// إظهار طرفَي معرّف الجهاز فقط (لا داعي لعرضه كاملاً)
+function maskDeviceId(id) {
+    const s = String(id);
+    return s.length <= 12 ? s : s.slice(0, 6) + "…" + s.slice(-4);
+}
+
+// دالة موحدة لعرض البيانات في الواجهة (شاشة الإعدادات + شريط شاشة النشاط)
 function displayEmpData(data) {
-    document.getElementById("empName").textContent = data.EMP_NAME || data.emp_name;
-    document.getElementById("centerInfo").textContent = `${data.CENTER_NO} - ${data.CENTER_NAME}`;
-    document.getElementById("circleInfo").textContent = `${data.CIRCLE_NO} - ${data.CIRCLE_NAME}`;
+    const name   = data.EMP_NAME || data.emp_name || "";
+    const center = `${data.CENTER_NO} - ${data.CENTER_NAME}`;
+    const circle = `${data.CIRCLE_NO} - ${data.CIRCLE_NAME}`;
+
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    set("empName", name);
+    set("centerInfo", center);
+    set("circleInfo", circle);
+
+    // الشريط المضغوط أعلى شاشة النشاط
+    set("empChipName", name || getCurrentUser() || "غير معروف");
+    set("empChipSub", `${data.CIRCLE_NAME || ""} — ${data.CENTER_NAME || ""}`.replace(/^ — | — $/, ""));
 }
 
 function handleLogout() {
@@ -1940,8 +1979,8 @@ function handleLogout() {
 }
 
 async function pullRecordsFromServer() {
-    const puserName = localStorage.getItem("user_name");
-    const syncContainer = document.getElementById("syncBtnContainer");
+    const puserName = getCurrentUser();
+    const syncContainer = getSyncMessageContainer();
 
     if (!puserName) {
         console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");

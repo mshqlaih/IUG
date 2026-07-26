@@ -253,23 +253,6 @@ th {
   color: #000;
 }
 
-.students-table-wrapper {
-  width: 100%;
-  overflow-x: auto; /* يسمح بالتمرير الأفقي */
-}
-
-#studentsTable {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 600px; /* يضمن أن الجدول لا ينضغط أكثر من اللازم */
-}
-
-#studentsTable th, #studentsTable td {
-  padding: 8px;
-  border: 1px solid #ccc;
-  text-align: center;
-}
-
 /* الحاوية الأساسية */
 #iconsContainer {
     display: grid;
@@ -659,6 +642,63 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     flex-shrink: 0;
 }
 .ios-install-close:hover { background: rgba(25,103,210,0.08); }
+
+/* ===== أيقونة الحساب في الترويسة ===== */
+.settings-btn { background: #0d47a1; color: #fff; padding: 8px 14px; }
+.settings-btn:hover { background: #0b3c8a; }
+
+/* ===== شريط المسمّع في شاشة النشاط ===== */
+.emp-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: right;
+    background: #fff;
+    border: 1px solid #e3e8ef;
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 15px;
+    box-shadow: 0 6px 20px rgba(13,71,161,0.06);
+    color: inherit;
+    cursor: pointer;
+}
+.emp-chip:hover { background: #f7faff; }
+.emp-chip-icon { font-size: 26px; color: var(--primary, #1976D2); flex-shrink: 0; }
+.emp-chip-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.emp-chip-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: #202124;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.emp-chip-sub {
+    font-size: 12px;
+    color: #5f6368;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.emp-chip-arrow { color: #9aa0a6; font-size: 14px; flex-shrink: 0; }
+
+/* ===== جداول المعلومات في شاشة الإعدادات ===== */
+.info-table { width: 100%; border-collapse: collapse; }
+.info-table th,
+.info-table td { padding: 10px 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+.info-table th {
+    text-align: right;
+    width: 42%;
+    color: #5f6368;
+    font-weight: 600;
+    background: #fafbfc;
+}
+.info-table td { color: #202124; word-break: break-word; }
+.info-table tr:last-child th,
+.info-table tr:last-child td { border-bottom: none; }
+
+.settings-status { font-size: 13px; font-weight: 600; margin-top: 8px; }
 
 /* ===== توحيد لغة التصميم مع شاشة الدخول ===== */
 .card { border-radius: 16px; box-shadow: 0 6px 20px rgba(13,71,161,0.06); }

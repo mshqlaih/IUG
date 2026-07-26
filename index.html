@@ -121,6 +121,9 @@
         <span class="app-title"><i class="fas fa-mosque" style="margin-left: 8px;"></i>متابعة الحلقات</span>
         <div class="header-actions">
             <button id="installBtn" class="install-btn" style="display:none;"><i class="fas fa-download"></i> <span class="btn-text">تثبيت</span></button>
+            <button class="settings-btn" onclick="openSettings()" title="بيانات المستخدم والإعدادات">
+                <i class="fas fa-circle-user"></i> <span class="btn-text">حسابي</span>
+            </button>
             <button class="logout-btn" onclick="handleLogout()" title="تسجيل الخروج">
                 <i class="fas fa-sign-out-alt"></i> <span class="btn-text">خروج</span>
             </button>
@@ -149,43 +152,24 @@
 
     <div id="lastUpdateLabel" class="last-update">📅 آخر تحديث: -</div>
     <div class="tabs-header">
-        <button class="tab-btn active" onclick="openTab('activityTab', this)"><i class="fas fa-pen-to-square"></i><span>النشاط</span></button>
-        <button class="tab-btn" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلاب</span></button>
-        <button class="tab-btn" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>السجلات</span></button>
+        <button class="tab-btn active" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-pen-to-square"></i><span>النشاط</span></button>
+        <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلاب</span></button>
+        <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>السجلات</span></button>
+        <button class="tab-btn" data-tab="settingsTab" onclick="openTab('settingsTab', this)"><i class="fas fa-gear"></i><span>الإعدادات</span></button>
     </div>
 
     <div class="container">
         <!-- شاشة النشاط -->
         <div id="activityTab" class="tab-content active">
-           <div class="card card-light">
-                 <div class="section-title">بيانات المسمع والحلقة</div>
-                 <div class="section-note">تأكد من حفظ رقم المسمع وسيتم عرض معلومات الحلقة قبل إضافة النشاط.</div>
-                 <div class="table-wrap responsive">
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-                        <tr style="background: #eee;">
-                            <th style="text-align: left; padding: 8px;">اسم الموظف</th>
-                            <td id="empName" style="padding: 8px;"></td>
-                        </tr>
-                        <tr>
-                            <th style="text-align: left; padding: 8px;">المركز</th>
-                            <td id="centerInfo" style="padding: 8px;"></td>
-                        </tr>
-                        <tr style="background: #eee;">
-                            <th style="text-align: left; padding: 8px;">اسم الحلقة</th>
-                            <td id="circleInfo" style="padding: 8px;"></td>
-                        </tr>
-                    </table>
-                 </div>
-                    <div class="grid" style="gap: 10px; align-items:flex-end;">
-                        <div class="field" style="flex: 1;">
-                            <label>رقم هوية المسمع</label>
-                            <input lang="en" inputmode="numeric" type="number" id="teacherID">
-                        </div>
-                        <button onclick="saveTeacherID()" class="btn-save inline-btn">
-                            حفظ
-                        </button>
-                    </div>
-                </div>
+            <!-- شريط المسمّع: اضغط لعرض بياناتك وبيانات الحلقة في شاشة الإعدادات -->
+            <button type="button" class="emp-chip" onclick="openSettings()" title="عرض بيانات المسمّع والحلقة">
+                <i class="fas fa-circle-user emp-chip-icon"></i>
+                <span class="emp-chip-text">
+                    <span class="emp-chip-name" id="empChipName">جارٍ تحميل بياناتك…</span>
+                    <span class="emp-chip-sub" id="empChipSub">اضغط لعرض بيانات المركز والحلقة</span>
+                </span>
+                <i class="fas fa-chevron-left emp-chip-arrow"></i>
+            </button>
 
             <div id="studentStatsCard" class="card" style="display:none;">
                 <div style="display:flex; justify-content: space-between; align-items:center">
@@ -363,26 +347,6 @@
                 </div>
             </div>
 
-            <!-- إضافة طالب من القائمة الرئيسية -->
-            <div class="card">
-                <h3><i class="fas fa-list"></i> إضافة من قائمة الطلاب الرئيسية</h3>
-                <p style="font-size:12px; color:#666; margin:4px 0 10px"><i class="fas fa-plus-circle" style="color: #34a853;"></i> اضغط لإضافة الطالب إلى قائمة طلابك.</p>
-                <div class="students-table-wrapper">
-                    <table id="studentsTable">
-                        <thead>
-                            <tr>
-                                <th style="width:40px;"><i class="fas fa-plus"></i></th>
-                                <th>رقم الهوية</th>
-                                <th>الاسم الأول</th>
-                                <th>اسم الأب</th>
-                                <th>اسم الجد</th>
-                                <th>اسم العائلة</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
         </div>
 
         <!-- شاشة السجلات -->
@@ -459,6 +423,58 @@
                         </div>
                 </div>
             </div>
+        </div>
+
+        <!-- شاشة الإعدادات -->
+        <div id="settingsTab" class="tab-content">
+            <div class="section-title">الإعدادات</div>
+            <div class="section-note">بيانات المستخدم والحلقة، نسخة التطبيق، وأدوات المزامنة والنسخ الاحتياطي.</div>
+
+            <!-- بيانات المسمّع -->
+            <div class="card">
+                <h3><i class="fas fa-id-card"></i> بيانات المسمّع والحلقة</h3>
+                <div class="table-wrap responsive">
+                    <table class="info-table">
+                        <tr><th>اسم المستخدم</th><td id="settingsUserName">-</td></tr>
+                        <tr><th>اسم الموظف</th><td id="empName">-</td></tr>
+                        <tr><th>المركز</th><td id="centerInfo">-</td></tr>
+                        <tr><th>اسم الحلقة</th><td id="circleInfo">-</td></tr>
+                        <tr><th>معرّف الجهاز</th><td id="settingsDeviceId">-</td></tr>
+                    </table>
+                </div>
+                <div id="empRefreshStatus" class="settings-status"></div>
+                <button onclick="refreshEmpData()" class="btn-save" style="margin-top:10px">
+                    <i class="fas fa-rotate"></i> تحديث بياناتي من السيرفر
+                </button>
+            </div>
+
+            <!-- معلومات التطبيق -->
+            <div class="card">
+                <h3><i class="fas fa-circle-info"></i> التطبيق</h3>
+                <div class="table-wrap responsive">
+                    <table class="info-table">
+                        <tr><th>النسخة الحالية</th><td id="appVersion">-</td></tr>
+                        <tr><th>آخر تحديث للملفات</th><td id="settingsLastUpdate">-</td></tr>
+                        <tr><th>حالة الاتصال</th><td id="settingsOnline">-</td></tr>
+                        <tr><th>سجلات بانتظار الرفع</th><td id="settingsPending">-</td></tr>
+                    </table>
+                </div>
+                <button onclick="location.reload()" class="btn-pull" style="margin-top:10px">
+                    <i class="fas fa-arrows-rotate"></i> إعادة تحميل التطبيق
+                </button>
+            </div>
+
+            <!-- المزامنة -->
+            <div class="card">
+                <h3><i class="fas fa-cloud"></i> مزامنة البيانات</h3>
+                <p class="section-note" style="margin:0 0 10px">الرفع يرسل سجلاتك غير المزامنة، والسحب يجلب طلاب الحلقة وأنشطتها من السيرفر.</p>
+                <div id="settingsSyncStatus"></div>
+                <div class="sync-actions">
+                    <button id="settingsSyncBtn" class="btn-sync"><i class="fas fa-sync-alt"></i> <span class="btn-text">رفع السجلات</span></button>
+                    <button id="settingsPullBtn" class="btn-pull"><i class="fas fa-cloud-download-alt"></i> <span class="btn-text">سحب البيانات</span></button>
+                </div>
+            </div>
+
             <!-- نسخة احتياطية -->
             <div class="card" style="background:#f8f9fa; border:1px dashed #ccc; text-align:center">
                 <label><i class="fas fa-database"></i> النسخ الاحتياطي للقاعدة</label>
@@ -485,11 +501,16 @@
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            btn.classList.add('active');
+            if (btn) btn.classList.add('active');
             window.scrollTo(0,0);
-             if(tabId === "studentsTab") {
-                loadStudentsTable();
-              }
+            if (tabId === "settingsTab" && typeof refreshSettingsInfo === "function") {
+                refreshSettingsInfo();
+            }
+        }
+
+        // فتح شاشة الإعدادات من أيقونة الحساب في الترويسة
+        function openSettings() {
+            openTab('settingsTab', document.querySelector('.tab-btn[data-tab="settingsTab"]'));
         }
     </script>
     <script src="html2pdf.bundle.min.js"></script>
