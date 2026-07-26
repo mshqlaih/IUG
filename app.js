@@ -264,9 +264,99 @@ function initDB() {
     };
 }
 
+/* =========================================================
+   تطبيع النص العربي + فهرس السور (لتصفية "الآية من/إلى")
+   ========================================================= */
+
+// إزالة التشكيل والتطويل وتوحيد الهمزات والألف المقصورة والتاء المربوطة
+function normalizeAr(txt) {
+    return String(txt || '')
+        .replace(/[ً-ْٰـ]/g, '')
+        .replace(/[أإآٱ]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/ؤ/g, 'و')
+        .replace(/ئ/g, 'ي')
+        .replace(/ة/g, 'ه')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// حذف "ال" التعريف من بداية الكلمة فقط (وليس من داخلها كما كان يحدث سابقاً)
+function stripAl(word) {
+    return String(word || '').replace(/^ال/, '');
+}
+
+// فهرس السور: { s, name, n (مُطبّع), nb (بدون ال), words, firstId, lastId }
+function buildSurahIndex() {
+    if (window.SURAH_INDEX) return window.SURAH_INDEX;
+    if (typeof QURAN_DATA === 'undefined') return [];
+
+    const map = {};
+    QURAN_DATA.forEach(item => {
+        if (!item.s) return; // تجاهل السجل الصفري (id:0) المستخدم كقيمة فارغة
+        if (!map[item.s]) {
+            const m = /^سورة\s+(.+?)\s+آية\s/.exec(item.l);
+            const name = m ? m[1] : ('سورة ' + item.s);
+            const n = normalizeAr(name);
+            map[item.s] = {
+                s: item.s,
+                name: name,
+                n: n,
+                nb: stripAl(n),
+                words: n.split(' ').map(stripAl),
+                firstId: item.id,
+                lastId: item.id
+            };
+        }
+        map[item.s].lastId = item.id;
+    });
+
+    window.SURAH_BY_NUM = map;
+    window.SURAH_INDEX = Object.keys(map)
+        .map(k => map[k])
+        .sort((a, b) => a.s - b.s);
+
+    console.log("تم بناء فهرس السور ✅ (" + window.SURAH_INDEX.length + " سورة)");
+    return window.SURAH_INDEX;
+}
+
+// تعبئة قائمة السور المنسدلة
+function fillSurahSelect() {
+    const sel = document.getElementById('surahFilter');
+    if (!sel || sel.options.length > 1) return; // الخيار الأول "كل السور" موجود دائماً
+
+    const frag = document.createDocumentFragment();
+    buildSurahIndex().forEach(su => {
+        const o = document.createElement('option');
+        o.value = su.s;
+        o.textContent = su.s + '. ' + su.name;
+        frag.appendChild(o);
+    });
+    sel.appendChild(frag);
+}
+
+// عند تغيير السورة: نحصر قائمة الآيات فيها ونحدّث الحقل النشط
+function onSurahFilterChange() {
+    const sel = document.getElementById('surahFilter');
+    window.CURRENT_SURAH = (sel && sel.value) ? Number(sel.value) : null;
+
+    const active = document.activeElement;
+    const target = (active && (active.id === 'rangeFromText' || active.id === 'rangeToText'))
+        ? active
+        : document.getElementById('rangeFromText');
+
+    if (target) handleSmartSearch(target);
+}
+
 function fillAyatSearchList() {
     const list = document.getElementById('ayatList');
     if (!list) return; // تأكد أن العنصر موجود
+
+    if (typeof QURAN_DATA === 'undefined') return;
+
+    // فهرس السور + قائمة السور المنسدلة (خفيفة، وتُبنى مرة واحدة داخلياً)
+    buildSurahIndex();
+    fillSurahSelect();
 
     // 1. إذا كانت القائمة (Datalist) بها خيارات فعلياً، فلا داعي لإعادة بنائها
     if (list.options.length > 0) {
@@ -274,22 +364,22 @@ function fillAyatSearchList() {
         return;
     }
 
-    if (typeof QURAN_DATA === 'undefined') return;
-
     // 2. بناء PAGE_MAX_LINES و AYAH_REVERSE مرة واحدة فقط
     if (typeof window.PAGE_MAX_LINES === 'undefined') {
         window.PAGE_MAX_LINES = QURAN_DATA.reduce((acc, curr) => {
             acc[curr.p] = Math.max(acc[curr.p] || 0, curr.le);
             return acc;
         }, {});
-        
-        // بناء مصفوفة الأسماء (ترجمة IDs إلى نصوص)
+
+        // بناء مصفوفة الأسماء (ترجمة IDs إلى نصوص) + عكسها (نص ← ID)
+        window.AYAH_BY_LABEL = {};
         QURAN_DATA.forEach(item => {
             window.AYAH_REVERSE[item.id] = item.l;
+            window.AYAH_BY_LABEL[item.l] = item.id;
         });
         console.log("تم تجهيز بيانات المساعدة بنجاح ✅");
     }
-    
+
     // 3. بناء قائمة البحث (Datalist)
     const fragment = document.createDocumentFragment();
     QURAN_DATA.forEach(item => {
@@ -388,20 +478,118 @@ function loadLookups() {
         .catch(err => console.error("❌ خطأ في تحميل الثوابت:", err));
 }
 
-// 3. محرك البحث الذكي (بقرة 155)
+// 3. محرك البحث الذكي (بقرة 155 / ق 3 / ص 20 / احقاف ج 26)
+
+// تحليل نص البحث إلى: اسم سورة + رقم آية + صفحة + جزء
+function parseAyahQuery(raw) {
+    let t = normalizeAr(raw).replace(/سوره/g, ' ').replace(/ايه/g, ' ');
+
+    let page = null, juz = null;
+    // "ص" و "ج" تُحسبان صفحة/جزء فقط إذا كانتا كلمة مستقلة (حتى لا تتأثر "قصص 5" أو "حج 5")
+    t = t.replace(/(^|\s)ص\s*(\d+)/, function (m, p1, d) { page = Number(d); return ' '; });
+    t = t.replace(/(^|\s)ج\s*(\d+)/, function (m, p1, d) { juz  = Number(d); return ' '; });
+
+    const nums  = (t.match(/\d+/g) || []).map(Number);
+    const words = t.replace(/\d+/g, ' ').split(/\s+/).filter(w => w.length > 0).map(stripAl);
+
+    return {
+        page: page,
+        juz : juz,
+        num : nums.length ? nums[nums.length - 1] : null,
+        words: words
+    };
+}
+
+// درجة تطابق كلمة مع اسم السورة: 3 = تطابق تام، 2 = بداية الاسم/إحدى كلماته، 1 = احتواء، 0 = لا شيء
+function surahWordScore(word, su) {
+    if (su.n === word || su.nb === word) return 3;
+    if (su.n.indexOf(word) === 0 || su.nb.indexOf(word) === 0) return 2;
+    for (let i = 0; i < su.words.length; i++) {
+        if (su.words[i].indexOf(word) === 0) return 2;
+    }
+    return su.n.indexOf(word) !== -1 ? 1 : 0;
+}
+
+// البحث الفعلي؛ surahScope = رقم السورة المختارة من القائمة (أو null)
+function searchAyat(raw, surahScope) {
+    if (typeof QURAN_DATA === 'undefined') return [];
+    buildSurahIndex();
+
+    const q = parseAyahQuery(raw);
+    let surahScore = null;
+
+    if (q.words.length) {
+        surahScore = {};
+        window.SURAH_INDEX.forEach(su => {
+            let min = 3;
+            for (let i = 0; i < q.words.length; i++) {
+                const sc = surahWordScore(q.words[i], su);
+                if (sc === 0) { min = 0; break; }
+                if (sc < min) min = sc;
+            }
+            if (min > 0) surahScore[su.s] = min;
+        });
+
+        const keys = Object.keys(surahScore);
+        if (!keys.length) return [];
+
+        // عند وجود تطابق قوي نستبعد الضعيف:
+        // "ق" ⇒ سورة ق فقط، وليس الأحقاف/البقرة/الفرقان
+        let best = 0;
+        keys.forEach(k => { if (surahScore[k] > best) best = surahScore[k]; });
+        if (best >= 2) keys.forEach(k => { if (surahScore[k] < best) delete surahScore[k]; });
+    }
+
+    const matchedSurahs = surahScore ? Object.keys(surahScore).length : 0;
+    const limit = (surahScope || (surahScore && matchedSurahs <= 2)) ? 300 : 40;
+
+    const out = [];
+    for (let i = 0; i < QURAN_DATA.length; i++) {
+        const it = QURAN_DATA[i];
+
+        if (!it.s) continue; // السجل الصفري
+        if (surahScope && it.s !== surahScope) continue;
+        if (surahScore && !surahScore[it.s]) continue;
+        if (q.page !== null && it.p !== q.page) continue;
+        if (q.juz  !== null && it.j !== q.juz)  continue;
+
+        if (q.num !== null) {
+            if (q.words.length || q.page !== null || q.juz !== null || surahScope) {
+                if (it.a !== q.num) continue;                 // الرقم = رقم الآية
+            } else if (it.a !== q.num && it.p !== q.num) {
+                continue;                                     // رقم مجرد: آية أو صفحة
+            }
+        }
+
+        out.push(it);
+        if (out.length >= limit) break;
+    }
+    return out;
+}
+
+// إعادة القائمة لوضعها الكامل (كل المصحف) — تُستدعى عند مسح البحث بلا سورة مختارة
+function rebuildFullAyatList() {
+    const list = document.getElementById('ayatList');
+    if (!list || typeof QURAN_DATA === 'undefined') return;
+    if (list.options.length === QURAN_DATA.length) return; // كاملة أصلاً
+    renderOptions(QURAN_DATA);
+}
+
 function handleSmartSearch(inputEl) {
-    const val = inputEl.value.replace(/^\s+|\s+$/g, '');
-    if (val.length < 1) return;
-    const searchTerms = val.replace(/ال/g, "").split(" ");
-    const filtered = QURAN_DATA.filter(item => {
-        const cleanLabel = item.l.replace(/سورة /g, "")
-                                 .replace(/آية /g, "")
-                                 .replace(/ال/g, "");
-        return searchTerms.every(term => 
-            cleanLabel.indexOf(term) !== -1 || item.l.indexOf(term) !== -1
-        );
-    }).slice(0, 30);
-    renderOptions(filtered);
+    if (typeof QURAN_DATA === 'undefined') return;
+
+    const val   = String(inputEl.value || '').replace(/^\s+|\s+$/g, '');
+    const scope = window.CURRENT_SURAH || null;
+
+    // لا نص ولا سورة مختارة ⇒ أعد القائمة كاملة (وإلا بقيت مفلترة على بحث سابق)
+    if (val.length < 1 && !scope) { rebuildFullAyatList(); return; }
+
+    let res = searchAyat(val, scope);
+
+    // لا نتيجة داخل السورة المختارة ⇒ ابحث في كل المصحف (حتى لا يصل المستخدم لطريق مسدود)
+    if (!res.length && scope && val.length) res = searchAyat(val, null);
+
+    renderOptions(res);
 }
 
 function renderOptions(data) {
@@ -1112,18 +1300,21 @@ function formatAyah(id) {
 }
 
 function syncAyahID(textInput, hiddenID) {
-    const val = textInput.value.trim();
-    const opts = document.querySelectorAll('#ayatList option');
+    const val    = String(textInput.value || '').trim();
+    const hidden = document.getElementById(hiddenID);
+    if (!hidden) return;
 
-    let foundID = "";
+    // المصدر الموثوق: خريطة (نص الآية ← ID) المبنية من QURAN_DATA كاملة،
+    // وليس خيارات القائمة لأنها مفلترة وقد لا تحتوي الآية المكتوبة.
+    let foundID = (window.AYAH_BY_LABEL && window.AYAH_BY_LABEL[val]) || "";
 
-    opts.forEach(opt => {
-        if (opt.value === val) {
-            foundID = opt.dataset.id;
-        }
-    });
+    if (!foundID) {
+        document.querySelectorAll('#ayatList option').forEach(opt => {
+            if (opt.value === val) foundID = opt.dataset.id;
+        });
+    }
 
-    document.getElementById(hiddenID).value = foundID;
+    hidden.value = foundID;
 }
 
 /**
@@ -1386,6 +1577,11 @@ function resetActivityForm() {
     document.getElementById('rangeFrom').value = "";
     document.getElementById('rangeTo').value = "";
 
+    // إلغاء تصفية السورة
+    const surahSel = document.getElementById('surahFilter');
+    if (surahSel) surahSel.value = "";
+    window.CURRENT_SURAH = null;
+
     document.getElementById('partFrom').value = "";
     document.getElementById('partTo').value = "";
     document.getElementById('mark').value = "";
@@ -1406,6 +1602,7 @@ async function handleActivityTypeChange(type) {
     // حقول الآيات
     const rangeFromDiv = document.getElementById('rangeFromText').parentElement.parentElement;
     const rangeToDiv   = document.getElementById('rangeToText').parentElement.parentElement;
+    const surahDiv     = document.getElementById('surahFilterDiv');
 
     // مجموعة الأجزاء داخل extraFields
     const examDiv = document.getElementById('examdiv');
@@ -1453,6 +1650,7 @@ async function handleActivityTypeChange(type) {
         // ✅ إخفاء الآيات
         rangeFromDiv.style.display = 'none';
         rangeToDiv.style.display   = 'none';
+        if (surahDiv) surahDiv.style.display = 'none';
 
         // ✅ إخفاء الأخطاء والتقييم
         errorsDiv.style.display = 'none';
@@ -1469,6 +1667,7 @@ async function handleActivityTypeChange(type) {
     // ✅ إظهار الآيات
     rangeFromDiv.style.display = 'block';
     rangeToDiv.style.display   = 'block';
+    if (surahDiv) surahDiv.style.display = 'block';
 
     // ✅ إخفاء examdiv
     examDiv.style.display = 'none';
