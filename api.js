@@ -101,6 +101,78 @@ window.QMC = (function () {
     return res.json(); // { items: [...] }
   }
 
+  // --- السجل المدني: جلب بيانات الطالب برقم الهوية (نفس عقد CivilRegistryService في Flutter) ---
+  // civil/getCivilRecord/{idno} → { items: [{ first_name, father_name, gfather_name,
+  //                                           family_name, birth_date, gender }] }
+  async function lookupCivilRecord(idNo) {
+    const res = await apiFetch(`civil/getCivilRecord/${encodeURIComponent(idNo)}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    const items = (body && body.items) || [];
+    return items.length ? items[0] : null;
+  }
+
+  // يفكّ JSON بأمان حتى لو كانت الاستجابة غير نقية (مطابق لـ _safeDecode في Flutter)
+  function safeDecode(text) {
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      const s = text.indexOf("{"), e = text.lastIndexOf("}");
+      if (s !== -1 && e > s) {
+        try { return JSON.parse(text.slice(s, e + 1)); } catch (_) {}
+      }
+      const sa = text.indexOf("["), ea = text.lastIndexOf("]");
+      if (sa !== -1 && ea > sa) {
+        try { return JSON.parse(text.slice(sa, ea + 1)); } catch (_) {}
+      }
+      return null;
+    }
+  }
+
+  // يستخرج رسائل الأخطاء من استجابة السيرفر (مطابق لـ handleApiResponse في Flutter)
+  function extractServerError(decoded, raw) {
+    if (decoded == null) return raw || "استجابة فارغة من السيرفر";
+
+    if (Array.isArray(decoded)) {
+      const msgs = decoded.map(it =>
+        (it && typeof it === "object" && it.message) ? String(it.message) : String(it)
+      );
+      return msgs.join("\n") || "خطأ غير معروف من السيرفر";
+    }
+
+    if (decoded && typeof decoded === "object") {
+      if (Array.isArray(decoded.errors) && decoded.errors.length) {
+        return decoded.errors
+          .map(e => (e && typeof e === "object" && e.message) ? String(e.message) : String(e))
+          .join("\n");
+      }
+      if (decoded.message) return String(decoded.message);
+      if (decoded.text) return String(decoded.text);
+    }
+
+    return raw || "استجابة غير متوقعة من السيرفر";
+  }
+
+  // --- إضافة طالب جديد (نفس عقد addNewStudent في Flutter) ---
+  // يُرجع رقم الطالب (studentno) الذي يصدره السيرفر، أو يرمي خطأ برسالة عربية.
+  async function addNewStudent(payload) {
+    const res = await apiFetch("addNewStudent", { method: "POST", body: payload });
+    const raw = await res.text();
+    const decoded = safeDecode(raw);
+
+    const studentNo =
+      decoded && typeof decoded === "object" && !Array.isArray(decoded)
+        ? decoded.studentno ?? decoded.studentNo ?? decoded.STUDENTNO
+        : undefined;
+
+    if (studentNo !== undefined && studentNo !== null && String(studentNo).trim() !== "") {
+      const n = Number(studentNo);
+      if (!Number.isNaN(n) && n > 0) return n;
+    }
+
+    throw new Error(extractServerError(decoded, raw));
+  }
+
   function isOnline() {
     return navigator.onLine;
   }
@@ -115,6 +187,8 @@ window.QMC = (function () {
     uploadRecord,
     pullCircleActivity,
     pullStudents,
+    lookupCivilRecord,
+    addNewStudent,
     isOnline,
   };
 })();

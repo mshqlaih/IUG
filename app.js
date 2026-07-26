@@ -453,6 +453,7 @@ function drawIcons(select, container) {
         const style = activityStyles[opt.value] || { icon: "📝", color: "#ccc" };
         const item = document.createElement('div');
         item.className = "icon-card";
+        item.dataset.value = opt.value;   // يتيح اختيار النوع برمجياً من بطاقات الطلبة
         item.innerHTML = `<span class="emoji">${style.icon}</span><span class="text">${opt.text}</span>`;
         item.style.borderBottom = `3px solid ${style.color}`;
 
@@ -656,8 +657,6 @@ document.getElementById('studentSelect').addEventListener('change', function() {
             if (cursor.value.student == id) {
                 if (!lastDate) {
                     lastDate = cursor.value.date;
-                    // تنفيذ القفزة الذكية
-                    jumpToNext(cursor.value.toRange, cursor.value.flowDirection || "forward");
                 }
 
                 // الآن amount يجب أن يكون رقمًا (ناتج الدالة calculateExactProgress)
@@ -683,19 +682,6 @@ document.getElementById('studentSelect').addEventListener('change', function() {
         }
     };
 });
-
-function jumpToNext(lastPos, dir) {
-    const lastObj = QURAN_DATA.find(i => i.l === lastPos);
-    if (lastObj) {
-        const nextId = (dir === "forward") ? lastObj.id + 1 : lastObj.id - 1;
-        const nextObj = QURAN_DATA.find(i => i.id === nextId);
-        if (nextObj) {
-            document.getElementById('rangeFrom').value = nextObj.l;
-            document.getElementById('flowDirection').value = dir;
-            calculateExactProgress();
-        }
-    }
-}
 
 // 5. حساب المقدار الدقيق (أرباع وصفحات)
 
@@ -849,25 +835,8 @@ async function saveActivity() {
     const onlyDate = new Date(rawDate).toISOString().split("T")[0];
 
     // هوية المسمّع تأتي من اسم المستخدم المسجَّل، لا من إدخال يدوي
-    const teacher   = clean(parseInt(getCurrentUser()), 0);
+    const { teacher, teacherName } = await getTeacherIdentity();
 
-    let teacherName = String(teacher); // قيمة افتراضية في حال لم يجد الاسم
-    try {
-        const empTx = db.transaction("empdata", "readonly");
-        const empStore = empTx.objectStore("empdata");
-        // نحول teacherId إلى نص لأن idno في الصورة يبدو كنص
-        const empReq = await new Promise((resolve) => {
-            const req = empStore.get(String(teacher));
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => resolve(null);
-        });
-        if (empReq) {
-            teacherName = empReq.EMP_NAME;
-        }
-    } catch (e) {
-        console.warn("تعذر جلب اسم المعلم من empdata", e);
-    }
-   
     const student   = clean(parseInt(document.getElementById('studentSelect').value), 0);
     const type      = clean(parseInt(document.getElementById('activityType').value), 0);
     const rating    = clean(parseInt(document.getElementById('rating').value), 0);
@@ -898,18 +867,9 @@ async function saveActivity() {
     return alert("يجب إدخال الجزء من وإلى");
 }
 
-   const activityInfo = STATIC_LOOKUP.find(
-    i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE" 
-      && parseInt(i.LOOKUP_VALUE) === type
-);
-    
-
-    const record = {
-        teacher    : teacher,                 // رقم فقط
-        teacherName : teacherName,
-        student   : student,
+    const record = buildActivityRecord({
+        teacher, teacherName, student, type,
         date      : onlyDate,
-        type      : type,
         fromRange : fromRange || "",
         toRange   : toRange   || "",
         amount    : prog || 0,
@@ -918,29 +878,80 @@ async function saveActivity() {
         mark      : mark,
         partFrom  : partFrom || "",
         partTo    : partTo   || "",
-        synced    : false,
-        syncError : "",
-        sortOrder : activityInfo?.SORT_ORDER ?? 999,
-    };
+    });
 
+    persistRecord(record, resetActivityForm);
+}
+
+/* =========================================================
+   بناء/حفظ سجل النشاط — مشترك بين شاشة النشاط وأزرار بطاقات الطلبة
+   ========================================================= */
+
+// هوية المسمّع واسمه (من اسم المستخدم المسجَّل + مخزن empdata)
+async function getTeacherIdentity() {
+    const teacher = clean(parseInt(getCurrentUser()), 0);
+    let teacherName = String(teacher); // قيمة افتراضية في حال لم يجد الاسم
+
+    try {
+        const empStore = db.transaction("empdata", "readonly").objectStore("empdata");
+        const emp = await new Promise((resolve) => {
+            const req = empStore.get(String(teacher));
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+        });
+        if (emp && emp.EMP_NAME) teacherName = emp.EMP_NAME;
+    } catch (e) {
+        console.warn("تعذر جلب اسم المعلم من empdata", e);
+    }
+
+    return { teacher, teacherName };
+}
+
+// سجل نشاط بالحقول الافتراضية؛ ما يُمرَّر في opts يطغى عليها
+function buildActivityRecord(opts) {
+    const type = Number(opts.type);
+    const activityInfo = STATIC_LOOKUP.find(
+        i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE"
+          && parseInt(i.LOOKUP_VALUE) === type
+    );
+
+    return Object.assign({
+        teacher    : 0,
+        teacherName: "",
+        student    : 0,
+        date       : new Date().toISOString().split("T")[0],
+        type       : type,
+        fromRange  : "",
+        toRange    : "",
+        amount     : 0,
+        errors     : 0,
+        rating     : "",
+        mark       : "",
+        partFrom   : "",
+        partTo     : "",
+        synced     : false,
+        syncError  : "",
+        sortOrder  : (activityInfo && activityInfo.SORT_ORDER != null) ? activityInfo.SORT_ORDER : 999,
+    }, opts, { type });
+}
+
+// حفظ السجل مع منع التكرار (نفس الطالب/التاريخ/النوع) ثم تحديث الواجهة والمزامنة
+function persistRecord(record, onSaved) {
     const tx = db.transaction("records", "readwrite");
     const store = tx.objectStore("records");
-    const index = store.index("student_date_type");
-
-    const check = index.get([record.student, record.date, record.type]);
+    const check = store.index("student_date_type").get([record.student, record.date, record.type]);
 
     check.onsuccess = () => {
         if (check.result) {
             alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
-        } else {
-            store.add(record).onsuccess = () => {
-                refreshAll();
-                showToast("تم حفظ النشاط بنجاح");
-                resetActivityForm();
-
-                requestSync();
-            };
+            return;
         }
+        store.add(record).onsuccess = () => {
+            refreshAll();
+            showToast("تم حفظ النشاط بنجاح");
+            if (typeof onSaved === "function") onSaved();
+            requestSync();
+        };
     };
 }
 
@@ -970,54 +981,247 @@ function calculateWorkingDays(start, end) {
     return c;
 }
 
-// 8. الدوال العامة (حفظ طالب، تعديل، تصدير، حذف)
-function saveStudent() {
-    let id = document.getElementById('stuID').value; // استخدم let
-    const fName = document.getElementById('fName').value.trim();
-    const pName = document.getElementById('pName').value.trim();
-    const gName = document.getElementById('gName').value.trim();
-    const lName = document.getElementById('lName').value.trim();
+/* =========================================================
+   8. شاشة الطلبة: بطاقات + بحث + آخر نشاط + أزرار سريعة
+   (نفس فكرة StudentsScreen في تطبيق Flutter)
+   ========================================================= */
 
-    const result = checkIDNumber(id);
-    if (result !== "Y") {
-        alert("❌ " + result);
-        return;
-    }
+let _studentsCache = [];          // كل الطلبة من IndexedDB
+let _lastActivityByStudent = {};  // رقم الطالب ← آخر نشاط له
 
-    if (!fName || !pName || !gName || !lName) {
-        alert("❌ يجب إدخال جميع أجزاء الاسم (الاسم الأول، الأب، الجد، العائلة)");
-        return;
-    }
-
-    id = parseInt(id, 10); // الآن مسموح لأن id مهيأ بـ let
-
-    const s = { id, fName, pName, gName, lName };
-
-    db.transaction("students", "readwrite")
-      .objectStore("students")
-      .put(s).onsuccess = () => {
-          refreshAll();
-          alert("✅ تم الحفظ بنجاح");
-      };
+function fullStudentName(s) {
+    if (!s) return "";
+    return `${s.fName || ''} ${s.pName || ''} ${s.gName || ''} ${s.lName || ''}`
+        .replace(/\s+/g, ' ').trim();
 }
+
+function escapeHtml(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// أيّ النشاطين أحدث: بالتاريخ أولاً ثم بترتيب الإدخال (id تصاعدي)
+function isLaterActivity(a, b) {
+    const ad = String(a.date || ''), bd = String(b.date || '');
+    if (ad !== bd) return ad > bd;
+    return Number(a.id || 0) > Number(b.id || 0);
+}
+
+// تحميل الطلبة + بناء خريطة آخر نشاط لكل طالب
+function loadStudentsAndActivities() {
+    return new Promise((resolve) => {
+        if (!db) { _studentsCache = []; _lastActivityByStudent = {}; return resolve(); }
+
+        const tx = db.transaction(["students", "records"], "readonly");
+        const sReq = tx.objectStore("students").getAll();
+        const rReq = tx.objectStore("records").getAll();
+
+        tx.oncomplete = () => {
+            _studentsCache = sReq.result || [];
+            _lastActivityByStudent = {};
+            (rReq.result || []).forEach(r => {
+                const key = Number(r.student);
+                if (!key) return;
+                const prev = _lastActivityByStudent[key];
+                if (!prev || isLaterActivity(r, prev)) _lastActivityByStudent[key] = r;
+            });
+            resolve();
+        };
+        tx.onerror = () => resolve();
+    });
+}
+
+// اسم آية مختصر: "سورة البقرة آية 155" بدل التسمية الكاملة بالصفحة والجزء
+function shortAyahLabel(id) {
+    const label = AYAH_REVERSE[id];
+    if (!label) return "";
+    return label.replace(/\s*ص\s*\d+\s*ج\s*\d+\s*$/, '').trim();
+}
+
+// ملخّص آخر نشاط (نفس تركيب _formatActivitySummary في Flutter)
+function formatActivitySummary(r) {
+    const type = Number(r.type);
+    const typeName = translateLookup("RECITATION_ATTENDANCE_TYPE", type);
+    const isPartMode = (type === 6 || type === 7);
+
+    let range = "";
+    if (isPartMode) {
+        if (r.partFrom && r.partTo) range = `من الجزء ${r.partFrom} إلى الجزء ${r.partTo}`;
+        else if (r.partFrom)        range = `من الجزء ${r.partFrom}`;
+    } else {
+        const from = shortAyahLabel(r.fromRange);
+        const to   = shortAyahLabel(r.toRange);
+        if (from && to) range = `من ${from} إلى ${to}`;
+        else if (from)  range = `من ${from}`;
+    }
+
+    const grade = r.rating ? `تقدير: ${translateLookup("ACTIVITY_GRADE", r.rating)}` : "";
+    const mark  = (Number(r.mark) > 0) ? `علامة: ${r.mark}` : "";
+
+    const parts = [typeName, range, grade, mark].filter(p => p && String(p).trim());
+    return `${r.date} — ${parts.join(' • ')}`;
+}
+
+// الأنواع التي تفتح شاشة النشاط (تحتاج آيات/أجزاء) وتلك التي تُحفظ فوراً
+const OPEN_ACTIVITY_TYPES  = [1, 2, 6, 7];
+const QUICK_ACTIVITY_TYPES = [3, 4, 5];
+
+function activityTypeName(type) {
+    const found = STATIC_LOOKUP.find(
+        i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE"
+          && parseInt(i.LOOKUP_VALUE) === Number(type)
+    );
+    return found ? found.LOOKUP_A_NAME : `نوع ${type}`;
+}
+
+function actionButtonHtml(type, studentId, quick) {
+    const style = activityStyles[String(type)] || { icon: "📝", color: "#95a5a6" };
+    const name  = escapeHtml(activityTypeName(type));
+    const fn    = quick ? 'quickSaveActivity' : 'openActivityForStudent';
+    return `<button class="act-btn" title="${name}" aria-label="${name}" ` +
+           `style="color:${style.color}" onclick="${fn}(${studentId}, ${type})">${style.icon}</button>`;
+}
+
+function studentCardHtml(s) {
+    const id   = Number(s.id);
+    const act  = _lastActivityByStudent[id];
+    const style = act ? (activityStyles[String(act.type)] || { icon: "📝", color: "#95a5a6" }) : null;
+
+    const summary = act
+        ? `<span class="student-last-text">${escapeHtml(formatActivitySummary(act))}</span>`
+        : `<span class="student-last-text student-last-none">لا يوجد نشاط مسجّل</span>`;
+
+    const idNoHtml = s.idNo
+        ? `<span class="student-idno">الهوية: ${escapeHtml(s.idNo)}</span>`
+        : '';
+
+    return `
+    <div class="student-card">
+        <div class="student-card-head">
+            <span class="student-name">${escapeHtml(fullStudentName(s))}</span>
+            ${idNoHtml}
+        </div>
+        <div class="student-no">رقم الطالب: ${id}</div>
+        <div class="student-last">
+            <span class="student-last-icon" style="color:${style ? style.color : '#bdc3c7'}">${style ? style.icon : '➖'}</span>
+            ${summary}
+        </div>
+        <div class="student-actions">
+            ${OPEN_ACTIVITY_TYPES.map(t => actionButtonHtml(t, id, false)).join('')}
+            <span class="actions-sep"></span>
+            ${QUICK_ACTIVITY_TYPES.map(t => actionButtonHtml(t, id, true)).join('')}
+            <span class="actions-sep"></span>
+            <button class="act-btn" title="تعديل بيانات الطالب" onclick="editStudent(${id})">✏️</button>
+            <button class="act-btn" title="حذف الطالب" onclick="deleteStudent(${id})">🗑️</button>
+        </div>
+    </div>`;
+}
+
+// الترتيب كما في Flutter: من لا نشاط له أولاً، ثم الأقدم نشاطاً (الأولى بالمتابعة)
+function compareStudentsByFollowUp(a, b) {
+    const aAct = _lastActivityByStudent[Number(a.id)];
+    const bAct = _lastActivityByStudent[Number(b.id)];
+    if (!aAct && !bAct) return 0;
+    if (!aAct) return -1;
+    if (!bAct) return 1;
+    if (isLaterActivity(aAct, bAct)) return 1;
+    if (isLaterActivity(bAct, aAct)) return -1;
+    return 0;
+}
+
+function renderStudentCards() {
+    const wrap  = document.getElementById('studentsCards');
+    const empty = document.getElementById('studentsEmpty');
+    if (!wrap) return;
+
+    const searchEl = document.getElementById('studentSearch');
+    const q = normalizeAr(searchEl ? searchEl.value : '').toLowerCase();
+
+    let list = _studentsCache.slice();
+
+    if (q) {
+        list = list.filter(s =>
+            normalizeAr(fullStudentName(s)).toLowerCase().indexOf(q) !== -1 ||
+            String(s.id || '').indexOf(q) !== -1 ||
+            String(s.idNo || '').indexOf(q) !== -1
+        );
+    }
+
+    list.sort(compareStudentsByFollowUp);
+
+    wrap.innerHTML = list.map(studentCardHtml).join('');
+
+    if (empty) {
+        empty.style.display = list.length ? 'none' : 'block';
+        empty.textContent = _studentsCache.length
+            ? 'لا نتائج مطابقة لبحثك'
+            : 'لا يوجد طلاب لعرضهم حالياً — اسحب البيانات من الإعدادات أو أضف طالباً جديداً';
+    }
+}
+
+// فتح شاشة النشاط بالطالب والنوع محدَّدين مسبقاً (مثل DailyActivityScreen في Flutter)
+function openActivityForStudent(studentId, type) {
+    openTab('activityTab', document.querySelector('.tab-btn[data-tab="activityTab"]'));
+
+    const sel = document.getElementById('studentSelect');
+    if (sel) {
+        sel.value = String(studentId);
+        sel.dispatchEvent(new Event('change'));
+    }
+
+    // النقر على بطاقة النوع يضبط القيمة والتمييز ويستدعي handleActivityTypeChange
+    const card = document.querySelector(`#iconsContainer .icon-card[data-value="${type}"]`);
+    if (card) {
+        card.click();
+    } else {
+        const typeSel = document.getElementById('activityType');
+        if (typeSel) typeSel.value = String(type);
+        handleActivityTypeChange(type);
+    }
+}
+
+// حفظ فوري للحضور/الغياب بعد تأكيد (مثل _confirmAndSaveQuick في Flutter)
+async function quickSaveActivity(studentId, type) {
+    const student = _studentsCache.find(s => Number(s.id) === Number(studentId));
+    const name = fullStudentName(student) || `الطالب ${studentId}`;
+    const title = activityTypeName(type);
+
+    if (!confirm(`هل تريد تأكيد "${title}" للطالب ${name}؟`)) return;
+
+    const { teacher, teacherName } = await getTeacherIdentity();
+    if (!teacher) {
+        return alert("تعذّر التعرّف على المسمّع. يرجى تسجيل الخروج ثم الدخول من جديد.");
+    }
+
+    persistRecord(buildActivityRecord({
+        teacher, teacherName,
+        student: Number(studentId),
+        type: Number(type),
+    }));
+}
+
 function refreshAll() {
-    const sel = document.getElementById('studentSelect'); sel.innerHTML = '<option value="">-- اختر --</option>';
-    const list = document.getElementById('studentsList'); list.innerHTML = '';
-    db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
-        e.target.result.forEach(s => {
-            const full = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
-            sel.innerHTML += `<option value="${s.id}">${full}</option>`;
-            list.innerHTML += `<tr><td>${s.id}</td><td>${full}</td>
-            <td>
-            <button onclick="editStudent(${s.id})">✏️</button>
-             <button onclick="deleteStudent(${s.id}, '${full}')">🗑️</button>
-            </td>
-            </tr>`;
-        });
-    };
-   loadLookups().then(() => {
-    displayRecords();
-});
+    const sel = document.getElementById('studentSelect');
+    if (sel) sel.innerHTML = '<option value="">-- اختر --</option>';
+
+    loadStudentsAndActivities()
+        .then(() => {
+            if (sel) {
+                _studentsCache.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = fullStudentName(s);
+                    sel.appendChild(opt);
+                });
+            }
+            return loadLookups();
+        })
+        .then(() => {
+            renderStudentCards();
+            displayRecords();
+        })
+        .catch(err => console.error("❌ خطأ في تحديث الواجهة:", err));
 }
 
 document.getElementById('filterDate').valueAsDate = new Date();
@@ -1081,7 +1285,9 @@ function displayRecords() {
                    const currentTeacherId = String(r.teacher).replace(/[\\"]/g, '').trim();
                    const teacherName = r.teacherName || teachersMap[currentTeacherId] || currentTeacherId;
                     const matchesDate = !fDate || r.date === fDate;
-                    const matchesID   = !fID || r.student.includes(fID);
+                    // r.student رقم وليس نصاً — التحويل ضروري وإلا انهار الفلتر
+                    const matchesID   = !fID || String(r.student).includes(fID) ||
+                                        studentName.indexOf(fID) !== -1;
 
                     if (matchesDate && matchesID) {
                         let fromText = "";
@@ -1246,41 +1452,310 @@ function exportToExcel() {
     exportArrayToExcel(lastDisplayedData,"نشاط التسميع.xlsx");
 }
 
-function editStudent(id) {
-    db.transaction("students").objectStore("students").get(id).onsuccess = (e) => {
-        const s = e.target.result;
+/* =========================================================
+   نموذج إضافة/تعديل طالب (نفس فكرة AddStudentScreen في Flutter):
+   رقم الهوية ← جلب تلقائي من السجل المدني ← إرسال addNewStudent ←
+   السيرفر يُصدر رقم الطالب (studentno) وهو مفتاح التخزين المحلي.
+   ========================================================= */
 
-        // تعبئة stuID من قيمة id
-        document.getElementById('stuID').value = s.id;
+const STUDENT_FORM_FIELDS = ['stuIdNo', 'fName', 'pName', 'gName', 'lName', 'stuMobile', 'stuBirthDate'];
+let _lastCivilLookupId = null;
 
-        // باقي الحقول عادي
-        ['fName','pName','gName','lName'].forEach(k => {
-            document.getElementById(k).value = s[k];
+function setStudentStatus(msg, color) {
+    const el = document.getElementById('addStudentStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = color || '';
+}
+
+function clearStudentForm() {
+    STUDENT_FORM_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.value = ''; el.readOnly = false; }
+    });
+    const g = document.getElementById('stuGender');
+    if (g) g.value = '';
+    const editNo = document.getElementById('stuEditNo');
+    if (editNo) editNo.value = '';
+    setStudentStatus('', '');
+    _lastCivilLookupId = null;
+}
+
+function openAddStudentForm() {
+    clearStudentForm();
+    const t = document.getElementById('addStudentTitle');
+    if (t) t.textContent = 'إضافة طالب جديد';
+    const note = document.getElementById('addStudentNote');
+    if (note) note.style.display = 'block';
+
+    const card = document.getElementById('addStudentCard');
+    if (card) card.style.display = 'block';
+
+    const idEl = document.getElementById('stuIdNo');
+    if (idEl) idEl.focus();
+}
+
+function closeAddStudentForm() {
+    const card = document.getElementById('addStudentCard');
+    if (card) card.style.display = 'none';
+    clearStudentForm();
+}
+
+function toggleAddStudentForm() {
+    const card = document.getElementById('addStudentCard');
+    if (!card) return;
+    if (card.style.display === 'none' || !card.style.display) openAddStudentForm();
+    else closeAddStudentForm();
+}
+
+// عند الخروج من حقل الهوية: تفريغ الحقول ثم الجلب من السجل المدني (كما في Flutter)
+async function onStudentIdBlur() {
+    const el = document.getElementById('stuIdNo');
+    if (!el) return;
+
+    // في وضع التعديل رقم الهوية للعرض فقط
+    const editNo = document.getElementById('stuEditNo');
+    if (editNo && editNo.value) return;
+
+    const id = String(el.value || '').trim();
+    if (!/^\d{9}$/.test(id)) return;   // ناقص → تجاهل
+    if (id === _lastCivilLookupId) return; // لم يتغيّر → لا تفريغ ولا جلب
+    _lastCivilLookupId = id;
+
+    ['fName', 'pName', 'gName', 'lName', 'stuBirthDate'].forEach(k => {
+        const e = document.getElementById(k);
+        if (e) e.value = '';
+    });
+    const g = document.getElementById('stuGender');
+    if (g) g.value = '';
+
+    if (!navigator.onLine) {
+        return setStudentStatus('⚠️ لا يوجد اتصال — أكمل البيانات يدوياً.', '#e67e22');
+    }
+
+    setStudentStatus('🔄 جارٍ الجلب من السجل المدني…', '#3498db');
+
+    try {
+        const data = await QMC.lookupCivilRecord(id);
+        if (!data) {
+            return setStudentStatus('لا توجد بيانات لهذا الرقم في السجل المدني — أكمل يدوياً.', '#5f6368');
+        }
+
+        const setVal = (elId, value) => {
+            const e = document.getElementById(elId);
+            if (e) e.value = value || '';
+        };
+        setVal('fName', data.first_name);
+        setVal('pName', data.father_name);
+        setVal('gName', data.gfather_name);
+        setVal('lName', data.family_name);
+
+        if (data.gender === 'M' || data.gender === 'F') {
+            if (g) g.value = data.gender;
+        }
+        if (data.birth_date) {
+            setVal('stuBirthDate', String(data.birth_date).split('T')[0]);
+        }
+
+        setStudentStatus('✅ تم جلب البيانات من السجل المدني.', '#27ae60');
+    } catch (err) {
+        console.warn('تعذّر الجلب من السجل المدني:', err);
+        setStudentStatus('تعذّر الجلب من السجل المدني — أكمل البيانات يدوياً.', '#5f6368');
+    }
+}
+
+// رقم حلقة المسمّع الحالية من مخزن empdata
+function getCurrentCircleNo() {
+    return new Promise((resolve) => {
+        if (!db) return resolve(null);
+        try {
+            const req = db.transaction("empdata").objectStore("empdata").get(getCurrentUser());
+            req.onsuccess = () => resolve(req.result ? Number(req.result.CIRCLE_NO) : null);
+            req.onerror = () => resolve(null);
+        } catch (_) {
+            resolve(null);
+        }
+    });
+}
+
+// يقرأ ويتحقق من حقول النموذج؛ يُرجع الكائن أو null مع رسالة خطأ
+function readStudentForm(requireAll) {
+    const val = id => String((document.getElementById(id) || {}).value || '').trim();
+
+    const idNo   = val('stuIdNo');
+    const fName  = val('fName');
+    const pName  = val('pName');
+    const gName  = val('gName');
+    const lName  = val('lName');
+    const gender = val('stuGender');
+    const mobile = val('stuMobile');
+    const birthDate = val('stuBirthDate');
+
+    const idCheck = checkIDNumber(idNo);
+    if (idCheck !== "Y") {
+        setStudentStatus("❌ " + idCheck, '#c0392b');
+        return null;
+    }
+
+    if (!fName || !pName || !gName || !lName) {
+        setStudentStatus("❌ يجب إدخال الاسم رباعياً (الأول، الأب، الجد، العائلة)", '#c0392b');
+        return null;
+    }
+
+    if (requireAll) {
+        if (!gender) {
+            setStudentStatus("❌ يجب اختيار الجنس", '#c0392b');
+            return null;
+        }
+        if (!/^\d{9,10}$/.test(mobile)) {
+            setStudentStatus("❌ رقم الجوال يجب أن يكون 9 أو 10 أرقام", '#c0392b');
+            return null;
+        }
+    }
+
+    if (birthDate && birthDate > new Date().toISOString().split('T')[0]) {
+        setStudentStatus("❌ تاريخ الميلاد لا يكون في المستقبل", '#c0392b');
+        return null;
+    }
+
+    return { idNo, fName, pName, gName, lName, gender, mobile, birthDate };
+}
+
+function submitStudentForm() {
+    const editNo = String((document.getElementById('stuEditNo') || {}).value || '').trim();
+    return editNo ? updateStudentLocally(Number(editNo)) : addNewStudentOnline();
+}
+
+// إضافة طالب جديد: السيرفر يُصدر رقم الطالب ثم نحفظه محلياً بذلك الرقم
+async function addNewStudentOnline() {
+    const form = readStudentForm(true);
+    if (!form) return;
+
+    if (!navigator.onLine) {
+        return setStudentStatus('❌ إضافة طالب جديد تتطلب اتصالاً بالإنترنت، لأن السيرفر هو من يُصدر رقم الطالب.', '#c0392b');
+    }
+
+    const btn = document.getElementById('submitStudentBtn');
+    if (btn) btn.disabled = true;
+    setStudentStatus('🔄 جارٍ إضافة الطالب على السيرفر…', '#3498db');
+
+    try {
+        const circleNo = await getCurrentCircleNo();
+
+        const studentNo = await QMC.addNewStudent({
+            USER_ID_NO_IN  : getCurrentUser(),
+            ID_NO_IN       : form.idNo,
+            FIRST_NAME_IN  : form.fName,
+            FATHER_NAME_IN : form.pName,
+            GFATHER_NAME_IN: form.gName,
+            FAMILY_NAME_IN : form.lName,
+            BIRTH_DATE_IN  : form.birthDate || null,
+            GENDER_IN      : form.gender,
+            MOBILE_NO_IN   : form.mobile,
+            CIRCLE_NO_IN   : circleNo,
         });
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const student = {
+            id       : studentNo,     // المفتاح = رقم الطالب من السيرفر
+            idNo     : form.idNo,
+            fName    : form.fName,
+            pName    : form.pName,
+            gName    : form.gName,
+            lName    : form.lName,
+            gender   : form.gender,
+            mobile   : form.mobile,
+            birthDate: form.birthDate,
+            circleNo : circleNo,
+        };
+
+        db.transaction("students", "readwrite").objectStore("students").put(student).onsuccess = () => {
+            refreshAll();
+            showToast(`✅ تم إضافة الطالب — رقمه ${studentNo}`);
+            closeAddStudentForm();
+        };
+    } catch (err) {
+        console.error("❌ تعذّر إضافة الطالب:", err);
+        setStudentStatus('❌ ' + (err.message || 'تعذّر إضافة الطالب'), '#c0392b');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// تعديل بيانات طالب موجود — محلي فقط (لا يوجد endpoint لتعديل الطالب على السيرفر)
+function updateStudentLocally(studentNo) {
+    const form = readStudentForm(false);
+    if (!form) return;
+
+    const store = db.transaction("students", "readwrite").objectStore("students");
+    const req = store.get(studentNo);
+
+    req.onsuccess = () => {
+        const merged = Object.assign({}, req.result || {}, form, { id: studentNo });
+        store.put(merged).onsuccess = () => {
+            refreshAll();
+            showToast("✅ تم تحديث بيانات الطالب محلياً");
+            closeAddStudentForm();
+        };
     };
 }
 
-function deleteStudent(id, fullName) {
-    if (confirm(`هل أنت متأكد أنك تريد حذف الطالب: ${fullName} ؟`)) {
-        const tx = db.transaction("students", "readwrite");
-        const store = tx.objectStore("students");
+function editStudent(id) {
+    const s = _studentsCache.find(st => Number(st.id) === Number(id));
+    if (!s) return alert("لم يُعثر على الطالب");
 
-        // حذف إذا كان مخزن كنص
-        store.delete(id.toString());
+    clearStudentForm();
 
-        // حذف إذا كان مخزن كرقم
-        const numericID = parseInt(id, 10);
-        if (!isNaN(numericID)) {
-            store.delete(numericID);
-        }
+    const set = (elId, value) => {
+        const el = document.getElementById(elId);
+        if (el) el.value = value || '';
+    };
+    set('stuIdNo', s.idNo);
+    set('fName', s.fName);
+    set('pName', s.pName);
+    set('gName', s.gName);
+    set('lName', s.lName);
+    set('stuGender', s.gender);
+    set('stuMobile', s.mobile);
+    set('stuBirthDate', s.birthDate);
+    set('stuEditNo', s.id);
 
-        tx.oncomplete = () => {
-            refreshAll();
-            alert("✅ تم الحذف بنجاح");
-        };
+    const idEl = document.getElementById('stuIdNo');
+    if (idEl) idEl.readOnly = true;   // رقم الهوية لا يُعدَّل بعد التسجيل
+
+    const t = document.getElementById('addStudentTitle');
+    if (t) t.textContent = `تعديل بيانات: ${fullStudentName(s)}`;
+    const note = document.getElementById('addStudentNote');
+    if (note) note.style.display = 'none';
+
+    const card = document.getElementById('addStudentCard');
+    if (card) card.style.display = 'block';
+
+    setStudentStatus('التعديل يُحفظ محلياً على هذا الجهاز فقط.', '#5f6368');
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function deleteStudent(id) {
+    const s = _studentsCache.find(st => Number(st.id) === Number(id));
+    const fullName = fullStudentName(s) || `رقم ${id}`;
+
+    if (!confirm(`هل أنت متأكد أنك تريد حذف الطالب: ${fullName} ؟\n(الحذف محلي على هذا الجهاز فقط)`)) return;
+
+    const tx = db.transaction("students", "readwrite");
+    const store = tx.objectStore("students");
+
+    // حذف إذا كان مخزن كنص
+    store.delete(String(id));
+
+    // حذف إذا كان مخزن كرقم
+    const numericID = parseInt(id, 10);
+    if (!isNaN(numericID)) {
+        store.delete(numericID);
     }
+
+    tx.oncomplete = () => {
+        refreshAll();
+        showToast("✅ تم حذف الطالب");
+    };
 }
 
 function checkIDNumber(id) {
@@ -1937,6 +2412,67 @@ async function refreshSettingsInfo() {
     set('settingsPending', pending === null ? "-" : String(pending));
 }
 
+/* إعادة ضبط البيانات المحلية: حذف الطلبة والسجلات ثم سحبها من السيرفر.
+   يرفض العمل إن كان هناك سجل واحد غير مرفوع — حتى لا يضيع عمل المسمّع. */
+async function resetLocalData() {
+    const btn = document.getElementById('resetLocalBtn');
+    const show = (msg, color) => {
+        const el = document.getElementById('resetStatus');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.style.color = color || '';
+    };
+
+    if (!db) return show("❌ قاعدة البيانات غير جاهزة بعد.", "#c0392b");
+
+    const pending = await countPendingRecords();
+    if (pending === null) return show("❌ تعذّر فحص السجلات المعلّقة.", "#c0392b");
+
+    if (pending > 0) {
+        show(`⛔ يوجد ${pending} سجل لم يُرفع بعد. اضغط «رفع السجلات» أولاً حتى يصبح العدد صفراً.`, "#c0392b");
+        return alert(
+            `لا يمكن إعادة الضبط الآن.\n\nيوجد ${pending} سجل نشاط لم يُرفع إلى السيرفر، وسيضيع نهائياً.\n` +
+            `اضغط «رفع السجلات» أولاً، وتأكد أن «سجلات بانتظار الرفع» أصبح صفراً.`
+        );
+    }
+
+    if (!navigator.onLine) {
+        return show("⚠️ إعادة الضبط تتطلب اتصالاً بالإنترنت لإعادة سحب البيانات.", "#e67e22");
+    }
+
+    const confirmed = confirm(
+        "سيتم حذف كل الطلبة والسجلات المخزّنة على هذا الجهاز ثم سحبها من جديد من السيرفر.\n\n" +
+        "لا توجد سجلات غير مرفوعة، فلن يضيع شيء.\n\nهل تريد المتابعة؟"
+    );
+    if (!confirmed) return;
+
+    if (btn) btn.disabled = true;
+    show("🔄 جارٍ حذف البيانات المحلية…", "#3498db");
+
+    try {
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(["students", "records"], "readwrite");
+            tx.objectStore("students").clear();
+            tx.objectStore("records").clear();
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error || new Error("فشل حذف المخازن"));
+        });
+
+        show("🔄 تم الحذف، جارٍ السحب من السيرفر…", "#3498db");
+        await pullRecordsFromServer();
+
+        refreshAll();
+        refreshSettingsInfo();
+        show("✅ تمت إعادة الضبط بنجاح.", "#27ae60");
+    } catch (err) {
+        console.error("❌ فشل إعادة الضبط:", err);
+        show("❌ فشل إعادة الضبط: " + (err.message || "خطأ غير معروف") +
+             " — اضغط «سحب البيانات» يدوياً.", "#c0392b");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 // إظهار طرفَي معرّف الجهاز فقط (لا داعي لعرضه كاملاً)
 function maskDeviceId(id) {
     const s = String(id);
@@ -2013,15 +2549,26 @@ async function pullRecordsFromServer() {
         const storeStu = tx.objectStore("students");
         const indexRec = storeRec.index("student_date_type");
 
-        // --- حفظ الطلاب ---
+        // --- حفظ الطلاب (دمج مع الموجود حتى لا تُمسح الحقول المحلية كرقم الهوية) ---
         for (const s of remoteStudents) {
-            storeStu.put({
-                id: Number(s.id),
-                fName: s.fName || s.fname,
-                pName: s.pName || s.pname,
-                gName: s.gName || s.gname,
-                lName: s.lName || s.lname
+            const key = Number(s.id);
+
+            const existing = await new Promise(r => {
+                const req = storeStu.get(key);
+                req.onsuccess = () => r(req.result);
+                req.onerror   = () => r(null);
             });
+
+            const pick = (...vals) => vals.find(v => v !== undefined && v !== null && v !== '') || '';
+
+            storeStu.put(Object.assign({}, existing || {}, {
+                id   : key,
+                fName: pick(s.fName, s.fname, existing && existing.fName),
+                pName: pick(s.pName, s.pname, existing && existing.pName),
+                gName: pick(s.gName, s.gname, existing && existing.gName),
+                lName: pick(s.lName, s.lname, existing && existing.lName),
+                idNo : pick(s.idNo, s.idno, s.ID_NO, existing && existing.idNo),
+            }));
         }
 
         // --- حفظ السجلات ---

@@ -329,24 +329,58 @@
         </div>            
         <!-- شاشة إدارة الطلاب -->
         <div id="studentsTab" class="tab-content">
-            <div class="card">
-                <h3><i class="fas fa-users"></i> طلابي</h3>
-                <div class="grid">
-                    <input type="number" id="stuID" placeholder="رقم الهوية">
-                    <input type="text" id="fName" placeholder="الاسم الأول">
-                    <input type="text" id="pName" placeholder="الأب">
-                    <input type="text" id="gName" placeholder="الجد">
-                    <input type="text" id="lName" placeholder="العائلة">
+            <div class="section-title">طلابي</div>
+            <div class="section-note">الطلبة الذين لم يُسمّعوا منذ فترة يظهرون أولاً. سجّل النشاط مباشرة من أيقونات البطاقة.</div>
+
+            <div class="students-toolbar">
+                <div class="search-wrap">
+                    <i class="fas fa-magnifying-glass search-icon"></i>
+                    <input type="search" id="studentSearch" placeholder="ابحث بالاسم أو رقم الهوية أو رقم الطالب" oninput="renderStudentCards()">
                 </div>
-                <button class="btn-add" onclick="saveStudent()" style="margin-top:10px"><i class="fas fa-check"></i> حفظ / تحديث بيانات الطالب</button>
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr><th>الهوية</th><th>الاسم الكامل</th><th>تعديل</th></tr></thead>
-                        <tbody id="studentsList"></tbody>
-                    </table>
-                </div>
+                <button class="btn-new-student" onclick="toggleAddStudentForm()">
+                    <i class="fas fa-user-plus"></i> <span class="btn-text">طالب جديد</span>
+                </button>
             </div>
 
+            <!-- نموذج إضافة/تعديل طالب -->
+            <div class="card" id="addStudentCard" style="display:none">
+                <h3><i class="fas fa-user-plus"></i> <span id="addStudentTitle">إضافة طالب جديد</span></h3>
+                <p class="add-student-note" id="addStudentNote">
+                    <i class="fas fa-wifi"></i> إضافة طالب جديد تتطلب اتصالاً بالإنترنت، لأن السيرفر هو من يُصدر رقم الطالب.
+                </p>
+
+                <div class="grid">
+                    <div class="field">
+                        <label>رقم الهوية</label>
+                        <input lang="en" inputmode="numeric" type="text" maxlength="9" id="stuIdNo" placeholder="9 خانات" onblur="onStudentIdBlur()">
+                        <small class="field-hint">يُجلب الاسم وتاريخ الميلاد تلقائياً من السجل المدني إن وُجد.</small>
+                    </div>
+                    <div class="field"><label>الاسم الأول</label><input type="text" id="fName"></div>
+                    <div class="field"><label>اسم الأب</label><input type="text" id="pName"></div>
+                    <div class="field"><label>اسم الجد</label><input type="text" id="gName"></div>
+                    <div class="field"><label>اسم العائلة</label><input type="text" id="lName"></div>
+                    <div class="field">
+                        <label>الجنس</label>
+                        <select id="stuGender">
+                            <option value="">-- اختر --</option>
+                            <option value="M">ذكر</option>
+                            <option value="F">أنثى</option>
+                        </select>
+                    </div>
+                    <div class="field"><label>رقم الجوال</label><input lang="en" inputmode="numeric" type="text" maxlength="10" id="stuMobile"></div>
+                    <div class="field"><label>تاريخ الميلاد</label><input type="date" id="stuBirthDate"></div>
+                </div>
+
+                <div id="addStudentStatus" class="settings-status"></div>
+                <div class="add-student-actions">
+                    <button class="btn-save" id="submitStudentBtn" onclick="submitStudentForm()"><i class="fas fa-check"></i> حفظ الطالب</button>
+                    <button class="btn-cancel" onclick="closeAddStudentForm()">إلغاء</button>
+                </div>
+                <input type="hidden" id="stuEditNo">
+            </div>
+
+            <div id="studentsCards" class="students-cards"></div>
+            <div id="studentsEmpty" class="students-empty" style="display:none">لا يوجد طلاب لعرضهم حالياً</div>
         </div>
 
         <!-- شاشة السجلات -->
@@ -385,8 +419,8 @@
             <input type="date" id="filterDate" onchange="displayRecords()">
         </div>
         <div class="field">
-            <label>بحث برقم هوية الطالب</label>
-            <input type="number" id="filterStudentID" placeholder="أدخل رقم الهوية" oninput="displayRecords()">
+            <label>بحث برقم الطالب أو اسمه</label>
+            <input type="text" id="filterStudentID" placeholder="رقم الطالب أو جزء من اسمه" oninput="displayRecords()">
         </div>
         <div class="field" style="display: flex; align-items: flex-end;">
             <button onclick="resetFilters()" style="background: #6c757d; color: white; padding: 10px;"><i class="fas fa-redo"></i> إعادة تعيين</button>
@@ -473,6 +507,19 @@
                     <button id="settingsSyncBtn" class="btn-sync"><i class="fas fa-sync-alt"></i> <span class="btn-text">رفع السجلات</span></button>
                     <button id="settingsPullBtn" class="btn-pull"><i class="fas fa-cloud-download-alt"></i> <span class="btn-text">سحب البيانات</span></button>
                 </div>
+            </div>
+
+            <!-- صيانة البيانات -->
+            <div class="card">
+                <h3><i class="fas fa-broom"></i> صيانة البيانات</h3>
+                <p class="section-note" style="margin:0 0 10px">
+                    يحذف الطلبة والسجلات المخزّنة على هذا الجهاز ثم يسحبها من جديد من السيرفر.
+                    استخدمه إذا ظهرت أسماء ناقصة أو طلاب مكررون. لن يعمل ما دام هناك سجل واحد لم يُرفع بعد.
+                </p>
+                <div id="resetStatus" class="settings-status"></div>
+                <button id="resetLocalBtn" class="btn-danger" onclick="resetLocalData()" style="margin-top:10px">
+                    <i class="fas fa-rotate-left"></i> إعادة ضبط البيانات المحلية
+                </button>
             </div>
 
             <!-- نسخة احتياطية -->
