@@ -218,7 +218,7 @@ loadStaticLookup();
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 12); // الإصدار الجديد
+    const request = indexedDB.open(DB_NAME, 13); // 13: إضافة مخزن الحلقات
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
@@ -256,6 +256,11 @@ function initDB() {
             settingStore = e.target.transaction.objectStore("settings");
         }
 
+        // حلقات المستخدم (قد تكون أكثر من حلقة) — مصدرها getUserCircles
+        if (!db.objectStoreNames.contains("circles")) {
+            db.createObjectStore("circles", { keyPath: "circleNo" });
+        }
+
 
     };
 
@@ -263,6 +268,7 @@ function initDB() {
         db = e.target.result;
         refreshAll();
         fetchAndStoreEmpData(getCurrentUser());
+        fetchAndStoreCircles();
         refreshSettingsInfo();
 
          if (!window._syncOnlineListenerAdded) {
@@ -1457,6 +1463,21 @@ function setStudentStatus(msg, color) {
     el.style.color = color || '';
 }
 
+// تحويل الأرقام العربية-الهندية (٠١٢…) إلى إنجليزية، لأن لوحة المفاتيح العربية تُدخلها
+function toAsciiDigits(text) {
+    return String(text == null ? '' : text)
+        .replace(/[٠-٩]/g, d => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 48))
+        .replace(/[۰-۹]/g, d => String.fromCharCode(d.charCodeAt(0) - 0x06F0 + 48));
+}
+
+// حقل أرقام فقط بطول أقصى (مقابل FilteringTextInputFormatter.digitsOnly في Flutter)
+function onlyDigits(el, maxLen) {
+    if (!el) return;
+    let v = toAsciiDigits(el.value).replace(/\D+/g, '');
+    if (maxLen) v = v.slice(0, maxLen);
+    if (el.value !== v) el.value = v;
+}
+
 function clearStudentForm() {
     STUDENT_FORM_FIELDS.forEach(id => {
         const el = document.getElementById(id);
@@ -1464,13 +1485,15 @@ function clearStudentForm() {
     });
     const g = document.getElementById('stuGender');
     if (g) g.value = '';
+    const c = document.getElementById('stuCircle');
+    if (c) c.value = '';
     const editNo = document.getElementById('stuEditNo');
     if (editNo) editNo.value = '';
     setStudentStatus('', '');
     _lastCivilLookupId = null;
 }
 
-function openAddStudentForm() {
+async function openAddStudentForm() {
     clearStudentForm();
     const t = document.getElementById('addStudentTitle');
     if (t) t.textContent = 'إضافة طالب جديد';
@@ -1479,6 +1502,8 @@ function openAddStudentForm() {
 
     const card = document.getElementById('addStudentCard');
     if (card) card.style.display = 'block';
+
+    await populateCircleSelect();
 
     const idEl = document.getElementById('stuIdNo');
     if (idEl) idEl.focus();
@@ -1553,18 +1578,109 @@ async function onStudentIdBlur() {
     }
 }
 
-// رقم حلقة المسمّع الحالية من مخزن empdata
-function getCurrentCircleNo() {
+// سجل الموظف الحالي من مخزن empdata
+function getEmpRecord() {
     return new Promise((resolve) => {
         if (!db) return resolve(null);
         try {
             const req = db.transaction("empdata").objectStore("empdata").get(getCurrentUser());
-            req.onsuccess = () => resolve(req.result ? Number(req.result.CIRCLE_NO) : null);
-            req.onerror = () => resolve(null);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror   = () => resolve(null);
         } catch (_) {
             resolve(null);
         }
     });
+}
+
+// رقم حلقة المسمّع من empdata — يُستخدم كاحتياط فقط إن لم تُجلب قائمة الحلقات
+async function getCurrentCircleNo() {
+    const emp = await getEmpRecord();
+    return emp ? Number(emp.CIRCLE_NO) : null;
+}
+
+// حلقات المستخدم المخزّنة محلياً
+function getCirclesFromDb() {
+    return new Promise((resolve) => {
+        if (!db || !db.objectStoreNames.contains("circles")) return resolve([]);
+        try {
+            const req = db.transaction("circles").objectStore("circles").getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror   = () => resolve([]);
+        } catch (_) {
+            resolve([]);
+        }
+    });
+}
+
+// جلب حلقات المستخدم من السيرفر وتخزينها (نفس فكرة UserCirclesService في Flutter)
+async function fetchAndStoreCircles() {
+    const user = getCurrentUser();
+    if (!user || !db || !navigator.onLine) return [];
+
+    try {
+        const items = await QMC.getUserCircles(user);
+        if (!items.length) {
+            console.warn("⚠️ لم تُرجع الخدمة أي حلقة لهذا المستخدم");
+            return [];
+        }
+
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction("circles", "readwrite");
+            const store = tx.objectStore("circles");
+            store.clear();
+            items.forEach(it => store.put({
+                circleNo  : Number(it.circle_no),
+                circleName: it.circle_name || '',
+                centerNo  : (it.center_no != null) ? Number(it.center_no) : null,
+                centerName: it.center_name || '',
+                empRole   : (it.emp_role != null) ? String(it.emp_role) : '',
+            }));
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+
+        console.log(`✅ تم تخزين ${items.length} حلقة`);
+        renderCirclesList();
+        return items;
+    } catch (err) {
+        console.warn("تعذّر جلب حلقات المستخدم:", err);
+        return [];
+    }
+}
+
+// تعبئة قائمة الحلقات في نموذج الطالب
+async function populateCircleSelect(selectedNo) {
+    const sel = document.getElementById('stuCircle');
+    if (!sel) return;
+
+    const circles = await getCirclesFromDb();
+    sel.innerHTML = '<option value="">-- اختر الحلقة --</option>';
+
+    circles
+        .sort((a, b) => Number(a.circleNo) - Number(b.circleNo))
+        .forEach(c => {
+            const o = document.createElement('option');
+            o.value = c.circleNo;
+            o.textContent = c.circleName || ('حلقة ' + c.circleNo);
+            sel.appendChild(o);
+        });
+
+    // احتياط: لم تُجلب الحلقات بعد → استخدم حلقة المسمّع من empdata
+    if (!circles.length) {
+        const emp = await getEmpRecord();
+        if (emp && emp.CIRCLE_NO) {
+            const o = document.createElement('option');
+            o.value = Number(emp.CIRCLE_NO);
+            o.textContent = emp.CIRCLE_NAME || ('حلقة ' + emp.CIRCLE_NO);
+            sel.appendChild(o);
+        }
+    }
+
+    if (selectedNo !== undefined && selectedNo !== null && selectedNo !== '') {
+        sel.value = String(selectedNo);
+    } else if (sel.options.length === 2) {
+        sel.selectedIndex = 1;   // حلقة واحدة فقط → اخترها تلقائياً
+    }
 }
 
 // يقرأ ويتحقق من حقول النموذج؛ يُرجع الكائن أو null مع رسالة خطأ
@@ -1579,6 +1695,7 @@ function readStudentForm(requireAll) {
     const gender = val('stuGender');
     const mobile = val('stuMobile');
     const birthDate = val('stuBirthDate');
+    const circleNo = val('stuCircle');
 
     const idCheck = checkIDNumber(idNo);
     if (idCheck !== "Y") {
@@ -1600,6 +1717,10 @@ function readStudentForm(requireAll) {
             setStudentStatus("❌ رقم الجوال يجب أن يكون 9 أو 10 أرقام", '#c0392b');
             return null;
         }
+        if (!circleNo) {
+            setStudentStatus("❌ يجب اختيار الحلقة", '#c0392b');
+            return null;
+        }
     }
 
     if (birthDate && birthDate > new Date().toISOString().split('T')[0]) {
@@ -1607,7 +1728,10 @@ function readStudentForm(requireAll) {
         return null;
     }
 
-    return { idNo, fName, pName, gName, lName, gender, mobile, birthDate };
+    return {
+        idNo, fName, pName, gName, lName, gender, mobile, birthDate,
+        circleNo: circleNo ? Number(circleNo) : null,
+    };
 }
 
 function submitStudentForm() {
@@ -1629,7 +1753,8 @@ async function addNewStudentOnline() {
     setStudentStatus('🔄 جارٍ إضافة الطالب على السيرفر…', '#3498db');
 
     try {
-        const circleNo = await getCurrentCircleNo();
+        // الحلقة المختارة من القائمة؛ وإن غابت القائمة نرجع لحلقة المسمّع من empdata
+        const circleNo = form.circleNo || await getCurrentCircleNo();
 
         const studentNo = await QMC.addNewStudent({
             USER_ID_NO_IN  : getCurrentUser(),
@@ -1688,11 +1813,12 @@ function updateStudentLocally(studentNo) {
     };
 }
 
-function editStudent(id) {
+async function editStudent(id) {
     const s = _studentsCache.find(st => Number(st.id) === Number(id));
     if (!s) return alert("لم يُعثر على الطالب");
 
     clearStudentForm();
+    await populateCircleSelect(s.circleNo);
 
     const set = (elId, value) => {
         const el = document.getElementById(elId);
@@ -2342,9 +2468,10 @@ function refreshEmpData() {
 
     show("🔄 جارٍ التحديث من السيرفر…", "#3498db");
 
-    fetchDataFromServer(user)
-        .then(() => {
-            show("✅ تم تحديث بياناتك.", "#27ae60");
+    Promise.all([fetchDataFromServer(user), fetchAndStoreCircles()])
+        .then(([, circles]) => {
+            const extra = circles && circles.length ? ` (${circles.length} حلقة)` : "";
+            show("✅ تم تحديث بياناتك" + extra + ".", "#27ae60");
             refreshSettingsInfo();
             setTimeout(() => show("", ""), 4000);
         })
@@ -2399,6 +2526,8 @@ async function refreshSettingsInfo() {
 
     const pending = await countPendingRecords();
     set('settingsPending', pending === null ? "-" : String(pending));
+
+    await renderCirclesList();
 }
 
 /* إعادة ضبط البيانات المحلية: حذف الطلبة والسجلات ثم سحبها من السيرفر.
@@ -2462,6 +2591,96 @@ async function resetLocalData() {
     }
 }
 
+// دور المسمّع في الحلقة (emp_role) — نفس ترميز تطبيق Flutter
+const CIRCLE_ROLE_NAMES = { M: 'محفّظ أساسي', A: 'مساعد', Q: 'استعلام فقط' };
+
+function circleRoleLabel(role) {
+    const r = String(role || '').trim().toUpperCase();
+    return CIRCLE_ROLE_NAMES[r] || (r ? r : 'غير محدّد');
+}
+
+// عرض كل حلقات المسمّع (قد تكون أكثر من واحدة في نفس الوقت)
+async function renderCirclesList() {
+    const wrap  = document.getElementById('circlesList');
+    const count = document.getElementById('circlesCount');
+    if (!wrap) return;
+
+    const circles = await getCirclesFromDb();
+    const emp = await getEmpRecord();
+
+    // احتياط: لم تُجلب الحلقات بعد → اعرض حلقة empdata الواحدة
+    let rows = circles;
+    let isFallback = false;
+    if (!rows.length && emp && emp.CIRCLE_NO) {
+        isFallback = true;
+        rows = [{
+            circleNo  : Number(emp.CIRCLE_NO),
+            circleName: emp.CIRCLE_NAME || '',
+            centerName: emp.CENTER_NAME || '',
+            empRole   : '',
+        }];
+    }
+
+    if (!rows.length) {
+        wrap.innerHTML = `<div class="circles-empty">لم تُجلب حلقاتك بعد — اضغط «تحديث بياناتي من السيرفر».</div>`;
+        if (count) count.textContent = '';
+        updateEmpChipSub([], emp);
+        return;
+    }
+
+    rows.sort((a, b) => Number(a.circleNo) - Number(b.circleNo));
+
+    wrap.innerHTML = rows.map(c => {
+        const role = String(c.empRole || '').trim().toUpperCase();
+        const badge = (!isFallback && role)
+            ? `<span class="role-badge role-${escapeHtml(role)}">${escapeHtml(circleRoleLabel(role))}</span>`
+            : '';
+        const meta = [
+            `رقم ${c.circleNo}`,
+            c.centerName ? escapeHtml(c.centerName) : ''
+        ].filter(Boolean).join(' • ');
+
+        return `
+        <div class="circle-row">
+            <div class="circle-main">
+                <span class="circle-name">${escapeHtml(c.circleName || ('حلقة ' + c.circleNo))}</span>
+                <span class="circle-meta">${meta}</span>
+            </div>
+            ${badge}
+        </div>`;
+    }).join('');
+
+    if (count) {
+        count.textContent = isFallback
+            ? 'من بيانات الموظف'
+            : (rows.length === 1 ? 'حلقة واحدة' : `${rows.length} حلقات`);
+    }
+
+    updateEmpChipSub(isFallback ? [] : rows, emp);
+}
+
+// سطر الشريط أعلى شاشة النشاط: يوضّح تعدّد الحلقات بدل عرض واحدة فقط
+function updateEmpChipSub(circles, emp) {
+    const el = document.getElementById('empChipSub');
+    if (!el) return;
+
+    const center = (emp && emp.CENTER_NAME) ? emp.CENTER_NAME : '';
+
+    let text;
+    if (circles.length > 1) {
+        text = `${circles.length} حلقات`;
+    } else if (circles.length === 1) {
+        text = circles[0].circleName || ('حلقة ' + circles[0].circleNo);
+    } else if (emp && emp.CIRCLE_NAME) {
+        text = emp.CIRCLE_NAME;
+    } else {
+        text = 'اضغط لعرض بيانات المركز والحلقة';
+        return void (el.textContent = text);
+    }
+
+    el.textContent = center ? `${text} — ${center}` : text;
+}
+
 // إظهار طرفَي معرّف الجهاز فقط (لا داعي لعرضه كاملاً)
 function maskDeviceId(id) {
     const s = String(id);
@@ -2481,11 +2700,11 @@ function displayEmpData(data) {
 
     set("empName", name);
     set("centerInfo", center);
-    set("circleInfo", circle);
+    set("circleInfo", circle);   // بقي لتوافق أي نسخة قديمة من الصفحة
 
-    // الشريط المضغوط أعلى شاشة النشاط
+    // الشريط المضغوط أعلى شاشة النشاط (سطر الحلقات تضبطه renderCirclesList)
     set("empChipName", name || getCurrentUser() || "غير معروف");
-    set("empChipSub", `${data.CIRCLE_NAME || ""} — ${data.CENTER_NAME || ""}`.replace(/^ — | — $/, ""));
+    renderCirclesList();
 }
 
 function handleLogout() {

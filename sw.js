@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.49';
+const CACHE_NAME = 'quran-app-v1.51';
 // الأساسي للإقلاع offline — فشل أي ملف لا يُفشّل التثبيت
 const CORE = [
   './', './index.html', './login.html', './app.css', './app.js', './api.js',
@@ -72,13 +72,20 @@ self.addEventListener('fetch', (e) => {
 // دالة المزامنة مع Debug + postMessage
 function syncRecords() {
   return new Promise((resolve, reject) => {
-    console.log("🔄 بدأ تشغيل syncRecords (الإصدار 12)");
-    
-    // فتح قاعدة البيانات بالإصدار الأخير
-    const request = indexedDB.open("QuranProjectDB", 12);
+    console.log("🔄 بدأ تشغيل syncRecords");
+
+    // بلا رقم إصدار: نفتح القاعدة كما هي دائماً.
+    // تثبيت رقم هنا يجعل الـ SW يفشل (VersionError) كلما رقّت الصفحة القاعدة،
+    // أو — أسوأ — يرقّيها بنفسه بلا مخازن جديدة قبل أن تفتحها الصفحة.
+    const request = indexedDB.open("QuranProjectDB");
 
     request.onsuccess = (event) => {
       const db = event.target.result;
+
+      if (!db.objectStoreNames.contains("settings") || !db.objectStoreNames.contains("records")) {
+        console.warn("⚠️ القاعدة غير مهيأة بعد، تخطّي المزامنة");
+        return resolve();
+      }
 
       // 1. جلب كائن الإعدادات من مخزن settings
       const settingsTx = db.transaction("settings", "readonly");

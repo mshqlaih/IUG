@@ -101,6 +101,16 @@ window.QMC = (function () {
     return res.json(); // { items: [...] }
   }
 
+  // --- حلقات المستخدم (نفس عقد UserCirclesService في Flutter) ---
+  // getUserCircles?username=X → { items: [{ circle_no, circle_name, center_no,
+  //                                         center_name, gender, circle_days, emp_role }] }
+  async function getUserCircles(username = getUserName()) {
+    const res = await apiFetch(`getUserCircles?username=${encodeURIComponent(username)}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    return (body && body.items) || [];
+  }
+
   // --- السجل المدني: جلب بيانات الطالب برقم الهوية (نفس عقد CivilRegistryService في Flutter) ---
   // civil/getCivilRecord/{idno} → { items: [{ first_name, father_name, gfather_name,
   //                                           family_name, birth_date, gender }] }
@@ -187,6 +197,7 @@ window.QMC = (function () {
     uploadRecord,
     pullCircleActivity,
     pullStudents,
+    getUserCircles,
     lookupCivilRecord,
     addNewStudent,
     isOnline,

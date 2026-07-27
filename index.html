@@ -351,7 +351,7 @@
                 <div class="grid">
                     <div class="field">
                         <label>رقم الهوية</label>
-                        <input lang="en" inputmode="numeric" type="text" maxlength="9" id="stuIdNo" placeholder="9 خانات" onblur="onStudentIdBlur()">
+                        <input lang="en" inputmode="numeric" pattern="[0-9]*" type="text" maxlength="9" id="stuIdNo" placeholder="9 خانات" oninput="onlyDigits(this, 9)" onblur="onStudentIdBlur()">
                         <small class="field-hint">يُجلب الاسم وتاريخ الميلاد تلقائياً من السجل المدني إن وُجد.</small>
                     </div>
                     <div class="field"><label>الاسم الأول</label><input type="text" id="fName"></div>
@@ -366,8 +366,17 @@
                             <option value="F">أنثى</option>
                         </select>
                     </div>
-                    <div class="field"><label>رقم الجوال</label><input lang="en" inputmode="numeric" type="text" maxlength="10" id="stuMobile"></div>
+                    <div class="field">
+                        <label>رقم الجوال</label>
+                        <input lang="en" inputmode="numeric" pattern="[0-9]*" type="text" maxlength="10" id="stuMobile" placeholder="أرقام فقط" oninput="onlyDigits(this, 10)">
+                    </div>
                     <div class="field"><label>تاريخ الميلاد</label><input type="date" id="stuBirthDate"></div>
+                    <div class="field">
+                        <label>الحلقة</label>
+                        <select id="stuCircle">
+                            <option value="">-- اختر الحلقة --</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="addStudentStatus" class="settings-status"></div>
@@ -471,9 +480,16 @@
                         <tr><th>اسم المستخدم</th><td id="settingsUserName">-</td></tr>
                         <tr><th>اسم الموظف</th><td id="empName">-</td></tr>
                         <tr><th>المركز</th><td id="centerInfo">-</td></tr>
-                        <tr><th>اسم الحلقة</th><td id="circleInfo">-</td></tr>
                         <tr><th>معرّف الجهاز</th><td id="settingsDeviceId">-</td></tr>
                     </table>
+                </div>
+
+                <div class="circles-block">
+                    <div class="circles-head">
+                        <span><i class="fas fa-users-rectangle"></i> حلقاتي</span>
+                        <span class="circles-count" id="circlesCount"></span>
+                    </div>
+                    <div id="circlesList" class="circles-list"></div>
                 </div>
                 <div id="empRefreshStatus" class="settings-status"></div>
                 <button onclick="refreshEmpData()" class="btn-save" style="margin-top:10px">
