@@ -580,18 +580,6 @@ button {
 .install-btn { background: #202124; color: #fff; padding: 8px 14px; }
 .install-btn:hover { background: #000; }
 
-/* شريط آخر تحديث */
-.last-update {
-    text-align: center;
-    font-size: 14px;
-    font-weight: bold;
-    color: #444;
-    background: #f0f0f0;
-    padding: 8px;
-    margin: 10px;
-    border-radius: 8px;
-}
-
 /* ===== المرحلة 4: تحسينات الواجهة ===== */
 
 /* لمسات تناسق للأزرار (ضغط/تعطيل موحّد) */

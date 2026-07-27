@@ -37,9 +37,8 @@ if ('serviceWorker' in navigator) {
             const data = event.data || {};
 
             if (data.type === 'LAST_UPDATE') {
+                // تُخزَّن ليعرضها حقل «آخر تحديث للملفات» في شاشة الإعدادات
                 localStorage.setItem("lastUpdate", data.date);
-                const label = document.getElementById("lastUpdateLabel");
-                if (label) label.innerText = "📅 آخر تحديث: " + data.date;
                 const settingsLabel = document.getElementById("settingsLastUpdate");
                 if (settingsLabel) settingsLabel.textContent = data.date;
             }
@@ -91,16 +90,6 @@ if (!SUPPORTS_BG_SYNC) {
         if (document.visibilityState === "visible") requestSync();
     });
 }
-
-window.addEventListener("DOMContentLoaded", () => {
-    const lastUpdate = localStorage.getItem("lastUpdate");
-    if (lastUpdate) {
-        const label = document.getElementById("lastUpdateLabel");
-        if (label) {
-            label.innerText = "📅 آخر تحديث: " + lastUpdate;
-        }
-    }
-});
 
 // --- لافتة iPhone «إضافة إلى الشاشة الرئيسية» (iOS لا يدعم beforeinstallprompt) ---
 function isIos() {
