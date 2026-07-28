@@ -152,8 +152,8 @@
 
     <div class="tabs-header">
         <button class="tab-btn active" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-pen-to-square"></i><span>النشاط</span></button>
-        <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلاب</span></button>
-        <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>السجلات</span></button>
+        <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلبة</span></button>
+        <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
         <button class="tab-btn" data-tab="settingsTab" onclick="openTab('settingsTab', this)"><i class="fas fa-gear"></i><span>الإعدادات</span></button>
     </div>
 
@@ -189,7 +189,14 @@
         <!-- الحقول العلوية -->
                 <div class="field">
                     <label>اسم الطالب</label>
-                    <select id="studentSelect"></select>
+                    <div class="input-with-clear">
+                        <input list="studentsDataList" id="studentPicker" autocomplete="off"
+                               placeholder="اكتب اسم الطالب أو رقمه"
+                               onfocus="handleStudentSearch(this)" oninput="handleStudentSearch(this)">
+                        <span class="clear-btn" onclick="clearStudentPicker()">✖</span>
+                    </div>
+                    <!-- مصدر القيمة الحقيقي؛ مخفي ويُضبط من مربع البحث -->
+                    <select id="studentSelect" style="display:none"></select>
                 </div>
                 <div class="field">
                     <label>التاريخ</label>
@@ -323,7 +330,11 @@
        </div> 
     </div>          
 
-    <button class="btn-save" onclick="saveActivity()"><i class="fas fa-save"></i> حفظ سجل النشاط</button>
+    <div id="editingBanner" class="editing-banner" style="display:none">
+        <span><i class="fas fa-pen"></i> أنت تعدّل نشاطاً مسجَّلاً</span>
+        <button type="button" class="editing-cancel" onclick="cancelEditActivity()">إلغاء التعديل</button>
+    </div>
+    <button class="btn-save" id="saveActivityBtn" onclick="saveActivity()"><i class="fas fa-save"></i> <span id="saveActivityLabel">حفظ سجل النشاط</span></button>
 </div>
         </div>            
         <!-- شاشة إدارة الطلاب -->
@@ -391,13 +402,13 @@
             <div id="studentsEmpty" class="students-empty" style="display:none">لا يوجد طلاب لعرضهم حالياً</div>
         </div>
 
-        <!-- شاشة السجلات -->
+        <!-- شاشة التقارير -->
         <div id="logsTab" class="tab-content">
-            <div class="section-title">سجلات الأنشطة</div>
-            <div class="section-note">يمكنك تصفية السجلات أو تصديرها ومزامنتها دون فقدان البيانات.</div>
+            <div class="section-title">التقارير</div>
+            <div class="section-note">تقرير الأنشطة المسجّلة: صفِّه، عدّله، احذفه، أو صدّره ومزامنه دون فقدان البيانات.</div>
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom:10px">
-    <h3 style="margin:0"><i class="fas fa-chart-line"></i> سجلات الأنشطة</h3>
+    <h3 style="margin:0"><i class="fas fa-chart-line"></i> تقرير الأنشطة</h3>
     <div style="display:flex; gap:8px;">
         <div class="buttons-container">
             <button class="btn-excel" onclick="exportToExcel()" title="تصدير إكسل">
@@ -457,7 +468,7 @@
                                 <th>العلامة</th>
                                 <th>الأخطاء</th>
                                 <th class="no-pdf">حالة المزامنة</th>
-                                <th class="no-pdf">حذف</th>
+                                <th class="no-pdf">إجراءات</th>
                             </tr>
                         </thead>
                         <tbody id="logTable"></tbody>
@@ -551,6 +562,20 @@
     </div>
 
     <datalist id="ayatList"></datalist>
+    <datalist id="studentsDataList"></datalist>
+
+    <!-- نافذة تأكيد موحّدة (بديل confirm/alert المتصفح) -->
+    <div id="appModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-box">
+            <div class="modal-icon" id="modalIcon">❓</div>
+            <h4 class="modal-title" id="modalTitle"></h4>
+            <div class="modal-message" id="modalMessage"></div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-cancel" id="modalCancelBtn">إلغاء</button>
+                <button type="button" class="modal-btn modal-confirm" id="modalConfirmBtn">تأكيد</button>
+            </div>
+        </div>
+    </div>
 
     <!-- الملفات الخارجية -->
     <script src="quran_data.js"></script>

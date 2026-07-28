@@ -202,6 +202,30 @@ window.QMC = (function () {
     return res.json(); // { items: [{ student_no, id_no, first_name, ... , circle_no }] }
   }
 
+  // --- حذف نشاط من السيرفر (نفس endpoint بـ action=DELETE، كما في Flutter) ---
+  // tagno هو مفتاح السجل عند السيرفر؛ يُرسل null إن كان 0 فيبحث عنه بالطالب/النوع/التاريخ.
+  async function deleteActivity(record) {
+    const body = buildSaveActivityBody(record);
+    body.action = "DELETE";
+
+    const res = await apiFetch("saveActivity", { method: "POST", body: body });
+    const raw = await res.text().catch(() => "");
+    const decoded = safeDecode(raw);
+
+    if (res.status >= 200 && res.status < 300 &&
+        decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
+      const st = String(decoded.status || "").toLowerCase();
+      if (st === "success" || st === "ok") return { ok: true, error: "", raw: raw };
+    }
+
+    const verdict = interpretSaveResponse(res.status, raw);
+    return {
+      ok: false,
+      error: verdict.error || raw || "لم يؤكّد السيرفر حذف السجل",
+      raw: raw,
+    };
+  }
+
   // --- حلقات المستخدم (نفس عقد UserCirclesService في Flutter) ---
   // getUserCircles?username=X → { items: [{ circle_no, circle_name, center_no,
   //                                         center_name, gender, circle_days, emp_role }] }
@@ -296,6 +320,7 @@ window.QMC = (function () {
     login,
     getEmployee,
     saveActivity,
+    deleteActivity,
     buildSaveActivityBody,
     pullCircleActivity,
     pullStudents,

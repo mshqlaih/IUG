@@ -1,4 +1,4 @@
-// استدعاء ملف Service Worker للعمل أوفلاين
+﻿// استدعاء ملف Service Worker للعمل أوفلاين
 // --- 1. تسجيل الـ Service Worker وإدارة التحديثات ---
 
 // معالج تغيير حالة الاتصال (Online/Offline)
@@ -824,7 +824,7 @@ async function saveActivity() {
 
     const rawDate = document.getElementById('activityDate').value;
     if (!rawDate) {
-        return alert("يجب إدخال تاريخ النشاط");
+        return showAlert("يجب إدخال تاريخ النشاط");
     }
 
     const onlyDate = new Date(rawDate).toISOString().split("T")[0];
@@ -847,19 +847,19 @@ async function saveActivity() {
 
     // ✅ تحقق أساسي
     if (!teacher) {
-        return alert("تعذّر التعرّف على المسمّع. يرجى تسجيل الخروج ثم الدخول من جديد.");
+        return showAlert("تعذّر التعرّف على المسمّع. يرجى تسجيل الخروج ثم الدخول من جديد.");
     }
 
     if (!student || !type) {
-        return alert("يجب اختيار الطالب ونوع النشاط");
+        return showAlert("يجب اختيار الطالب ونوع النشاط");
     }
 
     if ((type === 1 || type === 2) && (!fromRange || !toRange)) {
-        return alert("يجب اختيار آيات صحيحة من القائمة");
+        return showAlert("يجب اختيار آيات صحيحة من القائمة");
     }
 
    if ((type === 7 || type === 6) && (!partFrom || !partTo)) {
-    return alert("يجب إدخال الجزء من وإلى");
+    return showAlert("يجب إدخال الجزء من وإلى");
 }
 
     const record = buildActivityRecord({
@@ -873,9 +873,125 @@ async function saveActivity() {
         mark      : mark,
         partFrom  : partFrom || "",
         partTo    : partTo   || "",
+        tagNo     : _editingRecordId ? _editingTagNo : 0,
     });
 
+    if (_editingRecordId) {
+        const editedId = _editingRecordId;
+        updateExistingRecord(editedId, record, () => {
+            _editingRecordId = null;
+            _editingTagNo = 0;
+            setEditingMode(false);
+            resetActivityForm();
+        });
+        return;
+    }
+
     persistRecord(record, resetActivityForm);
+}
+
+/* =========================================================
+   تعديل نشاط مسجَّل: تحميله في شاشة النشاط ثم تحديثه
+   ========================================================= */
+
+let _editingRecordId = null;   // معرّف السجل المحلي قيد التعديل
+let _editingTagNo    = 0;      // مفتاحه على السيرفر (ليُحدَّث لا يُضاف)
+
+function setEditingMode(on) {
+    const banner = document.getElementById('editingBanner');
+    const label  = document.getElementById('saveActivityLabel');
+    if (banner) banner.style.display = on ? 'flex' : 'none';
+    if (label)  label.textContent = on ? 'تحديث النشاط' : 'حفظ سجل النشاط';
+}
+
+function cancelEditActivity() {
+    _editingRecordId = null;
+    _editingTagNo = 0;
+    setEditingMode(false);
+    resetActivityForm();
+    showToast("أُلغي التعديل");
+}
+
+async function editRecord(id) {
+    const rec = await getRecordById(id);
+    if (!rec) return showAlert("لم يُعثر على السجل");
+
+    openTab('activityTab', document.querySelector('.tab-btn[data-tab="activityTab"]'));
+
+    _editingRecordId = Number(id);
+    _editingTagNo = Number(rec.tagNo || 0);
+    setEditingMode(true);
+
+    // 1) الطالب
+    const sel = document.getElementById('studentSelect');
+    if (sel) {
+        sel.value = String(rec.student);
+        syncStudentPickerText();
+        sel.dispatchEvent(new Event('change'));
+    }
+
+    // 2) التاريخ
+    const dateEl = document.getElementById('activityDate');
+    if (dateEl) dateEl.value = rec.date;
+
+    // 3) نوع النشاط (النقر يضبط الحقول الظاهرة أيضاً)
+    const card = document.querySelector(`#iconsContainer .icon-card[data-value="${rec.type}"]`);
+    if (card) card.click();
+    else {
+        const typeSel = document.getElementById('activityType');
+        if (typeSel) typeSel.value = String(rec.type);
+        await handleActivityTypeChange(rec.type);
+    }
+
+    // 4) بقية الحقول — بعد handleActivityTypeChange لأنها قد تُصفّر الآيات
+    const setVal = (elId, value) => {
+        const el = document.getElementById(elId);
+        if (el) el.value = (value === null || value === undefined) ? '' : value;
+    };
+
+    setVal('rangeFrom', rec.fromRange);
+    setVal('rangeTo', rec.toRange);
+    setVal('rangeFromText', AYAH_REVERSE[rec.fromRange] || '');
+    setVal('rangeToText', AYAH_REVERSE[rec.toRange] || '');
+    setVal('partFrom', rec.partFrom);
+    setVal('partTo', rec.partTo);
+    setVal('mark', rec.mark);
+    setVal('errors', rec.errors || 0);
+    setVal('rating', rec.rating);
+
+    calculateExactProgress();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast("جاهز للتعديل — عدّل ثم اضغط «تحديث النشاط»");
+}
+
+// تحديث سجل قائم: يبقى tagNo ليعرف السيرفر أنه تعديل، ويُعاد رفعه
+function updateExistingRecord(id, record, onSaved) {
+    const tx = db.transaction("records", "readwrite");
+    const store = tx.objectStore("records");
+    const check = store.index("student_date_type").get([record.student, record.date, record.type]);
+
+    check.onsuccess = () => {
+        // التكرار مسموح إن كان السجل نفسه
+        if (check.result && Number(check.result.id) !== Number(id)) {
+            showAlert({
+                title: "نشاط مكرر",
+                message: "يوجد نشاط بنفس الطالب والتاريخ والنوع.",
+                icon: "⚠️",
+            });
+            return;
+        }
+
+        record.id = Number(id);
+        record.synced = false;       // يحتاج إعادة رفع بعد التعديل
+        record.syncError = "";
+
+        store.put(record).onsuccess = () => {
+            refreshAll();
+            showToast("تم تحديث النشاط");
+            if (typeof onSaved === "function") onSaved();
+            requestSync();
+        };
+    };
 }
 
 /* =========================================================
@@ -940,7 +1056,7 @@ function persistRecord(record, onSaved) {
 
     check.onsuccess = () => {
         if (check.result) {
-            alert("هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.");
+            showAlert({ title: "نشاط مكرر", message: "هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.", icon: "⚠️" });
             return;
         }
         store.add(record).onsuccess = () => {
@@ -1171,6 +1287,7 @@ function openActivityForStudent(studentId, type) {
     const sel = document.getElementById('studentSelect');
     if (sel) {
         sel.value = String(studentId);
+        syncStudentPickerText();
         sel.dispatchEvent(new Event('change'));
     }
 
@@ -1191,11 +1308,17 @@ async function quickSaveActivity(studentId, type) {
     const name = fullStudentName(student) || `الطالب ${studentId}`;
     const title = activityTypeName(type);
 
-    if (!confirm(`هل تريد تأكيد "${title}" للطالب ${name}؟`)) return;
+    const ok = await showConfirm({
+        title: title,
+        message: `هل تريد تسجيل "${title}" للطالب ${name} بتاريخ اليوم؟`,
+        confirmText: "تأكيد",
+        icon: (activityStyles[String(type)] || {}).icon || "❓",
+    });
+    if (!ok) return;
 
     const { teacher, teacherName } = await getTeacherIdentity();
     if (!teacher) {
-        return alert("تعذّر التعرّف على المسمّع. يرجى تسجيل الخروج ثم الدخول من جديد.");
+        return showAlert("تعذّر التعرّف على المسمّع. يرجى تسجيل الخروج ثم الدخول من جديد.");
     }
 
     persistRecord(buildActivityRecord({
@@ -1205,8 +1328,74 @@ async function quickSaveActivity(studentId, type) {
     }));
 }
 
+/* ===== مربع بحث الطالب في شاشة النشاط (بديل القائمة الطويلة) ===== */
+
+// نص العرض في مربع البحث؛ يتضمّن الرقم ليبقى فريداً عند تشابه الأسماء
+function studentPickerLabel(s) {
+    return `${fullStudentName(s)} — ${s.id}`;
+}
+
+// يبني قائمة الاقتراحات حسب ما كُتب، ويضبط الطالب المختار عند التطابق
+function handleStudentSearch(inputEl) {
+    const list = document.getElementById('studentsDataList');
+    const sel  = document.getElementById('studentSelect');
+    if (!list || !sel) return;
+
+    const raw = String(inputEl.value || '').trim();
+    const q   = normalizeAr(raw).toLowerCase();
+
+    let matches = _studentsCache;
+    if (q) {
+        matches = _studentsCache.filter(s =>
+            normalizeAr(fullStudentName(s)).toLowerCase().indexOf(q) !== -1 ||
+            String(s.id || '').indexOf(q) !== -1 ||
+            String(s.idNo || '').indexOf(q) !== -1
+        );
+    }
+
+    const frag = document.createDocumentFragment();
+    matches.slice(0, 50).forEach(s => {
+        const o = document.createElement('option');
+        o.value = studentPickerLabel(s);
+        frag.appendChild(o);
+    });
+    list.innerHTML = '';
+    list.appendChild(frag);
+
+    // تحديد الطالب: تطابق تام مع نص الاقتراح، أو نتيجة وحيدة
+    let chosen = _studentsCache.find(s => studentPickerLabel(s) === raw);
+    if (!chosen && q && matches.length === 1) chosen = matches[0];
+
+    const newValue = chosen ? String(chosen.id) : '';
+    if (sel.value !== newValue) {
+        sel.value = newValue;
+        sel.dispatchEvent(new Event('change'));
+    }
+}
+
+// يعكس اختيار الـ select على نص مربع البحث (عند التعديل أو الفتح من بطاقة طالب)
+function syncStudentPickerText() {
+    const sel   = document.getElementById('studentSelect');
+    const input = document.getElementById('studentPicker');
+    if (!sel || !input) return;
+
+    const s = _studentsCache.find(st => String(st.id) === String(sel.value));
+    input.value = s ? studentPickerLabel(s) : '';
+}
+
+function clearStudentPicker() {
+    const input = document.getElementById('studentPicker');
+    const sel   = document.getElementById('studentSelect');
+    if (input) input.value = '';
+    if (sel && sel.value !== '') {
+        sel.value = '';
+        sel.dispatchEvent(new Event('change'));
+    }
+}
+
 function refreshAll() {
     const sel = document.getElementById('studentSelect');
+    const previous = sel ? sel.value : '';
     if (sel) sel.innerHTML = '<option value="">-- اختر --</option>';
 
     loadStudentsAndActivities()
@@ -1218,6 +1407,11 @@ function refreshAll() {
                     opt.textContent = fullStudentName(s);
                     sel.appendChild(opt);
                 });
+                // أعِد الاختيار السابق إن كان الطالب ما زال موجوداً
+                if (previous && _studentsCache.some(s => String(s.id) === String(previous))) {
+                    sel.value = previous;
+                }
+                syncStudentPickerText();
             }
             return loadLookups();
         })
@@ -1250,10 +1444,20 @@ function syncStatusBadge(r) {
     if (r.synced) return '<span class="sync-badge sync-ok">✅ مزامَن</span>';
     const err = (extractArabicError(r.syncError) || "").trim();
     if (err) {
-        const safe = err.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<span class="sync-badge sync-err" title="${safe}" data-err="${safe}" onclick="alert(this.dataset.err)">⚠️ خطأ</span>`;
+        const safe = escapeHtml(err);
+        return `<span class="sync-badge sync-err" title="${safe}" data-err="${safe}" ` +
+               `onclick="showSyncErrorDetails(this.dataset.err)">⚠️ خطأ</span>`;
     }
     return '<span class="sync-badge sync-wait">⏳ بانتظار</span>';
+}
+
+// سبب فشل المزامنة عند الضغط على الشارة
+function showSyncErrorDetails(msg) {
+    showAlert({
+        title: "سبب عدم المزامنة",
+        message: msg || "لم يُرجع السيرفر سبباً واضحاً.",
+        icon: "⚠️",
+    });
 }
 
 function displayRecords() {
@@ -1351,7 +1555,12 @@ function displayRecords() {
                                 <td>${r.mark}</td>
                                 <td class="no-pdf">${r.errors}</td>
                                 <td class="no-pdf">${syncStatusBadge(r)}</td>
-                                <td class="no-pdf"><button class="btn-del" onclick="deleteRecord(${r.id})">حذف</button></td>
+                                <td class="no-pdf">
+                                    <div class="row-actions">
+                                        <button class="row-btn row-edit" title="تعديل النشاط" onclick="editRecord(${r.id})">✏️</button>
+                                        <button class="row-btn row-del" title="حذف النشاط" onclick="deleteRecord(${r.id})">🗑️</button>
+                                    </div>
+                                </td>
                             </tr>`;
                     }
                     cursor.continue();
@@ -1368,7 +1577,70 @@ function resetFilters() {
     displayRecords();
 }
 
-function deleteRecord(id) { if(confirm("حذف؟")) db.transaction("records", "readwrite").objectStore("records").delete(id).onsuccess = () => displayRecords(); }
+function getRecordById(id) {
+    return new Promise((resolve) => {
+        if (!db) return resolve(null);
+        const req = db.transaction("records").objectStore("records").get(Number(id));
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror   = () => resolve(null);
+    });
+}
+
+function deleteRecordLocally(id) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("records", "readwrite");
+        tx.objectStore("records").delete(Number(id));
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+// حذف النشاط: إن كان مرفوعاً وجب حذفه من السيرفر أولاً، وإلا بقيت نسخة هناك
+async function deleteRecord(id) {
+    const rec = await getRecordById(id);
+    if (!rec) return showAlert("لم يُعثر على السجل");
+
+    const student = _studentsCache.find(s => Number(s.id) === Number(rec.student));
+    const name = fullStudentName(student) || `الطالب ${rec.student}`;
+    const typeName = activityTypeName(rec.type);
+
+    const onServer = !!rec.synced;
+
+    const ok = await showConfirm({
+        title: "حذف النشاط",
+        message: `${typeName} — ${name}\nبتاريخ ${rec.date}\n\n` +
+                 (onServer ? "سيُحذف من السيرفر ومن هذا الجهاز معاً."
+                           : "لم يُرفع بعد، فسيُحذف من هذا الجهاز فقط."),
+        confirmText: "حذف",
+        danger: true,
+        icon: "🗑️",
+    });
+    if (!ok) return;
+
+    if (onServer) {
+        if (!navigator.onLine) {
+            return showAlert({
+                title: "لا يوجد اتصال",
+                message: "هذا النشاط مرفوع على السيرفر، ولا يمكن حذفه دون إنترنت.\nحاول بعد عودة الاتصال.",
+                icon: "📡",
+            });
+        }
+
+        const res = await QMC.deleteActivity(rec);
+        if (!res.ok) {
+            console.error("❌ فشل الحذف من السيرفر:", res.raw);
+            return showAlert({
+                title: "تعذّر الحذف من السيرفر",
+                message: extractArabicError(res.error) || res.error || "خطأ غير معروف",
+                icon: "⚠️",
+            });
+        }
+    }
+
+    await deleteRecordLocally(id);
+    refreshAll();
+    showToast("تم حذف النشاط");
+}
 // 9. النسخ الاحتياطي
 async function exportBackup() {
     const data = { students: await getAll("students"), records: await getAll("records"),settings : await getAll("settings"), teacherID: getCurrentUser() };
@@ -1436,7 +1708,7 @@ function showImportMessage(msg, isError=false) {
 
 function exportArrayToExcel(data, fileName = "records.xlsx") {
   if (!data || data.length === 0) {
-    alert("لا توجد بيانات للتصدير");
+    showAlert("لا توجد بيانات للتصدير");
     return;
   }
 
@@ -1824,7 +2096,7 @@ function updateStudentLocally(studentNo) {
 
 async function editStudent(id) {
     const s = _studentsCache.find(st => Number(st.id) === Number(id));
-    if (!s) return alert("لم يُعثر على الطالب");
+    if (!s) return showAlert("لم يُعثر على الطالب");
 
     clearStudentForm();
     await populateCircleSelect(s.circleNo);
@@ -1858,11 +2130,18 @@ async function editStudent(id) {
     card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function deleteStudent(id) {
+async function deleteStudent(id) {
     const s = _studentsCache.find(st => Number(st.id) === Number(id));
     const fullName = fullStudentName(s) || `رقم ${id}`;
 
-    if (!confirm(`هل أنت متأكد أنك تريد حذف الطالب: ${fullName} ؟\n(الحذف محلي على هذا الجهاز فقط)`)) return;
+    const ok = await showConfirm({
+        title: "حذف الطالب",
+        message: `${fullName}\n\nالحذف محلي على هذا الجهاز فقط — سيعود الطالب عند سحب البيانات.`,
+        confirmText: "حذف",
+        danger: true,
+        icon: "🗑️",
+    });
+    if (!ok) return;
 
     const tx = db.transaction("students", "readwrite");
     const store = tx.objectStore("students");
@@ -1991,7 +2270,7 @@ function convertStringIDsToNumbers() {
 
     tx.oncomplete = () => {
         refreshAll();
-        alert("✅ تم تحويل جميع الهويات النصية إلى أرقام بنجاح");
+        showToast("✅ تم تحويل جميع الهويات النصية إلى أرقام بنجاح");
     };
 }
 
@@ -2034,7 +2313,7 @@ function syncRecordsFromPage() {
       const currentDeviceId = settings ? settings.device_id : localStorage.getItem("device_id");
 
       if (!currentDeviceId) {
-        alert("❌ خطأ: لم يتم العثور على معرف الجهاز");  
+        showAlert("❌ خطأ: لم يتم العثور على معرف الجهاز");
         showSyncMessage("❌ خطأ: لم يتم العثور على معرف الجهاز");
         reject("Device ID missing");
         return;
@@ -2160,6 +2439,89 @@ bindClick("pullBtn", onPullClick);
 bindClick("settingsSyncBtn", onSyncClick);
 bindClick("settingsPullBtn", onPullClick);
 
+/* =========================================================
+   نافذة تأكيد/تنبيه موحّدة — بديل confirm/alert المتصفح
+   ========================================================= */
+
+let _modalResolve = null;
+
+function closeAppModal(result) {
+    const overlay = document.getElementById('appModal');
+    if (overlay) overlay.style.display = 'none';
+    const resolve = _modalResolve;
+    _modalResolve = null;
+    if (resolve) resolve(result);
+}
+
+function showModal(opts) {
+    const o = opts || {};
+    const overlay = document.getElementById('appModal');
+
+    // احتياط: لو غاب العنصر لا نُسقط العملية بصمت
+    if (!overlay) return Promise.resolve(window.confirm(o.message || ''));
+
+    // إغلاق أي نافذة مفتوحة قبل فتح جديدة
+    if (_modalResolve) closeAppModal(false);
+
+    const box = overlay.querySelector('.modal-box');
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    set('modalIcon', o.icon || (o.danger ? '⚠️' : '❓'));
+    set('modalTitle', o.title || 'تأكيد');
+    set('modalMessage', o.message || '');
+
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn  = document.getElementById('modalCancelBtn');
+
+    if (confirmBtn) confirmBtn.textContent = o.confirmText || 'تأكيد';
+    if (cancelBtn) {
+        cancelBtn.textContent = o.cancelText || 'إلغاء';
+        cancelBtn.style.display = o.alertOnly ? 'none' : '';
+    }
+    if (box) box.classList.toggle('danger', !!o.danger);
+
+    overlay.style.display = 'flex';
+    if (confirmBtn) confirmBtn.focus();
+
+    return new Promise(resolve => { _modalResolve = resolve; });
+}
+
+// تأكيد بنعم/لا
+function showConfirm(opts) {
+    return showModal(opts);
+}
+
+// تنبيه بزر واحد
+function showAlert(opts) {
+    const o = (typeof opts === 'string') ? { message: opts } : (opts || {});
+    return showModal(Object.assign({ alertOnly: true, confirmText: 'حسناً', icon: o.icon || 'ℹ️' }, o));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const overlay    = document.getElementById('appModal');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    const cancelBtn  = document.getElementById('modalCancelBtn');
+
+    if (confirmBtn) confirmBtn.addEventListener('click', () => closeAppModal(true));
+    if (cancelBtn)  cancelBtn.addEventListener('click', () => closeAppModal(false));
+
+    // الضغط خارج الصندوق = إلغاء
+    if (overlay) {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeAppModal(false);
+        });
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (!_modalResolve) return;
+    if (e.key === 'Escape') closeAppModal(false);
+    else if (e.key === 'Enter') closeAppModal(true);
+});
+
 function showToast(message) {
     const toast = document.getElementById('toast');
     toast.innerText = message;
@@ -2192,7 +2554,9 @@ function resetActivityForm() {
     document.getElementById('rating').value = "";
     
     // 4. (اختياري) إبقاء اسم الطالب أو تصفيره حسب رغبتك
-    document.getElementById('studentSelect').value = ""; 
+    document.getElementById('studentSelect').value = "";
+    const picker = document.getElementById('studentPicker');
+    if (picker) picker.value = "";
     
     console.log("تم تنظيف النموذج بنجاح 🧹");
 }
@@ -2572,20 +2936,26 @@ async function resetLocalData() {
 
     if (pending > 0) {
         show(`⛔ يوجد ${pending} سجل لم يُرفع بعد. اضغط «رفع السجلات» أولاً حتى يصبح العدد صفراً.`, "#c0392b");
-        return alert(
-            `لا يمكن إعادة الضبط الآن.\n\nيوجد ${pending} سجل نشاط لم يُرفع إلى السيرفر، وسيضيع نهائياً.\n` +
-            `اضغط «رفع السجلات» أولاً، وتأكد أن «سجلات بانتظار الرفع» أصبح صفراً.`
-        );
+        return showAlert({
+            title: "لا يمكن إعادة الضبط الآن",
+            message: `يوجد ${pending} سجل نشاط لم يُرفع إلى السيرفر، وسيضيع نهائياً.\n\n` +
+                     `اضغط «رفع السجلات» أولاً، وتأكد أن «سجلات بانتظار الرفع» أصبح صفراً.`,
+            icon: "⛔",
+        });
     }
 
     if (!navigator.onLine) {
         return show("⚠️ إعادة الضبط تتطلب اتصالاً بالإنترنت لإعادة سحب البيانات.", "#e67e22");
     }
 
-    const confirmed = confirm(
-        "سيتم حذف كل الطلبة والسجلات المخزّنة على هذا الجهاز ثم سحبها من جديد من السيرفر.\n\n" +
-        "لا توجد سجلات غير مرفوعة، فلن يضيع شيء.\n\nهل تريد المتابعة؟"
-    );
+    const confirmed = await showConfirm({
+        title: "إعادة ضبط البيانات المحلية",
+        message: "سيتم حذف كل الطلبة والسجلات المخزّنة على هذا الجهاز ثم سحبها من جديد من السيرفر.\n\n" +
+                 "لا توجد سجلات غير مرفوعة، فلن يضيع شيء.",
+        confirmText: "إعادة الضبط",
+        danger: true,
+        icon: "🧹",
+    });
     if (!confirmed) return;
 
     if (btn) btn.disabled = true;
@@ -2731,8 +3101,19 @@ function displayEmpData(data) {
     renderCirclesList();
 }
 
-function handleLogout() {
-    if (confirm("هل تريد تسجيل الخروج؟")) {
+async function handleLogout() {
+    const pending = await countPendingRecords();
+    const warn = pending ? `\n\n⚠️ يوجد ${pending} سجل لم يُرفع بعد — ارفعه أولاً حتى لا تفقده.` : '';
+
+    const ok = await showConfirm({
+        title: "تسجيل الخروج",
+        message: "سيتم إنهاء جلستك على هذا الجهاز." + warn,
+        confirmText: "خروج",
+        danger: true,
+        icon: "🚪",
+    });
+
+    if (ok) {
         localStorage.removeItem("user_name");
         localStorage.removeItem("device_id");
         // تفريغ مخزن الإعدادات كما طلب سابقاً
@@ -2896,7 +3277,7 @@ async function pullRecordsFromServer() {
 
 function shareAsWhatsAppText() {
     const dateInput = document.getElementById("filterDate").value;
-    if (!dateInput) return alert("⚠️ يرجى اختيار التاريخ");
+    if (!dateInput) return showAlert("⚠️ يرجى اختيار التاريخ");
 
     const selectedDate = new Date(dateInput);
     const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
