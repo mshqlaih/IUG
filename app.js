@@ -543,6 +543,7 @@ function drawRatingOptions(select, container) {
 
         label.querySelector('input').addEventListener('change', function () {
             select.value = this.value;
+            syncRatingSelection();          // بدونها تتغيّر القيمة ولا يتغيّر المظهر
             select.dispatchEvent(new Event('change'));
         });
 
@@ -1466,6 +1467,13 @@ function syncStatusBadge(r) {
     return '<span class="sync-badge sync-wait">⏳ بانتظار</span>';
 }
 
+// قيمة صالحة للعرض: null/undefined/"null" تصير فراغاً بدل أن تُطبع حرفياً
+function cellValue(v) {
+    if (v === null || v === undefined) return "";
+    const s = String(v).trim();
+    return (s === "null" || s === "undefined" || s === "NaN") ? "" : s;
+}
+
 // سبب فشل المزامنة عند الضغط على الشارة
 function showSyncErrorDetails(msg) {
     showAlert({
@@ -1552,10 +1560,10 @@ function displayRecords() {
                             "النوع": activityName,
                             "من": fromText,
                             "إلى": toText,
-                            "عدد الصفحات": r.amount,
-                            "التقييم": ratingName,
-                            "الأخطاء": r.errors,
-                            "العلامة": r.mark,
+                            "عدد الصفحات": cellValue(r.amount),
+                            "التقييم": cellValue(ratingName),
+                            "الأخطاء": cellValue(r.errors),
+                            "العلامة": cellValue(r.mark),
                             "الحالة": r.synced
                                 ? "✔ تم الرفع"
                                 : "✘ لم يُرفع" + (errorText && errorText.trim() !== "" ? "\n" + errorText : "")
@@ -1576,10 +1584,10 @@ function displayRecords() {
                                 <td><span class="badge">${activityIconHtml(r.type)} ${activityName}</span></td>
                                 <td style="font-size:11px">${fromText}</td>
                                 <td style="font-size:11px">${toText}</td>
-                                <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
-                                <td>${ratingName}</td>
-                                <td>${r.mark}</td>
-                                <td class="no-pdf">${r.errors}</td>
+                                <td style="color:var(--secondary); font-weight:bold">${cellValue(r.amount)}</td>
+                                <td>${cellValue(ratingName)}</td>
+                                <td>${cellValue(r.mark)}</td>
+                                <td class="no-pdf">${cellValue(r.errors)}</td>
                             </tr>`;
                     }
                     cursor.continue();
@@ -3259,12 +3267,13 @@ async function pullRecordsFromServer() {
                 teacherName: (remote.teachername || remote.teacherName || "").replace(/[\\"]/g, '').trim(),
                 fromRange:   Number(remote.fromrange || 0),
                 toRange:     Number(remote.torange || 0),
-                partFrom:    remote.partfrom,
-                partTo:      remote.partto,
+                // السيرفر قد يُرجع null لهذه الحقول — نُخزّنها فراغاً حتى لا تُطبع "null"
+                partFrom:    remote.partfrom ?? "",
+                partTo:      remote.partto   ?? "",
                 amount:      Number(remote.amount || 0),
-                rating:      remote.rating,
+                rating:      remote.rating   ?? "",
                 errors:      Number(remote.errors || 0),
-                mark:        remote.mark,
+                mark:        remote.mark     ?? "",
                 notes:       remote.notes || "",
                 tagNo:       Number(remote.tagno || remote.tagNo || 0),
                 sortOrder:   Number(remote.sortorder || 999),

@@ -22,12 +22,13 @@ body {
   max-width: 1000px;
   margin: auto;
   padding: 10px;
-  /* مساحة تكفي شريط التبويبات السفلي الثابت + منطقة الأمان في iPhone،
+  /* مساحة تكفي شريط التبويبات السفلي (58px) + هامش + منطقة الأمان في iPhone،
      حتى لا يختفي آخر المحتوى تحته */
-  padding-bottom: calc(110px + env(safe-area-inset-bottom));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
-/* التبويبات السفلية الثابتة بتصميم احترافي (Flutter Style) */
+/* التبويبات السفلية — بنفس روح BottomNavigationBar في Flutter:
+   شريط أبيض مسطّح، بلا بطاقات ملوّنة، الأيقونة والنص يتلوّنان معاً عند الاختيار. */
 .tabs-header {
   display: flex;
   background: #ffffff;
@@ -36,12 +37,12 @@ body {
   left: 0;
   right: 0;
   z-index: 1001;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
-  border-top: 1px solid #f0f0f0;
-  height: 90px;
-  align-items: center;
+  box-shadow: 0 -1px 8px rgba(0,0,0,0.06);
+  border-top: 1px solid #ececec;
+  height: 58px;
+  align-items: stretch;
   justify-content: space-around;
-  padding: 0 8px;
+  padding: 0 4px;
   /* شريط سفلي معتم يحترم منطقة الأمان في iPhone */
   box-sizing: content-box;
   padding-bottom: env(safe-area-inset-bottom);
@@ -49,52 +50,52 @@ body {
 
 .tab-btn {
   flex: 1;
-  padding: 0;
-  margin: 0 6px;
+  padding: 6px 2px;
+  margin: 0;
   border: none;
-  background: #f5f5f5;
+  background: transparent;
   color: #757575;
   font-weight: 500;
   cursor: pointer;
-  font-size: 0.7rem;
-  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 12px;
+  transition: color 0.2s ease;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 72px;
-  line-height: 1.2;
+  gap: 3px;
+  min-height: 0;
+  line-height: 1.1;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tab-btn i {
-  font-size: 24px;
+  font-size: 21px;
   display: block;
+  transition: transform 0.2s ease;
 }
 
 .tab-btn span {
   display: block;
-  font-size: 0.68rem;
+  font-size: 11px;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.tab-btn:hover {
-  background: #ebebeb;
-  color: #616161;
-}
+.tab-btn:hover { background: transparent; color: #5f6368; }
 
-/* تأثير التبويب المختار (Active) */
+/* التبويب المختار: لون فقط، بلا خلفية — كما في Flutter */
 .tab-btn.active {
-  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+  background: transparent;
+  color: var(--primary);
+  box-shadow: none;
 }
-
-.tab-btn.active:hover {
-  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
-  box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
-}
+.tab-btn.active span { font-weight: 700; }
+.tab-btn.active i { transform: translateY(-1px); }
+.tab-btn.active:hover { background: transparent; color: var(--primary); }
 
 /* تحسين حركة ظهور المحتوى */
 .tab-content {
@@ -903,41 +904,55 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 /* ===== التقييم كأزرار اختيار ===== */
 .rating-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);   /* التقديرات الأربعة في صف واحد */
+    gap: 6px;
+}
+@media (max-width: 420px) {
+    .rating-options { grid-template-columns: repeat(2, 1fr); }
 }
 .rating-chip {
     --chip-color: #5f6368;
-    display: inline-flex;
+    display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 9px 14px;
+    padding: 8px 6px;
     border: 1.5px solid #dfe3ea;
-    border-radius: 999px;
+    border-radius: 10px;
     background: #fff;
     cursor: pointer;
     user-select: none;
     transition: all 0.18s ease;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     color: #5f6368;
+    white-space: nowrap;
+    overflow: hidden;
 }
-/* الدائرة الصغيرة تُرسم يدوياً ليتوحّد الشكل عبر المتصفحات */
+/* الدائرة تُرسم يدوياً؛ لا بد من تصفير حشو القاعدة العامة input{padding:14px}
+   وإلا تضخّمت الدائرة إلى ضعف حجمها لأن box-sizing يحسب الحشو ضمن العرض. */
 .rating-chip input[type="radio"] {
     appearance: none;
     -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+    padding: 0;
     margin: 0;
     border: 2px solid #c3c8d0;
     border-radius: 50%;
+    background: #fff;
     flex-shrink: 0;
+    box-sizing: border-box;
+    font-size: 0;
+    line-height: 0;
     transition: all 0.18s ease;
 }
 .rating-chip:hover { border-color: var(--chip-color); }
 .rating-chip.checked {
     border-color: var(--chip-color);
+    background: #fff;
     background: color-mix(in srgb, var(--chip-color) 10%, #fff);
     color: var(--chip-color);
 }
@@ -947,16 +962,22 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 }
 
 /* ===== أزرار أسفل شاشة النشاط ===== */
-.activity-actions { display: flex; gap: 10px; align-items: stretch; margin-top: 10px; }
-.activity-actions .btn-save { flex: 1; margin: 0; }
+/* الزران بعرض واحد */
+.activity-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: stretch;
+    margin-top: 10px;
+}
+.activity-actions .btn-save,
+.activity-actions .btn-clear-form { width: 100%; margin: 0; }
 .btn-clear-form {
     background: #eef1f5;
     color: #3c4043;
     padding: 12px 18px;
     border-radius: 12px;
     white-space: nowrap;
-    width: auto;
-    flex-shrink: 0;
 }
 .btn-clear-form:hover { background: #e2e6eb; }
 
