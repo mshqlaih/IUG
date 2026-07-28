@@ -506,10 +506,70 @@ function selectActivityType(value, options) {
     if (select) select.dispatchEvent(new Event('change'));
 }
 
+/* ===== التقييم كأزرار اختيار (radio) بدل القائمة المنسدلة ===== */
+
+// لون لكل تقدير: ممتاز ← جيد جداً ← جيد ← مقبول
+const RATING_COLORS = { "1": "#137333", "2": "#1967d2", "3": "#e8710a", "4": "#5f6368" };
+
+function initRatingSelector() {
+    const select = document.getElementById('rating');
+    const container = document.getElementById('ratingOptions');
+    if (!select || !container) return;
+
+    // القائمة تُعبَّأ لاحقاً من STATIC_LOOKUP، فننتظر أول تعبئة
+    const observer = new MutationObserver(() => {
+        if (select.options.length > 0) {
+            drawRatingOptions(select, container);
+            observer.disconnect();
+        }
+    });
+    observer.observe(select, { childList: true });
+}
+
+function drawRatingOptions(select, container) {
+    container.innerHTML = '';
+
+    Array.from(select.options).forEach(opt => {
+        if (!opt.value) return;
+
+        const color = RATING_COLORS[String(opt.value)] || "#5f6368";
+
+        const label = document.createElement('label');
+        label.className = 'rating-chip';
+        label.style.setProperty('--chip-color', color);
+        label.innerHTML =
+            `<input type="radio" name="ratingRadio" value="${escapeHtml(opt.value)}">` +
+            `<span>${escapeHtml(opt.text)}</span>`;
+
+        label.querySelector('input').addEventListener('change', function () {
+            select.value = this.value;
+            select.dispatchEvent(new Event('change'));
+        });
+
+        container.appendChild(label);
+    });
+
+    syncRatingSelection();
+}
+
+// يعكس قيمة الـ select على أزرار الاختيار (بعد التصفير أو تحميل نشاط للتعديل)
+function syncRatingSelection() {
+    const select = document.getElementById('rating');
+    const container = document.getElementById('ratingOptions');
+    if (!select || !container) return;
+
+    const value = String(select.value || '');
+    container.querySelectorAll('input[type="radio"]').forEach(input => {
+        input.checked = (input.value === value);
+        input.closest('.rating-chip').classList.toggle('checked', input.checked);
+    });
+}
+
 populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
 populateSelectFromLookups("rating", "ACTIVITY_GRADE");
 
 initIconSelector();
+initRatingSelector();
 
 let lookupMap = {};
 
@@ -657,57 +717,6 @@ function renderOptions(data) {
     });
 }
 
-// 4. اختيار الطالب (القفزة الذكية + الإحصائيات)
-document.getElementById('studentSelect').addEventListener('change', function() {
-    
-    const id = this.value;
-    if (!id) { 
-        document.getElementById('studentStatsCard').style.display = 'none'; 
-        return; 
-    }
-
-    const select = document.getElementById('studentSelect');
-    const name   = select.options[select.selectedIndex].text; // الاسم (النص المعروض)
-
-    document.getElementById('statStudentName').innerText = name;
-    document.getElementById('studentStatsCard').style.display = 'block';
-
-    const tx = db.transaction(["records"], "readonly");
-    const store = tx.objectStore("records");
-    let hifz = 0, muraja = 0, errs = 0, cnt = 0, lastDate = null;
-
-    store.openCursor(null, 'prev').onsuccess = (e) => {
-        const cursor = e.target.result;
-        if (cursor) {
-            if (cursor.value.student == id) {
-                if (!lastDate) {
-                    lastDate = cursor.value.date;
-                }
-
-                // الآن amount يجب أن يكون رقمًا (ناتج الدالة calculateExactProgress)
-                const p = parseFloat(cursor.value.amount) || 0;
-
-                if (cursor.value.type == 1) hifz += p;
-                else if (cursor.value.type == 2) muraja += p;
-
-                errs += parseInt(cursor.value.errors) || 0;
-                cnt++;
-            }
-            cursor.continue();
-        } else {
-            // هنا يمكنك عرض النص باستخدام progressToText إذا أردت
-            const hifzText   = progressToText(hifz);
-            const murajaText = progressToText(muraja);
-
-            updateStatsUI(hifz, muraja, errs, cnt, lastDate);
-
-            // مثال: لو أردت عرض النصوص بجانب الأرقام
-           // document.getElementById('totalHifz').innerText   = hifzText;
-           // document.getElementById('totalMuraja').innerText = murajaText;
-        }
-    };
-});
-
 // 5. حساب المقدار الدقيق (أرباع وصفحات)
 
 // دالة الحساب وإرجاع القيمة الرقمية
@@ -829,24 +838,6 @@ function getLinesBetween(obj1, obj2) {
     return lines;
 }
 
-// دالة لتحويل القيمة الرقمية إلى نص عربي
-function progressToText(value) {
-    let pgs = Math.floor(value);
-    let frac = value - pgs;
-    let text = "";
-
-    if (pgs > 0) text += pgs + " صفحة";
-
-    if (frac === 0.25) text += (pgs > 0 ? " وربع" : "ربع صفحة");
-    else if (frac === 0.5) text += (pgs > 0 ? " ونصف" : "نصف صفحة");
-    else if (frac === 0.75) text += (pgs > 0 ? " وثلاثة أرباع" : "ثلاثة أرباع صفحة");
-
-    if (text === "") text = "أقل من ربع";
-
-    return text.trim();
-}
-
-
 // 6. حفظ النشاط
 async function saveActivity() {
 
@@ -934,6 +925,32 @@ function setEditingMode(on) {
     if (label)  label.textContent = on ? 'تحديث النشاط' : 'حفظ سجل النشاط';
 }
 
+// مسح حقول شاشة النشاط (وإلغاء وضع التعديل إن كان مفعّلاً)
+async function clearActivityForm() {
+    const ok = await showConfirm({
+        title: "مسح الحقول",
+        message: _editingRecordId
+            ? "سيُلغى التعديل وتُمسح كل الحقول المدخلة.\nلن يُحذف السجل المحفوظ."
+            : "سيتم مسح كل الحقول المدخلة في هذه الشاشة.",
+        confirmText: "مسح",
+        icon: '<i class="fas fa-eraser" style="color:#5f6368"></i>',
+    });
+    if (!ok) return;
+
+    _editingRecordId = null;
+    _editingTagNo = 0;
+    setEditingMode(false);
+
+    resetActivityForm();
+    clearActivityTypeSelection();
+    handleActivityTypeChange('', { silent: true });
+
+    const dateEl = document.getElementById('activityDate');
+    if (dateEl) dateEl.valueAsDate = new Date();
+
+    showToast("تم مسح الحقول");
+}
+
 function cancelEditActivity() {
     _editingRecordId = null;
     _editingTagNo = 0;
@@ -982,6 +999,7 @@ async function editRecord(id) {
     setVal('mark', rec.mark);
     setVal('errors', rec.errors || 0);
     setVal('rating', rec.rating);
+    syncRatingSelection();
 
     calculateExactProgress();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1090,32 +1108,6 @@ function persistRecord(record, onSaved) {
             requestSync();
         };
     };
-}
-
-// 7. الرادار والإحصائيات
-function updateStatsUI(hifz, muraja, errs, cnt, lastDateStr) {
-    document.getElementById('totalHifz').innerText = hifz.toFixed(1);
-    document.getElementById('totalMuraja').innerText = muraja.toFixed(1);
-    document.getElementById('avgErrors').innerText = cnt > 0 ? (errs / cnt).toFixed(1) : 0;
-    
-    if (lastDateStr) {
-        const last = new Date(lastDateStr); const now = new Date();
-        now.setHours(0,0,0,0); last.setHours(0,0,0,0);
-        if (last.getTime() === now.getTime()) document.getElementById('lastSeen').innerText = "اليوم ✅";
-        else {
-            const missed = calculateWorkingDays(last, now);
-            document.getElementById('lastSeen').innerText = missed === 0 ? "آخر جلسة 👍" : `${missed} جلسات ⚠️`;
-        }
-    }
-}
-
-function calculateWorkingDays(start, end) {
-    let c = 0, cur = new Date(start); cur.setDate(cur.getDate() + 1);
-    while (cur <= end) {
-        if ([1, 3, 6].includes(cur.getDay())) c++;
-        cur.setDate(cur.getDate() + 1);
-    }
-    return c;
 }
 
 /* =========================================================
@@ -2582,6 +2574,7 @@ function resetActivityForm() {
     // 2. إعادة الأخطاء للصفر والتقييم للفراغ
     document.getElementById('errors').value = 0;
     document.getElementById('rating').value = "";
+    syncRatingSelection();
     
     // 4. (اختياري) إبقاء اسم الطالب أو تصفيره حسب رغبتك
     document.getElementById('studentSelect').value = "";

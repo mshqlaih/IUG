@@ -170,18 +170,6 @@
                 <i class="fas fa-chevron-left emp-chip-arrow"></i>
             </button>
 
-            <div id="studentStatsCard" class="card" style="display:none;">
-                <div style="display:flex; justify-content: space-between; align-items:center">
-                    <h4 id="statStudentName" style="margin:0; color:var(--primary); font-size:15px"></h4>                    
-                </div>
-                <div class="stat-grid">
-                    <div class="stat-item">حفظ <b id="totalHifz">0</b></div>
-                    <div class="stat-item">مراجعة <b id="totalMuraja">0</b></div>
-                    <div class="stat-item">أخطاء <b id="avgErrors">0</b></div>
-                    <div class="stat-item">الالتزام <b id="lastSeen">-</b></div>
-                </div>
-            </div>
-
       <div class="card">
         <div class="section-title" style="grid-column: 1 / -1">تفاصيل النشاط</div>
         <div class="section-note" style="grid-column: 1 / -1">اختر الطالب، حدد الآيات، ثم أكمل التقييم قبل حفظ السجل.</div>
@@ -325,7 +313,9 @@
 
             <div class="field">
                 <label>التقييم</label>
-                <select id="rating"></select>
+                <div id="ratingOptions" class="rating-options"></div>
+                <!-- مصدر القيمة الحقيقي؛ مخفي وتضبطه أزرار الاختيار أعلاه -->
+                <select id="rating" style="display:none"></select>
             </div>
        </div> 
     </div>          
@@ -334,7 +324,10 @@
         <span><i class="fas fa-pen"></i> أنت تعدّل نشاطاً مسجَّلاً</span>
         <button type="button" class="editing-cancel" onclick="cancelEditActivity()">إلغاء التعديل</button>
     </div>
-    <button class="btn-save" id="saveActivityBtn" onclick="saveActivity()"><i class="fas fa-save"></i> <span id="saveActivityLabel">حفظ سجل النشاط</span></button>
+    <div class="activity-actions">
+        <button class="btn-save" id="saveActivityBtn" onclick="saveActivity()"><i class="fas fa-save"></i> <span id="saveActivityLabel">حفظ سجل النشاط</span></button>
+        <button type="button" class="btn-clear-form" onclick="clearActivityForm()"><i class="fas fa-eraser"></i> <span class="btn-text">مسح الحقول</span></button>
+    </div>
 </div>
         </div>            
         <!-- شاشة إدارة الطلاب -->

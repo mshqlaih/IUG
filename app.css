@@ -187,37 +187,6 @@ th {
   top: 0;
 }
 
-/* لوحة الإحصائيات */
-#studentStatsCard {
-  background: #e3f2fd;
-  border: 1px solid #bbdefb;
-}
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr); /* للجوال عمودين */
-  gap: 5px;
-  margin-top: 10px;
-}
-@media (min-width: 768px) {
-  .stat-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-.stat-item {
-  background: white;
-  padding: 8px 2px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 11px;
-  box-shadow: inset 0 0 5px rgba(0,0,0,0.02);
-}
-.stat-item b {
-  display: block;
-  color: var(--primary);
-  font-size: 13px;
-  margin-top: 3px;
-}
-
 .calc-box {
   background: #fff3cd;
   color: #856404;
@@ -931,6 +900,65 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .modal-confirm:hover { background: #1557b0; }
 .modal-box.danger .modal-confirm { background: #c0392b; }
 .modal-box.danger .modal-confirm:hover { background: #a5301f; }
+
+/* ===== التقييم كأزرار اختيار ===== */
+.rating-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.rating-chip {
+    --chip-color: #5f6368;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border: 1.5px solid #dfe3ea;
+    border-radius: 999px;
+    background: #fff;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s ease;
+    font-size: 13px;
+    font-weight: 600;
+    color: #5f6368;
+}
+/* الدائرة الصغيرة تُرسم يدوياً ليتوحّد الشكل عبر المتصفحات */
+.rating-chip input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 2px solid #c3c8d0;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.18s ease;
+}
+.rating-chip:hover { border-color: var(--chip-color); }
+.rating-chip.checked {
+    border-color: var(--chip-color);
+    background: color-mix(in srgb, var(--chip-color) 10%, #fff);
+    color: var(--chip-color);
+}
+.rating-chip.checked input[type="radio"] {
+    border-color: var(--chip-color);
+    background: radial-gradient(circle, var(--chip-color) 0 45%, transparent 46%);
+}
+
+/* ===== أزرار أسفل شاشة النشاط ===== */
+.activity-actions { display: flex; gap: 10px; align-items: stretch; margin-top: 10px; }
+.activity-actions .btn-save { flex: 1; margin: 0; }
+.btn-clear-form {
+    background: #eef1f5;
+    color: #3c4043;
+    padding: 12px 18px;
+    border-radius: 12px;
+    white-space: nowrap;
+    width: auto;
+    flex-shrink: 0;
+}
+.btn-clear-form:hover { background: #e2e6eb; }
 
 /* ===== شريط وضع تعديل النشاط ===== */
 .editing-banner {
