@@ -390,8 +390,11 @@ function fillAyatSearchList() {
         }, {});
 
         // بناء مصفوفة الأسماء (ترجمة IDs إلى نصوص) + عكسها (نص ← ID)
+        // نستثني السجل الصفري (id:0, l:"سورة  آية 0 ص 0 ج 0") وإلا ظهر نصاً
+        // مضحكاً في أي نشاط بلا آيات (الحضور والغياب).
         window.AYAH_BY_LABEL = {};
         QURAN_DATA.forEach(item => {
+            if (!item.id || !item.s) return;
             window.AYAH_REVERSE[item.id] = item.l;
             window.AYAH_BY_LABEL[item.l] = item.id;
         });
@@ -1168,10 +1171,14 @@ function loadStudentsAndActivities() {
 
 // اسم آية مختصر: "سورة البقرة آية 155" بدل التسمية الكاملة بالصفحة والجزء
 function shortAyahLabel(id) {
+    if (!id) return "";                       // 0 أو فارغ ⇒ لا آية
     const label = AYAH_REVERSE[id];
     if (!label) return "";
     return label.replace(/\s*ص\s*\d+\s*ج\s*\d+\s*$/, '').trim();
 }
+
+// أنواع الحضور/الغياب: لا آيات ولا أجزاء لها — التاريخ والاسم فقط
+const ATTENDANCE_ONLY_TYPES = [3, 4, 5];
 
 // ملخّص آخر نشاط (نفس تركيب _formatActivitySummary في Flutter)
 function formatActivitySummary(r) {
@@ -1180,7 +1187,9 @@ function formatActivitySummary(r) {
     const isPartMode = (type === 6 || type === 7);
 
     let range = "";
-    if (isPartMode) {
+    if (ATTENDANCE_ONLY_TYPES.indexOf(type) !== -1) {
+        range = "";                            // حضور/غياب: بلا مدى إطلاقاً
+    } else if (isPartMode) {
         if (r.partFrom && r.partTo) range = `من الجزء ${r.partFrom} إلى الجزء ${r.partTo}`;
         else if (r.partFrom)        range = `من الجزء ${r.partFrom}`;
     } else {
@@ -1515,7 +1524,11 @@ function displayRecords() {
                         let fromText = "";
                         let toText   = "";
 
-                        if (r.type == 6 || r.type == 7) {
+                        if (ATTENDANCE_ONLY_TYPES.indexOf(Number(r.type)) !== -1) {
+                            // حضور/غياب: لا مدى — يبقى العمودان فارغين
+                            fromText = "";
+                            toText   = "";
+                        } else if (r.type == 6 || r.type == 7) {
                             const juzNames = {
                                 1: "الجزء الأول", 2: "الجزء الثاني", 3: "الجزء الثالث",
                                 4: "الجزء الرابع", 5: "الجزء الخامس", 6: "الجزء السادس",
