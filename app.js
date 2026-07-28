@@ -411,17 +411,31 @@ function fillAyatSearchList() {
     list.appendChild(fragment);
 }
 
+// أيقونات وألوان الأنشطة — مطابقة لـ StudentsScreen في تطبيق Flutter
+// (record_voice_over / refresh / person / mail / close / emoji_events / menu_book)
 const activityStyles = {
-    "1": { icon: "🗣️", color: "#2ecc71" },
-    "2": { icon: "🔄", color: "#3498db" },
-    "6": { icon: "🏆", color: "#f1c40f" },
-    "7": { icon: "📖", color: "#9b59b6" },
-    "8": { icon: "💡", color: "#e67e22" },
-    "3": { icon: "👤", color: "#95a5a6" },
-    "4": { icon: "✉️", color: "#e74c3c" },
-    "5": { icon: "❌", color: "#c0392b" },
-    "99": { icon: "➖", color: "#bdc3c7" }
+    "1":  { fa: "fa-microphone-lines", color: "#2196F3" }, // تسميع
+    "2":  { fa: "fa-arrows-rotate",    color: "#4CAF50" }, // مراجعة
+    "3":  { fa: "fa-user",             color: "#009688" }, // حضور بدون تسميع
+    "4":  { fa: "fa-envelope",         color: "#3F51B5" }, // غياب بعذر
+    "5":  { fa: "fa-xmark",            color: "#F44336" }, // غياب بدون عذر
+    "6":  { fa: "fa-trophy",           color: "#FF9800" }, // اختبار جزء
+    "7":  { fa: "fa-book-open",        color: "#9C27B0" }, // سرد
+    "8":  { fa: "fa-lightbulb",        color: "#E67E22" },
+    "99": { fa: "fa-minus",            color: "#BDC3C7" }
 };
+
+const DEFAULT_ACTIVITY_STYLE = { fa: "fa-circle-question", color: "#95A5A6" };
+
+function activityStyle(type) {
+    return activityStyles[String(type)] || DEFAULT_ACTIVITY_STYLE;
+}
+
+// وسم أيقونة النشاط جاهزاً للإدراج في HTML
+function activityIconHtml(type, extraClass) {
+    const st = activityStyle(type);
+    return `<i class="fas ${st.fa} ${extraClass || ''}" style="color:${st.color}"></i>`;
+}
 
 function initIconSelector() {
     const select = document.getElementById('activityType');
@@ -445,35 +459,48 @@ function drawIcons(select, container) {
     Array.from(select.options).forEach(opt => {
         if (!opt.value) return;
 
-        const style = activityStyles[opt.value] || { icon: "📝", color: "#ccc" };
+        const style = activityStyle(opt.value);
         const item = document.createElement('div');
         item.className = "icon-card";
         item.dataset.value = opt.value;   // يتيح اختيار النوع برمجياً من بطاقات الطلبة
-        item.innerHTML = `<span class="emoji">${style.icon}</span><span class="text">${opt.text}</span>`;
+        item.innerHTML = `<span class="emoji">${activityIconHtml(opt.value)}</span>` +
+                         `<span class="text">${escapeHtml(opt.text)}</span>`;
         item.style.borderBottom = `3px solid ${style.color}`;
 
-        item.onclick = function() {
-    // 1. تحديث القيمة في الـ Select المخفي
-    const select = document.getElementById('activityType');
-    select.value = opt.value;
-
-    handleActivityTypeChange(opt.value);        
-
-    // 2. إزالة التميز (active) من جميع البطاقات الأخرى
-    const allCards = container.querySelectorAll('.icon-card');
-    allCards.forEach(card => card.classList.remove('active'));
-
-    // 3. إضافة التميز للبطاقة التي تم النقر عليها حالياً
-    item.classList.add('active');
-
-    // 4. تشغيل حدث التغيير (اختياري)
-    select.dispatchEvent(new Event('change'));
-    
-    console.log("تم اختيار النوع رقم: " + opt.value); // للتأكد في الكونسول
-};
+        item.onclick = () => selectActivityType(opt.value);
 
         container.appendChild(item);
     });
+}
+
+// إلغاء تمييز نوع النشاط (بعد الحفظ السريع مثلاً)
+function clearActivityTypeSelection() {
+    const select = document.getElementById('activityType');
+    if (select) select.value = '';
+    const container = document.getElementById('iconsContainer');
+    if (container) {
+        container.querySelectorAll('.icon-card').forEach(c => c.classList.remove('active'));
+    }
+}
+
+// اختيار نوع النشاط برمجياً أو بالنقر.
+// silent = لا تُشغّل الحفظ السريع (تُستخدم عند تحميل نشاط للتعديل)
+function selectActivityType(value, options) {
+    const silent = !!(options && options.silent);
+
+    const select = document.getElementById('activityType');
+    if (select) select.value = String(value);
+
+    const container = document.getElementById('iconsContainer');
+    if (container) {
+        container.querySelectorAll('.icon-card').forEach(card => {
+            card.classList.toggle('active', String(card.dataset.value) === String(value));
+        });
+    }
+
+    handleActivityTypeChange(value, { silent: silent });
+
+    if (select) select.dispatchEvent(new Event('change'));
 }
 
 populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
@@ -934,14 +961,8 @@ async function editRecord(id) {
     const dateEl = document.getElementById('activityDate');
     if (dateEl) dateEl.value = rec.date;
 
-    // 3) نوع النشاط (النقر يضبط الحقول الظاهرة أيضاً)
-    const card = document.querySelector(`#iconsContainer .icon-card[data-value="${rec.type}"]`);
-    if (card) card.click();
-    else {
-        const typeSel = document.getElementById('activityType');
-        if (typeSel) typeSel.value = String(rec.type);
-        await handleActivityTypeChange(rec.type);
-    }
+    // 3) نوع النشاط — silent حتى لا يُشغّل الحفظ السريع للحضور/الغياب
+    selectActivityType(rec.type, { silent: true });
 
     // 4) بقية الحقول — بعد handleActivityTypeChange لأنها قد تُصفّر الآيات
     const setVal = (elId, value) => {
@@ -1189,17 +1210,15 @@ function activityTypeName(type) {
 }
 
 function actionButtonHtml(type, studentId, quick) {
-    const style = activityStyles[String(type)] || { icon: "📝", color: "#95a5a6" };
-    const name  = escapeHtml(activityTypeName(type));
-    const fn    = quick ? 'quickSaveActivity' : 'openActivityForStudent';
+    const name = escapeHtml(activityTypeName(type));
+    const fn   = quick ? 'quickSaveActivity' : 'openActivityForStudent';
     return `<button class="act-btn" title="${name}" aria-label="${name}" ` +
-           `style="color:${style.color}" onclick="${fn}(${studentId}, ${type})">${style.icon}</button>`;
+           `onclick="${fn}(${studentId}, ${type})">${activityIconHtml(type)}</button>`;
 }
 
 function studentCardHtml(s) {
     const id   = Number(s.id);
     const act  = _lastActivityByStudent[id];
-    const style = act ? (activityStyles[String(act.type)] || { icon: "📝", color: "#95a5a6" }) : null;
 
     const summary = act
         ? `<span class="student-last-text">${escapeHtml(formatActivitySummary(act))}</span>`
@@ -1224,7 +1243,9 @@ function studentCardHtml(s) {
         </div>
         ${studentNoHtml}
         <div class="student-last">
-            <span class="student-last-icon" style="color:${style ? style.color : '#bdc3c7'}">${style ? style.icon : '➖'}</span>
+            <span class="student-last-icon">${
+                act ? activityIconHtml(act.type) : '<i class="fas fa-minus" style="color:#bdc3c7"></i>'
+            }</span>
             ${summary}
         </div>
         <div class="student-actions">
@@ -1291,15 +1312,8 @@ function openActivityForStudent(studentId, type) {
         sel.dispatchEvent(new Event('change'));
     }
 
-    // النقر على بطاقة النوع يضبط القيمة والتمييز ويستدعي handleActivityTypeChange
-    const card = document.querySelector(`#iconsContainer .icon-card[data-value="${type}"]`);
-    if (card) {
-        card.click();
-    } else {
-        const typeSel = document.getElementById('activityType');
-        if (typeSel) typeSel.value = String(type);
-        handleActivityTypeChange(type);
-    }
+    // ضبط النوع والتمييز واستدعاء handleActivityTypeChange
+    selectActivityType(type);
 }
 
 // حفظ فوري للحضور/الغياب بعد تأكيد (مثل _confirmAndSaveQuick في Flutter)
@@ -1312,7 +1326,7 @@ async function quickSaveActivity(studentId, type) {
         title: title,
         message: `هل تريد تسجيل "${title}" للطالب ${name} بتاريخ اليوم؟`,
         confirmText: "تأكيد",
-        icon: (activityStyles[String(type)] || {}).icon || "❓",
+        icon: activityIconHtml(type),
     });
     if (!ok) return;
 
@@ -1544,23 +1558,23 @@ function displayRecords() {
 
                         tbody.innerHTML += `
                             <tr>
+                                <td class="no-pdf">
+                                    <div class="row-actions">
+                                        <button class="row-btn row-edit" title="تعديل النشاط" onclick="editRecord(${r.id})"><i class="fas fa-pen"></i></button>
+                                        <button class="row-btn row-del" title="حذف النشاط" onclick="deleteRecord(${r.id})"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </td>
+                                <td class="no-pdf">${syncStatusBadge(r)}</td>
                                 <td>${r.date}</td>
-                                <td>${teacherName}</td>                                
+                                <td>${teacherName}</td>
                                 <td><b>${studentName}</b></td>
-                                <td><span class="badge">${activityName}</span></td>
+                                <td><span class="badge">${activityIconHtml(r.type)} ${activityName}</span></td>
                                 <td style="font-size:11px">${fromText}</td>
                                 <td style="font-size:11px">${toText}</td>
                                 <td style="color:var(--secondary); font-weight:bold">${r.amount}</td>
                                 <td>${ratingName}</td>
                                 <td>${r.mark}</td>
                                 <td class="no-pdf">${r.errors}</td>
-                                <td class="no-pdf">${syncStatusBadge(r)}</td>
-                                <td class="no-pdf">
-                                    <div class="row-actions">
-                                        <button class="row-btn row-edit" title="تعديل النشاط" onclick="editRecord(${r.id})">✏️</button>
-                                        <button class="row-btn row-del" title="حذف النشاط" onclick="deleteRecord(${r.id})">🗑️</button>
-                                    </div>
-                                </td>
                             </tr>`;
                     }
                     cursor.continue();
@@ -2469,7 +2483,10 @@ function showModal(opts) {
         if (el) el.textContent = value;
     };
 
-    set('modalIcon', o.icon || (o.danger ? '⚠️' : '❓'));
+    // الأيقونة تقبل رمزاً تعبيرياً أو وسم <i> من Font Awesome
+    const iconEl = document.getElementById('modalIcon');
+    if (iconEl) iconEl.innerHTML = o.icon || (o.danger ? '⚠️' : '❓');
+
     set('modalTitle', o.title || 'تأكيد');
     set('modalMessage', o.message || '');
 
@@ -2561,7 +2578,8 @@ function resetActivityForm() {
     console.log("تم تنظيف النموذج بنجاح 🧹");
 }
 
-async function handleActivityTypeChange(type) {
+async function handleActivityTypeChange(type, options) {
+    const silent = !!(options && options.silent);
 
     const extraFields = document.getElementById('extraFieldsContainer');
 
@@ -2599,6 +2617,18 @@ async function handleActivityTypeChange(type) {
         document.getElementById('rating').value = '';
 
         examDiv.style.display = 'none';
+
+        // مثل شاشة الطلبة في Flutter: الحضور والغياب يُحفظان فوراً بتأكيد،
+        // بلا آيات ولا تقييم ولا حاجة للضغط على «حفظ».
+        if (!silent && !_editingRecordId) {
+            const studentId = clean(parseInt(document.getElementById('studentSelect').value), 0);
+            if (studentId) {
+                await quickSaveActivity(studentId, Number(type));
+                clearActivityTypeSelection();
+            } else {
+                showToast("اختر الطالب أولاً");
+            }
+        }
 
         return;
     }

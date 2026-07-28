@@ -22,7 +22,9 @@ body {
   max-width: 1000px;
   margin: auto;
   padding: 10px;
-  padding-bottom: 90px;
+  /* مساحة تكفي شريط التبويبات السفلي الثابت + منطقة الأمان في iPhone،
+     حتى لا يختفي آخر المحتوى تحته */
+  padding-bottom: calc(110px + env(safe-area-inset-bottom));
 }
 
 /* التبويبات السفلية الثابتة بتصميم احترافي (Flutter Style) */
@@ -40,6 +42,9 @@ body {
   align-items: center;
   justify-content: space-around;
   padding: 0 8px;
+  /* شريط سفلي معتم يحترم منطقة الأمان في iPhone */
+  box-sizing: content-box;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .tab-btn {
@@ -566,7 +571,20 @@ button {
     background: #fff;
     border-bottom: 1px solid #e0e0e0;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+
+    /* مثبّتة أعلى الشاشة: لا يمرّ المحتوى فوقها ولا تختفي عند التمرير */
+    position: sticky;
+    top: 0;
+    z-index: 1002;
+    padding-top: calc(10px + env(safe-area-inset-top));
 }
+.app-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.header-actions { flex-shrink: 0; }
 .app-title {
     font-weight: bold;
     font-size: 16px;
