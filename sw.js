@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.51';
+const CACHE_NAME = 'quran-app-v1.54';
 // الأساسي للإقلاع offline — فشل أي ملف لا يُفشّل التثبيت
 const CORE = [
   './', './index.html', './login.html', './app.css', './app.js', './api.js',
@@ -69,6 +69,33 @@ self.addEventListener('fetch', (e) => {
 });
 
 
+// جسم saveActivity — نسخة مطابقة لِما في api.js (الـ SW لا يستطيع استيراده).
+// أي تعديل هنا يجب أن يُطبَّق في buildSaveActivityBody داخل api.js والعكس.
+function buildSaveActivityBody(record) {
+  const type = Number(record.type);
+  const isPartMode = (type === 6 || type === 7);
+
+  const from = isPartMode ? record.partFrom : record.fromRange;
+  const to   = isPartMode ? record.partTo   : record.toRange;
+
+  const num = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
+
+  return {
+    action          : "SAVE",
+    user_name       : String(record.teacher || ""),
+    student_no      : String(record.student),
+    attendance_type : String(type),
+    activity_date   : String(record.date),
+    from_aya_no     : String(num(from) ?? 0),
+    to_aya_no       : String(num(to) ?? 0),
+    num_errors      : String(num(record.errors) ?? 0),
+    recitation_grade: num(record.rating),
+    student_mark    : num(record.mark),
+    notes           : record.notes || "",
+    tagno           : record.tagNo ? Number(record.tagNo) : null,
+  };
+}
+
 // دالة المزامنة مع Debug + postMessage
 function syncRecords() {
   return new Promise((resolve, reject) => {
@@ -118,19 +145,35 @@ function syncRecords() {
 
           Promise.all(
             unsynced.map(record =>
-              fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/students", {
+              fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/saveActivity", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  ...record,                   // فك محتويات السجل
-                  device_id_field: dbDeviceId  // إضافة معرف الجهاز المسجل
-                })
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-Device-Id": dbDeviceId,
+                  "X-Platform": "web"
+                },
+                body: JSON.stringify(buildSaveActivityBody(record))
               })
               .then(async res => {
                 // فتح قاعدة البيانات مرة أخرى للتحديث (لضمان سياق المعاملة)
                 const dbUpdate = event.target.result;
-                
-                if (res.ok) {
+
+                // النجاح يتطلّب status = success/ok صراحةً؛ ORDS قد يعيد 200
+                // ومعها خطأ في الجسم فيُحسب السجل "مزامَناً" وهو لم يُحفظ.
+                const bodyText = await res.clone().text().catch(() => "");
+                let payload = null;
+                try { payload = JSON.parse(bodyText); } catch (_) {}
+
+                const st = (payload && typeof payload === "object")
+                  ? String(payload.status || "").toLowerCase() : "";
+                const succeeded = res.ok && (st === "success" || st === "ok");
+
+                if (succeeded) {
+                  if (payload.tagno != null) record.tagNo = Number(payload.tagno);
+                  if (payload.numPages != null) record.amount = Number(payload.numPages);
+                }
+
+                if (succeeded) {
                   // ✅ نجاح الرفع للسيرفر
                   const txUpdate = dbUpdate.transaction("records", "readwrite");
                   const storeUpdate = txUpdate.objectStore("records");
@@ -150,8 +193,8 @@ function syncRecords() {
                     });
                   });
                 } else {
-                  // ❌ فشل من السيرفر (مثل 401 أو 500)
-                  const errorText = await res.text();
+                  // ❌ فشل من السيرفر (حالة HTTP أو خطأ داخل جسم الاستجابة)
+                  const errorText = bodyText || ("HTTP " + res.status);
                   console.log("❌ فشل السيرفر:", errorText);
 
                   const txUpdate = dbUpdate.transaction("records", "readwrite");

@@ -924,6 +924,8 @@ function buildActivityRecord(opts) {
         mark       : "",
         partFrom   : "",
         partTo     : "",
+        notes      : "",
+        tagNo      : 0,          // مفتاح السجل على السيرفر؛ 0 = إضافة جديدة
         synced     : false,
         syncError  : "",
         sortOrder  : (activityInfo && activityInfo.SORT_ORDER != null) ? activityInfo.SORT_ORDER : 999,
@@ -1091,13 +1093,20 @@ function studentCardHtml(s) {
         ? `<span class="student-idno">الهوية: ${escapeHtml(s.idNo)}</span>`
         : '';
 
+    // لا نعرض «رقم الطالب» إن كان هو نفسه رقم الهوية — تكرار بلا معنى،
+    // ويحدث حين لا يُرجع السيرفر رقم طالب مستقلاً.
+    const hasRealStudentNo = s.idNo && String(s.idNo) !== String(id);
+    const studentNoHtml = hasRealStudentNo
+        ? `<div class="student-no">رقم الطالب: ${id}</div>`
+        : '';
+
     return `
     <div class="student-card">
         <div class="student-card-head">
             <span class="student-name">${escapeHtml(fullStudentName(s))}</span>
             ${idNoHtml}
         </div>
-        <div class="student-no">رقم الطالب: ${id}</div>
+        ${studentNoHtml}
         <div class="student-last">
             <span class="student-last-icon" style="color:${style ? style.color : '#bdc3c7'}">${style ? style.icon : '➖'}</span>
             ${summary}
@@ -2047,24 +2056,28 @@ function syncRecordsFromPage() {
           return;
         }
 
+        let okCount = 0, failCount = 0;
+
         Promise.all(
           unsynced.map(record =>
-            // ✅ موحّد: عبر QMC (يضيف X-Device-Id + يبقي device_id_field للتوافق)
-            QMC.uploadRecord(record)
-            .then(async res => {
-              if (res.ok) {
-                const txUpdate = db.transaction("records", "readwrite");
-                const storeUpdate = txUpdate.objectStore("records");
-                record.synced = true;
-                record.syncError = null;
-                storeUpdate.put(record);
+            // ✅ saveActivity: النجاح يتطلّب status = success من السيرفر
+            QMC.saveActivity(record)
+            .then(result => {
+              record.synced   = result.ok;
+              record.syncError = result.ok ? null : (result.error || "رفض السيرفر السجل دون رسالة");
+
+              if (result.ok) {
+                okCount++;
+                // السيرفر يُصدر tagno (مفتاح السجل عنده) ويحسب عدد الصفحات
+                if (result.tagNo != null) record.tagNo = result.tagNo;
+                if (result.numPages != null) record.amount = result.numPages;
               } else {
-                const errorText = await res.text();
-                record.synced = false;
-                record.syncError = errorText;
-                const txUpdate = db.transaction("records", "readwrite");
-                txUpdate.objectStore("records").put(record);
+                failCount++;
+                console.warn("❌ رفض السيرفر السجل:", record.student, result.error, result.raw);
               }
+
+              const txUpdate = db.transaction("records", "readwrite");
+              txUpdate.objectStore("records").put(record);
             })
             .catch(err => {
               record.synced = false;
@@ -2075,7 +2088,14 @@ function syncRecordsFromPage() {
           )
         )
         .then(() => {
-          showSyncMessage("✅ تمت عملية المزامنة");
+          // رسالة صادقة: لا نقول "تمت" ما لم تُقبل فعلاً
+          if (failCount === 0) {
+            showSyncMessage(`✅ تم رفع ${okCount} سجل بنجاح`);
+          } else if (okCount === 0) {
+            showSyncMessage(`❌ رفض السيرفر كل السجلات (${failCount}) — راجع عمود حالة المزامنة`);
+          } else {
+            showSyncMessage(`⚠️ تم رفع ${okCount} سجل، ورُفض ${failCount} — راجع عمود حالة المزامنة`);
+          }
           displayRecords();
           resolve();
         })
@@ -2099,18 +2119,22 @@ function getSyncMessageContainer() {
 function showSyncMessage(msg) {
   const container = getSyncMessageContainer();
   if (!container) return;
+  // اللون يتبع مضمون الرسالة — الأخضر الدائم كان يُخفي الفشل
+  const isError = msg.indexOf("❌") !== -1;
+  const isWarn  = msg.indexOf("⚠️") !== -1;
+
   const alertBox = document.createElement("div");
   alertBox.textContent = msg;
-  alertBox.style.background = "#d4edda";   // أخضر فاتح
-  alertBox.style.color = "#155724";        // أخضر غامق
+  alertBox.style.background = isError ? "#f8d7da" : (isWarn ? "#fff3cd" : "#d4edda");
+  alertBox.style.color      = isError ? "#721c24" : (isWarn ? "#856404" : "#155724");
+  alertBox.style.border     = "1px solid " + (isError ? "#f5c6cb" : (isWarn ? "#ffeeba" : "#c3e6cb"));
   alertBox.style.padding = "10px";
   alertBox.style.marginTop = "10px";
-  alertBox.style.border = "1px solid #c3e6cb";
   alertBox.style.borderRadius = "5px";
 
   container.appendChild(alertBox);
 
-  setTimeout(() => alertBox.remove(), 5000);
+  setTimeout(() => alertBox.remove(), isError || isWarn ? 12000 : 5000);
 }
 
 function bindClick(id, handler) {
@@ -2757,9 +2781,20 @@ async function pullRecordsFromServer() {
         const storeStu = tx.objectStore("students");
         const indexRec = storeRec.index("student_date_type");
 
-        // --- حفظ الطلاب (دمج مع الموجود حتى لا تُمسح الحقول المحلية كرقم الهوية) ---
+        // --- حفظ الطلاب: المفتاح student_no (وهو ما يطلبه saveActivity) ---
+        let missingStudentNo = 0;
+        const idNoToStudentNo = {};   // لترجمة الأنشطة القديمة المخزّنة برقم الهوية
+
         for (const s of remoteStudents) {
-            const key = Number(s.id);
+            const pick = (...vals) => vals.find(v => v !== undefined && v !== null && v !== '') || '';
+
+            const studentNo = pick(s.student_no, s.studentno, s.studentNo, s.STUDENT_NO);
+            const idNo      = pick(s.id_no, s.idNo, s.idno, s.ID_NO);
+
+            if (!studentNo) { missingStudentNo++; continue; }   // بلا رقم طالب لا يمكن حفظ نشاط له
+
+            const key = Number(studentNo);
+            if (idNo) idNoToStudentNo[String(idNo)] = key;
 
             const existing = await new Promise(r => {
                 const req = storeStu.get(key);
@@ -2767,22 +2802,40 @@ async function pullRecordsFromServer() {
                 req.onerror   = () => r(null);
             });
 
-            const pick = (...vals) => vals.find(v => v !== undefined && v !== null && v !== '') || '';
-
             storeStu.put(Object.assign({}, existing || {}, {
-                id   : key,
-                fName: pick(s.fName, s.fname, existing && existing.fName),
-                pName: pick(s.pName, s.pname, existing && existing.pName),
-                gName: pick(s.gName, s.gname, existing && existing.gName),
-                lName: pick(s.lName, s.lname, existing && existing.lName),
-                idNo : pick(s.idNo, s.idno, s.ID_NO, existing && existing.idNo),
+                id      : key,
+                idNo    : String(pick(idNo, existing && existing.idNo)),
+                fName   : pick(s.first_name,   s.fName, s.fname, existing && existing.fName),
+                pName   : pick(s.father_name,  s.pName, s.pname, existing && existing.pName),
+                gName   : pick(s.gfather_name, s.gName, s.gname, existing && existing.gName),
+                lName   : pick(s.family_name,  s.lName, s.lname, existing && existing.lName),
+                circleNo: (s.circle_no != null) ? Number(s.circle_no)
+                                                : (existing ? existing.circleNo : null),
             }));
         }
 
+        if (missingStudentNo) {
+            console.warn(`⚠️ تُجوهل ${missingStudentNo} طالباً لأن السيرفر لم يُرجع لهم student_no`);
+        }
+
         // --- حفظ السجلات ---
+        let translatedByIdNo = 0;
+
         for (const remote of remoteRecords) {
+            // معرّف الطالب في النشاط يجب أن يكون student_no ليلتقي مع مخزن الطلبة.
+            // إن أرسل السيرفر رقم هوية بدلاً منه نترجمه عبر خريطة الطلاب المسحوبين.
+            const rawStudent = String(
+                remote.student_no ?? remote.studentno ?? remote.student ?? ''
+            ).replace(/[\\"]/g, '').trim();
+
+            let student = Number(rawStudent);
+            if (idNoToStudentNo[rawStudent] !== undefined) {
+                student = idNoToStudentNo[rawStudent];
+                translatedByIdNo++;
+            }
+
             const recordToSave = {
-                student:     Number(remote.student),
+                student:     student,
                 date:        String(remote.date).replace(/[\\"]/g, '').trim(),
                 type:        Number(remote.type),
                 teacher:     String(remote.teacher).replace(/[\\"]/g, '').trim(),
@@ -2795,6 +2848,8 @@ async function pullRecordsFromServer() {
                 rating:      remote.rating,
                 errors:      Number(remote.errors || 0),
                 mark:        remote.mark,
+                notes:       remote.notes || "",
+                tagNo:       Number(remote.tagno || remote.tagNo || 0),
                 sortOrder:   Number(remote.sortorder || 999),
                 synced:      true
             };
@@ -2814,11 +2869,17 @@ async function pullRecordsFromServer() {
             tx.onerror = () => reject(tx.error);
         });
 
+        if (translatedByIdNo) {
+            console.log(`ℹ️ تُرجم ${translatedByIdNo} سجلاً من رقم الهوية إلى رقم الطالب`);
+        }
+
         if (syncContainer) {
             const statusEl = document.getElementById("pullStatus");
-            statusEl.style.color = "#27ae60";
-            statusEl.innerHTML = `✅ تم تحديث ${remoteStudents.length} طالب و ${remoteRecords.length} سجل.`;
-            setTimeout(() => statusEl.remove(), 5000);
+            if (statusEl) {
+                statusEl.style.color = "#27ae60";
+                statusEl.innerHTML = `✅ تم تحديث ${remoteStudents.length} طالب و ${remoteRecords.length} سجل.`;
+                setTimeout(() => statusEl.remove(), 5000);
+            }
         }
 
         if (typeof refreshAll === "function") refreshAll();

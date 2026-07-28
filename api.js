@@ -76,13 +76,114 @@ window.QMC = (function () {
     return res.json();
   }
 
-  // --- رفع سجل نشاط واحد (نفس عقد /students الحالي + توثيق بالترويسة) ---
-  // نُبقي device_id_field في الـ body للتوافق مع الإجراء الحالي، ونضيف X-Device-Id.
-  async function uploadRecord(record) {
-    return apiFetch("students", {
+  // يفحص جسم الاستجابة لا حالة HTTP وحدها — لأن ORDS قد يعيد 200 ومعها خطأ في
+  // الجسم، فيُحسب السجل "مزامَناً" وهو لم يُحفظ على السيرفر إطلاقاً.
+  function interpretSaveResponse(status, raw) {
+    const decoded = safeDecode(raw);
+
+    if (status < 200 || status >= 300) {
+      return { ok: false, error: extractServerError(decoded, raw) };
+    }
+
+    // استجابة ليست JSON: تُعتبر خطأ فقط إن حملت أثر خطأ أوراكل
+    if (decoded == null) {
+      if (/ORA-\d{5}/i.test(raw || "")) {
+        return { ok: false, error: extractServerError(null, raw) };
+      }
+      return { ok: true, error: "" };
+    }
+
+    if (Array.isArray(decoded)) {
+      const hasError = decoded.some(it => it && typeof it === "object" && it.message);
+      return hasError
+        ? { ok: false, error: extractServerError(decoded, raw) }
+        : { ok: true, error: "" };
+    }
+
+    if (decoded && typeof decoded === "object") {
+      const st = String(decoded.status || "").toLowerCase();
+      if (st === "success") return { ok: true, error: "" };
+
+      if (Array.isArray(decoded.errors) && decoded.errors.length) {
+        return { ok: false, error: extractServerError(decoded, raw) };
+      }
+      if (st === "error" || st === "fail" || st === "failed") {
+        return { ok: false, error: extractServerError(decoded, raw) };
+      }
+      // رسالة بلا status success ⇒ الأرجح أنها رسالة رفض
+      if (decoded.message || decoded.text) {
+        return { ok: false, error: extractServerError(decoded, raw) };
+      }
+    }
+
+    return { ok: true, error: "" };
+  }
+
+  // --- بناء جسم saveActivity من سجل IUG (نفس عقد QMC_API_SAVE_ACTIVITY) ---
+  // ملاحظة: في اختبار الجزء والسرد (6/7) يحمل حقلا الآيات رقمَي الجزء،
+  //         تماماً كما يفعل تطبيق Flutter.
+  function buildSaveActivityBody(record) {
+    const type = Number(record.type);
+    const isPartMode = (type === 6 || type === 7);
+
+    const from = isPartMode ? record.partFrom : record.fromRange;
+    const to   = isPartMode ? record.partTo   : record.toRange;
+
+    const num = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
+
+    return {
+      action          : "SAVE",   // السيرفر يميّز الإضافة من التعديل عبر tagno
+      user_name       : String(record.teacher || getUserName()),
+      student_no      : String(record.student),
+      attendance_type : String(type),
+      activity_date   : String(record.date),
+      from_aya_no     : String(num(from) ?? 0),
+      to_aya_no       : String(num(to) ?? 0),
+      num_errors      : String(num(record.errors) ?? 0),
+      recitation_grade: num(record.rating),
+      student_mark    : num(record.mark),
+      notes           : record.notes || "",
+      // 0 أو فارغ ⇒ null فيراه السيرفر إضافة جديدة
+      tagno           : record.tagNo ? Number(record.tagNo) : null,
+    };
+  }
+
+  // --- رفع سجل نشاط واحد عبر saveActivity ---
+  // يُرجع { ok, error, tagNo, numPages } — النجاح يتطلّب status = success/ok
+  // كما في تطبيق Flutter، فلا يُحسب السجل مرفوعاً إلا بتأكيد صريح.
+  async function saveActivity(record) {
+    const res = await apiFetch("saveActivity", {
       method: "POST",
-      body: { ...record, device_id_field: getDeviceId() },
+      body: buildSaveActivityBody(record),
     });
+
+    const raw = await res.text().catch(() => "");
+    const decoded = safeDecode(raw);
+
+    if (res.status >= 200 && res.status < 300 &&
+        decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
+      const st = String(decoded.status || "").toLowerCase();
+      if (st === "success" || st === "ok") {
+        const tagNo = decoded.tagno ?? decoded.tagNo ?? null;
+        const pages = decoded.numPages ?? decoded.numpages ?? null;
+        return {
+          ok: true,
+          error: "",
+          tagNo: (tagNo === null || tagNo === undefined) ? null : Number(tagNo),
+          numPages: (pages === null || pages === undefined) ? null : Number(pages),
+          raw: raw,
+        };
+      }
+    }
+
+    const verdict = interpretSaveResponse(res.status, raw);
+    return {
+      ok: false,
+      error: verdict.error || raw || "لم يؤكّد السيرفر حفظ السجل",
+      tagNo: null,
+      numPages: null,
+      raw: raw,
+    };
   }
 
   // --- سحب أنشطة الحلقة (circleActivity/{user}) ---
@@ -92,13 +193,13 @@ window.QMC = (function () {
     return res.json(); // { items: [...] }
   }
 
-  // --- سحب قائمة طلاب الحلقة (students?puserName=) ---
+  // --- سحب طلاب المستخدم (getStudentByUser/{idno}) ---
+  // يُرجع student_no المستقل عن id_no — وهو ما يعتمده saveActivity.
+  // (الخدمة القديمة students?puserName= كانت تُرجع رقم الهوية في الحقل id فقط.)
   async function pullStudents(username = getUserName()) {
-    const res = await apiFetch(
-      `students?puserName=${encodeURIComponent(username)}`
-    );
+    const res = await apiFetch(`getStudentByUser/${encodeURIComponent(username)}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json(); // { items: [...] }
+    return res.json(); // { items: [{ student_no, id_no, first_name, ... , circle_no }] }
   }
 
   // --- حلقات المستخدم (نفس عقد UserCirclesService في Flutter) ---
@@ -194,7 +295,8 @@ window.QMC = (function () {
     apiFetch,
     login,
     getEmployee,
-    uploadRecord,
+    saveActivity,
+    buildSaveActivityBody,
     pullCircleActivity,
     pullStudents,
     getUserCircles,
