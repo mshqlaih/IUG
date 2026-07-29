@@ -1487,6 +1487,10 @@ function displayRecords() {
     const tbody = document.getElementById('logTable');
     tbody.innerHTML = '';
 
+    // تصفير حصيلة العرض، وإلا تراكمت السجلات مع كل استدعاء
+    // فتتضاعف في تصدير إكسل وفي المشاركة النصية.
+    lastDisplayedData = [];
+
     const fDate = document.getElementById('filterDate').value;
     const fID   = document.getElementById('filterStudentID').value;
 
@@ -3329,21 +3333,24 @@ function shareAsWhatsAppText() {
     let msg = `*📊 تقرير نشاط يوم ${days[selectedDate.getDay()]} (${dateInput})* 😇\n`;
     msg += `--------------------------\n`;
 
-    const rows = document.querySelectorAll("#logTable tr");
-    
-    rows.forEach(row => {
-        const cols = row.querySelectorAll("td");
-        if (cols.length < 10) return;
+    // نقرأ من lastDisplayedData بأسماء الحقول، لا من أعمدة الجدول بترتيبها،
+    // حتى لا ينكسر التقرير كلما تغيّر ترتيب الأعمدة.
+    if (!lastDisplayedData.length) {
+        return showAlert("لا توجد سجلات لمشاركتها بهذه التصفية");
+    }
 
-        const student = cols[2].innerText.trim();    // الطالب
-        const type    = cols[3].innerText.trim();    // النوع
-        const fromP   = cols[4].innerText.trim();    // من
-        const toP     = cols[5].innerText.trim();    // إلى
-        const eval    = cols[7].innerText.trim();    // التقييم
-        const markNum = parseFloat(cols[8].innerText.trim()) || 0; // العلامة
+    lastDisplayedData.forEach(row => {
+        const student = cellValue(row["اسم الطالب"]);
+        const type    = cellValue(row["النوع"]);
+        const fromP   = cellValue(row["من"]);
+        const toP     = cellValue(row["إلى"]);
+        const grade   = cellValue(row["التقييم"]);
+        const markNum = parseFloat(cellValue(row["العلامة"])) || 0;
+
+        if (!student && !type) return;
 
         // تحديد الرمز التعبيري حسب النوع
-        let emoji = "🔹"; 
+        let emoji = "🔹";
         if (type.includes("تسميع")) emoji = "📖";
         if (type.includes("مراجعة")) emoji = "🔄";
         if (type.includes("اختبار")) emoji = "✅";
@@ -3354,25 +3361,21 @@ function shareAsWhatsAppText() {
 
         let line = `${emoji} ( *${student}* ) ${type}`;
 
-        // 1. الأنواع التي تتطلب (من - إلى)
-        const rangeTypes = ["تسميع", "مراجعة", "اختبار جزء", "سرد"];
-        if (rangeTypes.includes(type)) {
+        // 1. الأنواع التي لها مدى (آيات أو أجزاء)
+        if (fromP && toP) {
             line += ` من ${fromP} إلى ${toP}`;
+        } else if (fromP) {
+            line += ` من ${fromP}`;
         }
 
-        // 2. معالجة التقدير (إخفاء الصفر)
-        let displayEval = (eval === "0" || eval === "") ? "" : ` بتقدير *${eval}*`;
+        // 2. التقدير (نُخفي الصفر والفراغ)
+        const displayGrade = (!grade || grade === "0") ? "" : ` بتقدير *${grade}*`;
 
-        // 3. شروط العرض الخاصة بالنتائج
-        if (type === "تسميع" || type === "مراجعة") {
-            line += displayEval;
-        } 
-        else if (type === "اختبار جزء" || type === "سرد") {
-            if (markNum > 0) {
-                line += ` بعلامة *${markNum}*`;
-            } else {
-                line += displayEval;
-            }
+        // 3. الاختبار والسرد: العلامة أولى من التقدير إن وُجدت
+        if (type === "اختبار جزء" || type === "سرد") {
+            line += (markNum > 0) ? ` بعلامة *${markNum}*` : displayGrade;
+        } else {
+            line += displayGrade;
         }
 
         msg += line + `\n`;
@@ -3382,9 +3385,10 @@ function shareAsWhatsAppText() {
     msg += `_تم الإرسال عبر نظام إدارة التحفيظ_`;
 
     if (navigator.share) {
-        navigator.share({ text: msg });
+        navigator.share({ text: msg }).catch(err => console.warn("أُلغيت المشاركة:", err));
     } else {
-        window.open(`https://wa.me{encodeURIComponent(msg)}`);
+        // كان الرابط ناقص "/؟text=" فيفتح صفحة خاطئة
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
     }
 }
 
