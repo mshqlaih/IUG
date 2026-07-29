@@ -1,20 +1,31 @@
-const CACHE_NAME = 'quran-app-v1.62';
-// الأساسي للإقلاع offline — فشل أي ملف لا يُفشّل التثبيت
-const CORE = [
-  './', './index.html', './login.html', './app.css', './app.js', './api.js',
-  './quran_data.js', './STATIC_LOOKUP.json',
-  './manifest.json', './bootstrap.bundle.min.js', './icon.png'
-];
+const CACHE_NAME = 'quran-app-v1.64';
+
+// كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
+const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'app.css'];
+const SHELL = ['./', './index.html', './login.html', './app.css', './app.js', './api.js'];
+
+// ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
+const ASSETS = ['./quran_data.js', './STATIC_LOOKUP.json', './manifest.json',
+                './bootstrap.bundle.min.js', './icon.png'];
+
 // ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت
 const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js'];
+
+// تجاوز كاش المتصفح عند التخزين.
+// بدونه قد يسلّم المتصفحُ الـ SW نسخةً قديمة من app.js فتُخزَّن تحت اسم
+// الكاش الجديد — فيرى المستخدم رقم نسخة جديداً وسلوكاً قديماً، ولا ينحلّ
+// الأمر إلا بـ «تحديث كامل». هذا كان سبب المشكلة.
+function freshRequest(url) {
+  return new Request(url, { cache: 'reload' });
+}
 
 // تثبيت الملفات في الذاكرة (مرن: فشل ملف لا يكسر الكل)
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await Promise.allSettled(CORE.map((u) => cache.add(u)));   // الأساسي
-    Promise.allSettled(OPTIONAL.map((u) => cache.add(u)));     // في الخلفية
+    await Promise.allSettled(SHELL.concat(ASSETS).map((u) => cache.add(freshRequest(u))));
+    Promise.allSettled(OPTIONAL.map((u) => cache.add(freshRequest(u))));  // في الخلفية
   })());
 });
 
@@ -42,7 +53,33 @@ self.addEventListener('message', (e) => {
   }
 });
 
-// تشغيل التطبيق من الكاش (cache-first مع تحديث صامت + تمرير طلبات API للشبكة)
+// هل الطلب لكود التطبيق (صفحة/سكربت/تنسيق) أم لأصل ثابت؟
+function isShellRequest(req, url) {
+  if (req.mode === 'navigate') return true;
+  const name = url.pathname.split('/').pop();
+  return name === '' || SHELL_FILES.indexOf(name) !== -1;
+}
+
+// جلب بمهلة: لا ننتظر شبكة بطيئة أكثر من ثوانٍ قليلة ثم نرجع للكاش
+async function fetchWithTimeout(req, ms) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(req, { signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function cacheFallback(cache, req) {
+  const cached = await cache.match(req, { ignoreSearch: true });
+  if (cached) return cached;
+  if (req.mode === 'navigate') {
+    return (await cache.match('./index.html', { ignoreSearch: true })) || Response.error();
+  }
+  return Response.error();
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -51,19 +88,32 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
+
+    // كود التطبيق: الشبكة أولاً ⇒ إعادة تحميل عادية تكفي لرؤية الجديد،
+    // ومع انقطاع الشبكة يعمل من الكاش كالمعتاد.
+    if (isShellRequest(req, url)) {
+      try {
+        const fresh = await fetchWithTimeout(req, 4000);
+        if (fresh && fresh.ok) cache.put(req, fresh.clone());
+        return fresh;
+      } catch (_) {
+        return cacheFallback(cache, req);
+      }
+    }
+
+    // الأصول الثابتة: الكاش أولاً مع تحديث صامت في الخلفية
     const cached = await cache.match(req, { ignoreSearch: true });
     if (cached) {
-      fetch(req).then((r) => { if (r && r.ok) cache.put(req, r.clone()); }).catch(() => {}); // تحديث صامت
+      fetch(req).then((r) => { if (r && r.ok) cache.put(req, r.clone()); }).catch(() => {});
       return cached;
     }
+
     try {
       const r = await fetch(req);
       if (r && r.ok && r.type === 'basic') cache.put(req, r.clone());
       return r;
-    } catch {
-      if (req.mode === 'navigate')
-        return (await cache.match('./index.html', { ignoreSearch: true })) || Response.error();
-      return Response.error();
+    } catch (_) {
+      return cacheFallback(cache, req);
     }
   })());
 });

@@ -17,11 +17,21 @@ window.addEventListener('offline', () => {
     console.log('❌ فُقد الاتصال بالإنترنت، يعمل التطبيق offline الآن');
 });
 
+let _swRegistration = null;
+
+// فحص وجود تحديث (بلا إزعاج): عند العودة للتطبيق وعند عودة الشبكة
+function checkForAppUpdate() {
+    if (_swRegistration) _swRegistration.update().catch(() => {});
+}
+
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').then(reg => {
-        console.log("نظام العمل أوفلاين نشط");        
+        console.log("نظام العمل أوفلاين نشط");
+        _swRegistration = reg;
+
         reg.onupdatefound = () => {
             const installingWorker = reg.installing;
+            if (!installingWorker) return;
             installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
                     // لافتة غير معطِّلة بدل confirm
@@ -30,6 +40,12 @@ if ('serviceWorker' in navigator) {
                 }
             };
         };
+
+        // افحص التحديث كلما عاد المستخدم للتطبيق أو عادت الشبكة
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') checkForAppUpdate();
+        });
+        window.addEventListener('online', checkForAppUpdate);
 
     
         // استقبال الرسائل من الـ SW (تاريخ آخر تحديث + رقم النسخة)
@@ -1453,7 +1469,21 @@ function translateLookup(code, value) {
     return (lookupMap[code] && lookupMap[code][key]) || key;
 }
 
-let lastDisplayedData = []; // ✨ متغيّر عام لتخزين النتائج
+let lastDisplayedData = [];    // البيانات المعروضة بصيغة نصية (لتصدير إكسل)
+let lastDisplayedRecords = []; // السجلات الخام لنفس الصفوف (لبناء التقرير النصي)
+
+const JUZ_NAMES = {
+    1: "الجزء الأول", 2: "الجزء الثاني", 3: "الجزء الثالث",
+    4: "الجزء الرابع", 5: "الجزء الخامس", 6: "الجزء السادس",
+    7: "الجزء السابع", 8: "الجزء الثامن", 9: "الجزء التاسع",
+    10: "الجزء العاشر", 11: "الجزء الحادي عشر", 12: "الجزء الثاني عشر",
+    13: "الجزء الثالث عشر", 14: "الجزء الرابع عشر", 15: "الجزء الخامس عشر",
+    16: "الجزء السادس عشر", 17: "الجزء السابع عشر", 18: "الجزء الثامن عشر",
+    19: "الجزء التاسع عشر", 20: "الجزء العشرون", 21: "الجزء الحادي والعشرون",
+    22: "الجزء الثاني والعشرون", 23: "الجزء الثالث والعشرون", 24: "الجزء الرابع والعشرون",
+    25: "الجزء الخامس والعشرون", 26: "الجزء السادس والعشرون", 27: "الجزء السابع والعشرون",
+    28: "الجزء الثامن والعشرون", 29: "الجزء التاسع والعشرون", 30: "الجزء الثلاثون"
+};
 
 // شارة حالة المزامنة: مزامَن / بانتظار / خطأ (التفاصيل تظهر عند الضغط/المرور)
 function syncStatusBadge(r) {
@@ -1490,6 +1520,7 @@ function displayRecords() {
     // تصفير حصيلة العرض، وإلا تراكمت السجلات مع كل استدعاء
     // فتتضاعف في تصدير إكسل وفي المشاركة النصية.
     lastDisplayedData = [];
+    lastDisplayedRecords = [];
 
     const fDate = document.getElementById('filterDate').value;
     const fID   = document.getElementById('filterStudentID').value;
@@ -1533,20 +1564,8 @@ function displayRecords() {
                             fromText = "";
                             toText   = "";
                         } else if (r.type == 6 || r.type == 7) {
-                            const juzNames = {
-                                1: "الجزء الأول", 2: "الجزء الثاني", 3: "الجزء الثالث",
-                                4: "الجزء الرابع", 5: "الجزء الخامس", 6: "الجزء السادس",
-                                7: "الجزء السابع", 8: "الجزء الثامن", 9: "الجزء التاسع",
-                                10: "الجزء العاشر", 11: "الجزء الحادي عشر", 12: "الجزء الثاني عشر",
-                                13: "الجزء الثالث عشر", 14: "الجزء الرابع عشر", 15: "الجزء الخامس عشر",
-                                16: "الجزء السادس عشر", 17: "الجزء السابع عشر", 18: "الجزء الثامن عشر",
-                                19: "الجزء التاسع عشر", 20: "الجزء العشرون", 21: "الجزء الحادي والعشرون",
-                                22: "الجزء الثاني والعشرون", 23: "الجزء الثالث والعشرون", 24: "الجزء الرابع والعشرون",
-                                25: "الجزء الخامس والعشرون", 26: "الجزء السادس والعشرون", 27: "الجزء السابع والعشرون",
-                                28: "الجزء الثامن والعشرون", 29: "الجزء التاسع والعشرون", 30: "الجزء الثلاثون"
-                            };
-                            fromText = juzNames[r.partFrom] || "";
-                            toText   = juzNames[r.partTo]   || "";
+                            fromText = JUZ_NAMES[r.partFrom] || "";
+                            toText   = JUZ_NAMES[r.partTo]   || "";
                         } else {
                             fromText = AYAH_REVERSE[r.fromRange] || r.fromRange || "";
                             toText   = AYAH_REVERSE[r.toRange]   || r.toRange   || "";
@@ -1572,6 +1591,8 @@ function displayRecords() {
                                 ? "✔ تم الرفع"
                                 : "✘ لم يُرفع" + (errorText && errorText.trim() !== "" ? "\n" + errorText : "")
                         });
+
+                        lastDisplayedRecords.push(r);
 
                         tbody.innerHTML += `
                             <tr>
@@ -3324,72 +3345,127 @@ async function pullRecordsFromServer() {
 }
 
 
-function shareAsWhatsAppText() {
+// اسم آية مضغوط للتقرير: "القمر (10)"
+function compactAyahLabel(id) {
+    if (!id) return "";
+    const label = AYAH_REVERSE[id];
+    if (!label) return "";
+    const m = /^سورة\s+(.+?)\s+آية\s+(\d+)/.exec(label);
+    return m ? `${m[1]} (${m[2]})` : shortAyahLabel(id);
+}
+
+// الاسم الثلاثي: الأول + الأب + العائلة
+function tripleStudentName(s) {
+    if (!s) return "";
+    return `${s.fName || ''} ${s.pName || ''} ${s.lName || ''}`.replace(/\s+/g, ' ').trim();
+}
+
+const REPORT_EMOJI = { 1: "📖", 2: "🔄", 3: "🟢", 4: "🟡", 5: "🔴", 6: "✅", 7: "🏆" };
+
+// سطر واحد مختصر لنشاط واحد
+function buildReportLine(r) {
+    const type = Number(r.type);
+    const student = _studentsCache.find(s => Number(s.id) === Number(r.student));
+    const name = tripleStudentName(student) || `الطالب ${r.student}`;
+    const typeName = translateLookup("RECITATION_ATTENDANCE_TYPE", type);
+    const emoji = REPORT_EMOJI[type] || "🔹";
+
+    const parts = [];
+
+    if (ATTENDANCE_ONLY_TYPES.indexOf(type) !== -1) {
+        // حضور/غياب: الاسم والنوع فقط
+        return `${emoji} *${name}* — ${typeName}`;
+    }
+
+    if (type === 6 || type === 7) {
+        const from = JUZ_NAMES[r.partFrom] || "";
+        const to   = JUZ_NAMES[r.partTo]   || "";
+        // نفس الجزء ⇒ نذكره مرة واحدة
+        if (from && to) parts.push(from === to ? from : `${from} - ${to}`);
+        else if (from)  parts.push(from);
+    } else {
+        const from = compactAyahLabel(r.fromRange);
+        const to   = compactAyahLabel(r.toRange);
+        if (from && to) parts.push(`${from} - ${to}`);
+        else if (from)  parts.push(from);
+    }
+
+    const pages = parseFloat(r.amount) || 0;
+    if (pages > 0) parts.push(`عدد الصفحات: ${pages}`);
+
+    const mark = parseFloat(r.mark) || 0;
+    if (mark > 0) parts.push(`العلامة: ${mark}`);
+
+    const grade = cellValue(translateLookup("ACTIVITY_GRADE", r.rating));
+    if (grade && grade !== "0") parts.push(`التقدير: ${grade}`);
+
+    const detail = parts.length ? ` ${parts.join('، ')}` : '';
+    return `${emoji} *${name}* — ${typeName}${detail}`;
+}
+
+async function shareAsWhatsAppText() {
     const dateInput = document.getElementById("filterDate").value;
     if (!dateInput) return showAlert("⚠️ يرجى اختيار التاريخ");
 
-    const selectedDate = new Date(dateInput);
-    const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-    let msg = `*📊 تقرير نشاط يوم ${days[selectedDate.getDay()]} (${dateInput})* 😇\n`;
-    msg += `--------------------------\n`;
-
-    // نقرأ من lastDisplayedData بأسماء الحقول، لا من أعمدة الجدول بترتيبها،
-    // حتى لا ينكسر التقرير كلما تغيّر ترتيب الأعمدة.
-    if (!lastDisplayedData.length) {
+    if (!lastDisplayedRecords.length) {
         return showAlert("لا توجد سجلات لمشاركتها بهذه التصفية");
     }
 
-    lastDisplayedData.forEach(row => {
-        const student = cellValue(row["اسم الطالب"]);
-        const type    = cellValue(row["النوع"]);
-        const fromP   = cellValue(row["من"]);
-        const toP     = cellValue(row["إلى"]);
-        const grade   = cellValue(row["التقييم"]);
-        const markNum = parseFloat(cellValue(row["العلامة"])) || 0;
+    const selectedDate = new Date(dateInput);
+    const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-        if (!student && !type) return;
+    let msg = `*📊 تقرير نشاط يوم ${days[selectedDate.getDay()]} (${dateInput})* 😇\n`;
 
-        // تحديد الرمز التعبيري حسب النوع
-        let emoji = "🔹";
-        if (type.includes("تسميع")) emoji = "📖";
-        if (type.includes("مراجعة")) emoji = "🔄";
-        if (type.includes("اختبار")) emoji = "✅";
-        if (type.includes("سرد")) emoji = "🏆";
-        if (type.includes("حضور")) emoji = "🟢";
-        if (type.includes("غياب بعذر")) emoji = "🟡";
-        if (type.includes("غياب بدون عذر")) emoji = "🔴";
+    const circleLine = await reportCircleLine();
+    if (circleLine) msg += `*الحلقة:* ${circleLine}\n`;
 
-        let line = `${emoji} ( *${student}* ) ${type}`;
-
-        // 1. الأنواع التي لها مدى (آيات أو أجزاء)
-        if (fromP && toP) {
-            line += ` من ${fromP} إلى ${toP}`;
-        } else if (fromP) {
-            line += ` من ${fromP}`;
-        }
-
-        // 2. التقدير (نُخفي الصفر والفراغ)
-        const displayGrade = (!grade || grade === "0") ? "" : ` بتقدير *${grade}*`;
-
-        // 3. الاختبار والسرد: العلامة أولى من التقدير إن وُجدت
-        if (type === "اختبار جزء" || type === "سرد") {
-            line += (markNum > 0) ? ` بعلامة *${markNum}*` : displayGrade;
-        } else {
-            line += displayGrade;
-        }
-
-        msg += line + `\n`;
-    });
-
+    msg += `--------------------------\n`;
+    lastDisplayedRecords.forEach(r => { msg += buildReportLine(r) + `\n`; });
     msg += `--------------------------\n`;
     msg += `_تم الإرسال عبر نظام إدارة التحفيظ_`;
 
-    if (navigator.share) {
-        navigator.share({ text: msg }).catch(err => console.warn("أُلغيت المشاركة:", err));
-    } else {
-        // كان الرابط ناقص "/؟text=" فيفتح صفحة خاطئة
-        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    await shareTextSafely(msg);
+}
+
+// اسم الحلقة (أو الحلقات) لترويسة التقرير
+async function reportCircleLine() {
+    const circles = await getCirclesFromDb();
+    if (circles.length) {
+        return circles
+            .sort((a, b) => Number(a.circleNo) - Number(b.circleNo))
+            .map(c => c.circleName || ('حلقة ' + c.circleNo))
+            .join('، ');
     }
+    const emp = await getEmpRecord();
+    return (emp && emp.CIRCLE_NAME) ? emp.CIRCLE_NAME : '';
+}
+
+/* مشاركة نص بلا ترميز URL.
+   رابط wa.me يمرّر النص مرمّزاً، وواتساب الجوال لا يفكّ %0A فتصل الأسطر ملتصقة
+   وتظهر الرموز حرفياً. لذا: المشاركة الأصلية أولاً، ثم النسخ للحافظة، والرابط أخيراً. */
+async function shareTextSafely(text) {
+    if (navigator.share) {
+        try {
+            await navigator.share({ text: text });
+            return;
+        } catch (err) {
+            if (err && err.name === 'AbortError') return;   // ألغى المستخدم المشاركة
+            console.warn("تعذّرت المشاركة الأصلية:", err);
+        }
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+        return showAlert({
+            title: "تم نسخ التقرير",
+            message: "افتح واتساب والصق التقرير في المحادثة.",
+            icon: "📋",
+        });
+    } catch (err) {
+        console.warn("تعذّر النسخ للحافظة:", err);
+    }
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
 }
 
 
