@@ -429,8 +429,11 @@ td:nth-last-child(2) {
     padding: 6px;
   }
 
-  .btn-text {
-    display: none; /* إخفاء النص */
+  /* إخفاء نصوص الأزرار في الأماكن المزدحمة فقط (شريط التصدير والترويسة).
+     أما أزرار المزامنة والمسح فمساحتها تكفي، وإخفاء نصّها يجعلها ألغازاً. */
+  .buttons-container .btn-text,
+  .header-actions .btn-text {
+    display: none;
   }
 
   /* تحويل الأزرار إلى دوائر في الجوال فقط */
@@ -521,11 +524,12 @@ button {
 
 /* أزرار المزامنة وسحب البيانات */
 .sync-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;   /* زران بعرض واحد ونصّ ظاهر */
     gap: 8px;
-    flex-wrap: wrap;
     margin-bottom: 12px;
 }
+.sync-actions button { width: 100%; }
 .btn-sync { background: var(--primary); color: #fff; }
 .btn-pull { background: #0b8043; color: #fff; }
 .btn-sync:hover { background: #1763c7; }

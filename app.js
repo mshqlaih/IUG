@@ -939,7 +939,7 @@ function setEditingMode(on) {
     const banner = document.getElementById('editingBanner');
     const label  = document.getElementById('saveActivityLabel');
     if (banner) banner.style.display = on ? 'flex' : 'none';
-    if (label)  label.textContent = on ? 'تحديث النشاط' : 'حفظ سجل النشاط';
+    if (label)  label.textContent = on ? 'تحديث النشاط' : 'حفظ النشاط';
 }
 
 // مسح حقول شاشة النشاط (وإلغاء وضع التعديل إن كان مفعّلاً)
