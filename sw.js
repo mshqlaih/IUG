@@ -1,12 +1,15 @@
-const CACHE_NAME = 'quran-app-v1.65';
+const CACHE_NAME = 'quran-app-v1.66';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'app.css'];
 const SHELL = ['./', './index.html', './login.html', './app.css', './app.js', './api.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
+// Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
 const ASSETS = ['./quran_data.js', './STATIC_LOOKUP.json', './manifest.json',
-                './bootstrap.bundle.min.js', './icon.png'];
+                './bootstrap.bundle.min.js', './icon.png',
+                './vendor/fontawesome/css/all.min.css',
+                './vendor/fontawesome/webfonts/fa-solid-900.woff2'];
 
 // ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت
 const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js'];
