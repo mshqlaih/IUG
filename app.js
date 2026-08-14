@@ -231,6 +231,29 @@ window.onload = () => {
     refreshSettingsInfo();
 };
 
+/* تحميل مكتبة عند الطلب.
+   مكتبتا التصدير تزنان ~1.8 ميغابايت؛ تحميلهما مع كل إقلاع كان يستهلك ذاكرة
+   التطبيق المثبَّت (WebAPK) على الأجهزة الضعيفة فينهار قبل أن يظهر. */
+const _loadedScripts = {};
+
+function loadScriptOnce(src) {
+    if (_loadedScripts[src]) return _loadedScripts[src];
+
+    _loadedScripts[src] = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => {
+            delete _loadedScripts[src];       // اسمح بإعادة المحاولة لاحقاً
+            reject(new Error("تعذّر تحميل " + src));
+        };
+        document.head.appendChild(s);
+    });
+
+    return _loadedScripts[src];
+}
+
 /* =========================================================
    الثوابت (Lookups): مصدرها السيرفر عبر getLookup وتُخزَّن في IndexedDB.
    ملف STATIC_LOOKUP.json صار بذرة أولى فقط لأول تشغيل دون اتصال —
@@ -1854,10 +1877,17 @@ function showImportMessage(msg, isError=false) {
     box.innerHTML = msg;
 }
 
-function exportArrayToExcel(data, fileName = "records.xlsx") {
+async function exportArrayToExcel(data, fileName = "records.xlsx") {
   if (!data || data.length === 0) {
     showAlert("لا توجد بيانات للتصدير");
     return;
+  }
+
+  try {
+    await loadScriptOnce('xlsx.full.min.js');
+  } catch (err) {
+    console.error(err);
+    return showAlert("تعذّر تحميل مكتبة إكسل — تأكّد من الاتصال ثم أعد المحاولة.");
   }
 
   // تحويل البيانات إلى ورقة عمل
@@ -2741,7 +2771,21 @@ if (studentId && studentId !== "") {
 
 }
 
-function exportPDF() {
+// تُحمَّل مكتبة PDF عند أول استخدام فقط
+async function ensurePdfLibrary() {
+  try {
+    await loadScriptOnce('html2pdf.bundle.min.js');
+    return true;
+  } catch (err) {
+    console.error(err);
+    showAlert("تعذّر تحميل مكتبة PDF — تأكّد من الاتصال ثم أعد المحاولة.");
+    return false;
+  }
+}
+
+async function exportPDF() {
+
+  if (!await ensurePdfLibrary()) return;
 
   const pdfArea = document.getElementById("pdfArea");
 
@@ -2771,7 +2815,9 @@ function exportPDF() {
     });
 }
 
-function exportAndSharePDF() {
+async function exportAndSharePDF() {
+
+  if (!await ensurePdfLibrary()) return;
 
   const pdfArea = document.getElementById("pdfArea");
   const fileName = `Activity_Report_${getFileDatePart()}.pdf`;

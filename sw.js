@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.71';
+const CACHE_NAME = 'quran-app-v1.72';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'app.css'];
@@ -7,11 +7,12 @@ const SHELL = ['./', './index.html', './login.html', './app.css', './app.js', '.
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
 const ASSETS = ['./quran_data.js', './STATIC_LOOKUP.json', './manifest.json',
-                './bootstrap.bundle.min.js', './icon.png',
+                './icon.png', './icon-192.png', './icon-512.png',
                 './vendor/fontawesome/css/all.min.css',
                 './vendor/fontawesome/webfonts/fa-solid-900.woff2'];
 
-// ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت
+// ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت.
+// لم تعد تُحمَّل مع الصفحة، بل عند أول تصدير — لكن تخزينها يُبقي التصدير يعمل offline.
 const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js'];
 
 // تجاوز كاش المتصفح عند التخزين.

@@ -653,7 +653,6 @@
 
     <!-- الملفات الخارجية -->
     <script src="quran_data.js"></script>
-    <script src="xlsx.full.min.js"></script>
     <!-- سيتم وضع كود app.js هنا لضمان العمل -->
     <script>
         // دمج منطق app.js كاملاً لضمان التوافق
@@ -677,7 +676,8 @@
             openTab('settingsTab', document.querySelector('.tab-btn[data-tab="settingsTab"]'));
         }
     </script>
-    <script src="html2pdf.bundle.min.js"></script>
+    <!-- مكتبتا التصدير (xlsx و html2pdf) تُحمَّلان عند الطلب فقط عبر loadScriptOnce
+         — تحميلهما عند الإقلاع كان يضيف ~1.8 ميغابايت ويُسقط التطبيق على الأجهزة الضعيفة -->
     <script src="api.js"></script>
     <script src="app.js"></script>
     
