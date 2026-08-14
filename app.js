@@ -2276,7 +2276,7 @@ function populateSelectFromLookups(selectId, meaningCode) {
             // تصفية الثوابت حسب LOOKUP_MEANING_CODE المطلوب
             const items = data
                 .filter(item => item.LOOKUP_MEANING_CODE === meaningCode)
-                .sort((a, b) => (a.SORT_ORDER ?? 0) - (b.SORT_ORDER ?? 0));
+                .sort((a, b) => (Number(a.SORT_ORDER) || 0) - (Number(b.SORT_ORDER) || 0));
 
             const select = document.getElementById(selectId);
             select.innerHTML = ""; // تفريغ القائمة أولاً
@@ -3962,8 +3962,14 @@ async function pullRecordsFromServer() {
         for (const remote of remoteRecords) {
             // معرّف الطالب في النشاط يجب أن يكون student_no ليلتقي مع مخزن الطلبة.
             // إن أرسل السيرفر رقم هوية بدلاً منه نترجمه عبر خريطة الطلاب المسحوبين.
+            const firstDefined = (...vals) => {
+                for (let i = 0; i < vals.length; i++) {
+                    if (vals[i] !== null && vals[i] !== undefined) return vals[i];
+                }
+                return '';
+            };
             const rawStudent = String(
-                remote.student_no ?? remote.studentno ?? remote.student ?? ''
+                firstDefined(remote.student_no, remote.studentno, remote.student)
             ).replace(/[\\"]/g, '').trim();
 
             let student = Number(rawStudent);
@@ -3981,12 +3987,12 @@ async function pullRecordsFromServer() {
                 fromRange:   Number(remote.fromrange || 0),
                 toRange:     Number(remote.torange || 0),
                 // السيرفر قد يُرجع null لهذه الحقول — نُخزّنها فراغاً حتى لا تُطبع "null"
-                partFrom:    remote.partfrom ?? "",
-                partTo:      remote.partto   ?? "",
+                partFrom:    firstDefined(remote.partfrom),
+                partTo:      firstDefined(remote.partto),
                 amount:      Number(remote.amount || 0),
-                rating:      remote.rating   ?? "",
+                rating:      firstDefined(remote.rating),
                 errors:      Number(remote.errors || 0),
-                mark:        remote.mark     ?? "",
+                mark:        firstDefined(remote.mark),
                 notes:       remote.notes || "",
                 tagNo:       Number(remote.tagno || remote.tagNo || 0),
                 sortOrder:   Number(remote.sortorder || 999),

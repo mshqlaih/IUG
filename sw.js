@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.69';
+const CACHE_NAME = 'quran-app-v1.70';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'app.css'];
@@ -19,7 +19,18 @@ const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js'];
 // الكاش الجديد — فيرى المستخدم رقم نسخة جديداً وسلوكاً قديماً، ولا ينحلّ
 // الأمر إلا بـ «تحديث كامل». هذا كان سبب المشكلة.
 function freshRequest(url) {
-  return new Request(url, { cache: 'reload' });
+  try {
+    return new Request(url, { cache: 'reload' });
+  } catch (_) {
+    return url;   // متصفح قديم لا يدعم خيار cache
+  }
+}
+
+// بديل Promise.allSettled (غير متوفّر قبل Chrome 76).
+// استخدامه مباشرة كان يُفشِل تثبيت الـ SW كلياً على أجهزة أندرويد القديمة
+// فلا يعمل التطبيق دون اتصال إطلاقاً.
+function allDone(promises) {
+  return Promise.all(promises.map((p) => Promise.resolve(p).catch(() => null)));
 }
 
 // تثبيت الملفات في الذاكرة (مرن: فشل ملف لا يكسر الكل)
@@ -27,8 +38,8 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await Promise.allSettled(SHELL.concat(ASSETS).map((u) => cache.add(freshRequest(u))));
-    Promise.allSettled(OPTIONAL.map((u) => cache.add(freshRequest(u))));  // في الخلفية
+    await allDone(SHELL.concat(ASSETS).map((u) => cache.add(freshRequest(u))));
+    allDone(OPTIONAL.map((u) => cache.add(freshRequest(u))));  // في الخلفية
   })());
 });
 
@@ -65,6 +76,9 @@ function isShellRequest(req, url) {
 
 // جلب بمهلة: لا ننتظر شبكة بطيئة أكثر من ثوانٍ قليلة ثم نرجع للكاش
 async function fetchWithTimeout(req, ms) {
+  // بلا AbortController (متصفحات قديمة) نجلب بلا مهلة بدل أن نُسقط الطلب
+  if (typeof AbortController === 'undefined') return fetch(req);
+
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -132,6 +146,7 @@ function buildSaveActivityBody(record) {
   const to   = isPartMode ? record.partTo   : record.toRange;
 
   const num = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
+  const numOr0 = (v) => { const n = num(v); return n === null ? 0 : n; };
 
   return {
     action          : "SAVE",
@@ -139,9 +154,9 @@ function buildSaveActivityBody(record) {
     student_no      : String(record.student),
     attendance_type : String(type),
     activity_date   : String(record.date),
-    from_aya_no     : String(num(from) ?? 0),
-    to_aya_no       : String(num(to) ?? 0),
-    num_errors      : String(num(record.errors) ?? 0),
+    from_aya_no     : String(numOr0(from)),
+    to_aya_no       : String(numOr0(to)),
+    num_errors      : String(numOr0(record.errors)),
     recitation_grade: num(record.rating),
     student_mark    : num(record.mark),
     notes           : record.notes || "",

@@ -40,15 +40,19 @@ window.QMC = (function () {
       }
     }
 
+    const url = `${BASE}/${path}`;
+    const init = { method: method, headers: headers, body: payload };
+
+    // AbortController غير متوفّر في متصفحات أندرويد القديمة — عندها نُرسل بلا مهلة
+    if (typeof AbortController === "undefined") {
+      return fetch(url, init);
+    }
+
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    init.signal = ctrl.signal;
     try {
-      return await fetch(`${BASE}/${path}`, {
-        method,
-        headers,
-        body: payload,
-        signal: ctrl.signal,
-      });
+      return await fetch(url, init);
     } finally {
       clearTimeout(timer);
     }
@@ -130,6 +134,9 @@ window.QMC = (function () {
     const to   = isPartMode ? record.partTo   : record.toRange;
 
     const num = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
+    // ملاحظة توافق: نتجنّب ?? و?. لأن متصفحات أندرويد القديمة (Chrome < 80)
+    // ترفض الملف كاملاً بخطأ نحوي فيتعطّل التطبيق حتى دون اتصال.
+    const numOr0 = (v) => { const n = num(v); return n === null ? 0 : n; };
 
     return {
       action          : "SAVE",   // السيرفر يميّز الإضافة من التعديل عبر tagno
@@ -137,9 +144,9 @@ window.QMC = (function () {
       student_no      : String(record.student),
       attendance_type : String(type),
       activity_date   : String(record.date),
-      from_aya_no     : String(num(from) ?? 0),
-      to_aya_no       : String(num(to) ?? 0),
-      num_errors      : String(num(record.errors) ?? 0),
+      from_aya_no     : String(numOr0(from)),
+      to_aya_no       : String(numOr0(to)),
+      num_errors      : String(numOr0(record.errors)),
       recitation_grade: num(record.rating),
       student_mark    : num(record.mark),
       notes           : record.notes || "",
@@ -164,8 +171,14 @@ window.QMC = (function () {
         decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
       const st = String(decoded.status || "").toLowerCase();
       if (st === "success" || st === "ok") {
-        const tagNo = decoded.tagno ?? decoded.tagNo ?? null;
-        const pages = decoded.numPages ?? decoded.numpages ?? null;
+        const pick = (...vals) => {
+          for (let i = 0; i < vals.length; i++) {
+            if (vals[i] !== null && vals[i] !== undefined) return vals[i];
+          }
+          return null;
+        };
+        const tagNo = pick(decoded.tagno, decoded.tagNo);
+        const pages = pick(decoded.numPages, decoded.numpages);
         return {
           ok: true,
           error: "",
@@ -295,10 +308,12 @@ window.QMC = (function () {
     const raw = await res.text();
     const decoded = safeDecode(raw);
 
-    const studentNo =
-      decoded && typeof decoded === "object" && !Array.isArray(decoded)
-        ? decoded.studentno ?? decoded.studentNo ?? decoded.STUDENTNO
-        : undefined;
+    let studentNo;
+    if (decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
+      studentNo = decoded.studentno;
+      if (studentNo === undefined || studentNo === null) studentNo = decoded.studentNo;
+      if (studentNo === undefined || studentNo === null) studentNo = decoded.STUDENTNO;
+    }
 
     if (studentNo !== undefined && studentNo !== null && String(studentNo).trim() !== "") {
       const n = Number(studentNo);

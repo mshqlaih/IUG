@@ -746,6 +746,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .search-wrap { position: relative; flex: 1; min-width: 0; }
 .search-wrap .search-icon {
     position: absolute;
+    right: 12px;                 /* بديل للمتصفحات القديمة (الواجهة RTL) */
     inset-inline-start: 12px;
     top: 50%;
     transform: translateY(-50%);
@@ -755,6 +756,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 }
 .search-wrap input {
     width: 100%;
+    padding-right: 36px;         /* بديل للمتصفحات القديمة */
     padding-inline-start: 36px;
     margin: 0;
 }
@@ -907,6 +909,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 /* ===== نافذة التأكيد الموحّدة ===== */
 .modal-overlay {
     position: fixed;
+    /* بدائل صريحة قبل inset — المتصفحات القديمة تتجاهلها فتبقى النافذة مكانها */
+    top: 0; right: 0; bottom: 0; left: 0;
     inset: 0;
     background: rgba(15, 23, 42, 0.55);
     backdrop-filter: blur(2px);
@@ -1001,7 +1005,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .rating-chip:hover { border-color: var(--chip-color); }
 .rating-chip.checked {
     border-color: var(--chip-color);
-    background: #fff;
+    background: #f5f8ff;         /* بديل قبل color-mix (Chrome 111+) */
     background: color-mix(in srgb, var(--chip-color) 10%, #fff);
     color: var(--chip-color);
 }
