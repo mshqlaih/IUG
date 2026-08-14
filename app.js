@@ -1285,12 +1285,12 @@ function studentCardHtml(s) {
             ${summary}
         </div>
         <div class="student-actions">
+            <button class="act-btn" title="ترشيح للاختبار" aria-label="ترشيح للاختبار"
+                    onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check" style="color:#FF5722"></i></button>
+            <span class="actions-sep"></span>
             ${OPEN_ACTIVITY_TYPES.map(t => actionButtonHtml(t, id, false)).join('')}
             <span class="actions-sep"></span>
             ${QUICK_ACTIVITY_TYPES.map(t => actionButtonHtml(t, id, true)).join('')}
-            <span class="actions-sep"></span>
-            <button class="act-btn" title="تعديل بيانات الطالب" onclick="editStudent(${id})">✏️</button>
-            <button class="act-btn" title="حذف الطالب" onclick="deleteStudent(${id})">🗑️</button>
         </div>
     </div>`;
 }
@@ -1350,6 +1350,21 @@ function openActivityForStudent(studentId, type) {
 
     // ضبط النوع والتمييز واستدعاء handleActivityTypeChange
     selectActivityType(type);
+}
+
+// ترشيح الطالب للاختبار من بطاقته (مثل ActionIcon assignment_turned_in في Flutter)
+async function nominateStudentForExam(studentId) {
+    openTab('requestsTab', document.querySelector('.tab-btn[data-tab="requestsTab"]'));
+
+    await openExamRequestForm(null);
+
+    const s = _studentsCache.find(st => Number(st.id) === Number(studentId));
+    const hidden = document.getElementById('reqStudentNo');
+    const input  = document.getElementById('reqStudentPicker');
+    if (hidden) hidden.value = String(studentId);
+    if (input)  input.value = s ? studentPickerLabel(s) : '';
+
+    loadExamRequests();
 }
 
 // حفظ فوري للحضور/الغياب بعد تأكيد (مثل _confirmAndSaveQuick في Flutter)
@@ -1838,8 +1853,6 @@ function clearStudentForm() {
     if (g) g.value = '';
     const c = document.getElementById('stuCircle');
     if (c) c.value = '';
-    const editNo = document.getElementById('stuEditNo');
-    if (editNo) editNo.value = '';
     setStudentStatus('', '');
     _lastCivilLookupId = null;
 }
@@ -1877,10 +1890,6 @@ function toggleAddStudentForm() {
 async function onStudentIdBlur() {
     const el = document.getElementById('stuIdNo');
     if (!el) return;
-
-    // في وضع التعديل رقم الهوية للعرض فقط
-    const editNo = document.getElementById('stuEditNo');
-    if (editNo && editNo.value) return;
 
     const id = String(el.value || '').trim();
     if (!/^\d{9}$/.test(id)) return;   // ناقص → تجاهل
@@ -2085,9 +2094,9 @@ function readStudentForm(requireAll) {
     };
 }
 
+// بيانات الطالب مصدرها السيرفر — لا تعديل محلي، الإضافة فقط
 function submitStudentForm() {
-    const editNo = String((document.getElementById('stuEditNo') || {}).value || '').trim();
-    return editNo ? updateStudentLocally(Number(editNo)) : addNewStudentOnline();
+    return addNewStudentOnline();
 }
 
 // إضافة طالب جديد: السيرفر يُصدر رقم الطالب ثم نحفظه محلياً بذلك الرقم
@@ -2146,90 +2155,6 @@ async function addNewStudentOnline() {
     }
 }
 
-// تعديل بيانات طالب موجود — محلي فقط (لا يوجد endpoint لتعديل الطالب على السيرفر)
-function updateStudentLocally(studentNo) {
-    const form = readStudentForm(false);
-    if (!form) return;
-
-    const store = db.transaction("students", "readwrite").objectStore("students");
-    const req = store.get(studentNo);
-
-    req.onsuccess = () => {
-        const merged = Object.assign({}, req.result || {}, form, { id: studentNo });
-        store.put(merged).onsuccess = () => {
-            refreshAll();
-            showToast("✅ تم تحديث بيانات الطالب محلياً");
-            closeAddStudentForm();
-        };
-    };
-}
-
-async function editStudent(id) {
-    const s = _studentsCache.find(st => Number(st.id) === Number(id));
-    if (!s) return showAlert("لم يُعثر على الطالب");
-
-    clearStudentForm();
-    await populateCircleSelect(s.circleNo);
-
-    const set = (elId, value) => {
-        const el = document.getElementById(elId);
-        if (el) el.value = value || '';
-    };
-    set('stuIdNo', s.idNo);
-    set('fName', s.fName);
-    set('pName', s.pName);
-    set('gName', s.gName);
-    set('lName', s.lName);
-    set('stuGender', s.gender);
-    set('stuMobile', s.mobile);
-    set('stuBirthDate', s.birthDate);
-    set('stuEditNo', s.id);
-
-    const idEl = document.getElementById('stuIdNo');
-    if (idEl) idEl.readOnly = true;   // رقم الهوية لا يُعدَّل بعد التسجيل
-
-    const t = document.getElementById('addStudentTitle');
-    if (t) t.textContent = `تعديل بيانات: ${fullStudentName(s)}`;
-    const note = document.getElementById('addStudentNote');
-    if (note) note.style.display = 'none';
-
-    const card = document.getElementById('addStudentCard');
-    if (card) card.style.display = 'block';
-
-    setStudentStatus('التعديل يُحفظ محلياً على هذا الجهاز فقط.', '#5f6368');
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-async function deleteStudent(id) {
-    const s = _studentsCache.find(st => Number(st.id) === Number(id));
-    const fullName = fullStudentName(s) || `رقم ${id}`;
-
-    const ok = await showConfirm({
-        title: "حذف الطالب",
-        message: `${fullName}\n\nالحذف محلي على هذا الجهاز فقط — سيعود الطالب عند سحب البيانات.`,
-        confirmText: "حذف",
-        danger: true,
-        icon: "🗑️",
-    });
-    if (!ok) return;
-
-    const tx = db.transaction("students", "readwrite");
-    const store = tx.objectStore("students");
-
-    // حذف إذا كان مخزن كنص
-    store.delete(String(id));
-
-    // حذف إذا كان مخزن كرقم
-    const numericID = parseInt(id, 10);
-    if (!isNaN(numericID)) {
-        store.delete(numericID);
-    }
-
-    tx.oncomplete = () => {
-        refreshAll();
-        showToast("✅ تم حذف الطالب");
-    };
-}
 
 function checkIDNumber(id) {
     const idStr = id.toString();
@@ -3630,11 +3555,30 @@ async function loadExamRequests() {
     renderExamRequests();
 }
 
+// أسماء الحالات وألوانها — مطابقة لـ _statusColor في Flutter
+// P معلّق • A مقبول • S ناجح • R مرفوض • F إعادة
+const EXAM_STATUS_FALLBACK = {
+    P: 'معلّق', PENDING: 'معلّق',
+    A: 'مقبول', APPROVED: 'مقبول', ACTIVE: 'مقبول',
+    S: 'ناجح',
+    R: 'مرفوض', REJECTED: 'مرفوض',
+    F: 'إعادة',
+};
+const EXAM_STATUS_CLASS = {
+    P: 'req-pending', PENDING: 'req-pending',
+    A: 'req-done', S: 'req-done', APPROVED: 'req-done', ACTIVE: 'req-done',
+    R: 'req-rejected', REJECTED: 'req-rejected',
+    F: 'req-repeat',
+};
+
 function examStatusBadge(status) {
     const s = String(status || '').toUpperCase();
-    const name = examLookupName('EXAM_REQUEST_STATUS', status);
-    const cls = (s === 'P') ? 'req-pending' : (s === 'A' ? 'req-done' : 'req-other');
-    const label = (name && name !== status) ? name : (s === 'P' ? 'معلّق' : cellValue(status) || '—');
+    // الثابت الصحيح في السيرفر هو QMC_EXAM_STATUS
+    const name = examLookupName('QMC_EXAM_STATUS', status);
+    const label = (name && String(name) !== String(status))
+        ? name
+        : (EXAM_STATUS_FALLBACK[s] || cellValue(status) || '—');
+    const cls = EXAM_STATUS_CLASS[s] || 'req-other';
     return `<span class="req-badge ${cls}">${escapeHtml(label)}</span>`;
 }
 
@@ -3648,13 +3592,31 @@ function examRequestCardHtml(r) {
             : `${JUZ_NAMES[r.partFrom] || r.partFrom} - ${JUZ_NAMES[r.partTo] || r.partTo}`)
         : '';
 
-    const meta = [
-        examLookupName('EXAM_TYPE', r.examType),
-        parts,
-        r.circleName,
-        r.sessionName,
-        r.examDate ? `📅 ${String(r.examDate).split('T')[0]}` : '',
-    ].filter(Boolean).map(escapeHtml).join(' • ');
+    // كل معلومة في سطر مستقل بأيقونتها بدل صفّ واحد طويل
+    const rows = [];
+    const line = (icon, color, text) => {
+        if (!text) return;
+        rows.push(`<div class="req-row"><i class="fas ${icon}" style="color:${color}"></i>` +
+                  `<span>${escapeHtml(text)}</span></div>`);
+    };
+
+    line('fa-clipboard-check', '#FF9800',
+         [examLookupName('EXAM_TYPE', r.examType), parts].filter(Boolean).join(' • '));
+    line('fa-users', '#1967d2', r.circleName);
+    line('fa-landmark', '#5f6368', r.sessionName);
+
+    const dateText = r.examDate ? String(r.examDate).split('T')[0] : '';
+    const prayer = r.prayerCode ? examLookupName('EXAM_PRAYER_TIME_CODE', r.prayerCode) : '';
+    line('fa-calendar-day', '#137333',
+         [dateText, prayer].filter(Boolean).join(' — '));
+
+    // الدرجة تظهر فقط إن رصدتها اللجنة
+    const avg = (r.examAvg === null || r.examAvg === undefined || r.examAvg === '')
+        ? null : Number(r.examAvg);
+    if (avg !== null && !Number.isNaN(avg)) {
+        rows.push(`<div class="req-row req-grade"><i class="fas fa-star" style="color:#e8710a"></i>` +
+                  `<span>المعدل: <b>${escapeHtml(String(avg))}</b></span></div>`);
+    }
 
     const editable = (String(r.status).toUpperCase() === 'P');
     const key = escapeHtml(String(r.key));
@@ -3674,15 +3636,12 @@ function examRequestCardHtml(r) {
     }
 
     return `
-    <div class="student-card">
+    <div class="student-card req-card">
         <div class="student-card-head">
             <span class="student-name">${escapeHtml(name)}</span>
             <span class="req-badges">${pendingHtml}${examStatusBadge(r.status)}</span>
         </div>
-        <div class="student-last">
-            <span class="student-last-icon"><i class="fas fa-clipboard-check" style="color:#FF9800"></i></span>
-            <span class="student-last-text">${meta}</span>
-        </div>
+        <div class="req-body">${rows.join('')}</div>
         ${actions}
     </div>`;
 }
