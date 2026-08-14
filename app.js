@@ -539,12 +539,6 @@ function fillAyatSearchList() {
     buildSurahIndex();
     fillSurahSelect();
 
-    // 1. إذا كانت القائمة (Datalist) بها خيارات فعلياً، فلا داعي لإعادة بنائها
-    if (list.options.length > 0) {
-        console.log("قائمة البحث جاهزة مسبقاً ✅");
-        return;
-    }
-
     // 2. بناء PAGE_MAX_LINES و AYAH_REVERSE مرة واحدة فقط
     if (typeof window.PAGE_MAX_LINES === 'undefined') {
         window.PAGE_MAX_LINES = QURAN_DATA.reduce((acc, curr) => {
@@ -564,17 +558,23 @@ function fillAyatSearchList() {
         console.log("تم تجهيز بيانات المساعدة بنجاح ✅");
     }
 
-    // 3. بناء قائمة البحث (Datalist)
-    const fragment = document.createDocumentFragment();
-    QURAN_DATA.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.l;
-        option.setAttribute('data-id', item.id); // أفضل من dataset برمجياً للـ Datalist
-        fragment.appendChild(option);
-    });
+    // ملاحظة أداء حرجة: لا نبني قائمة الاقتراحات كاملة (6236 خياراً).
+    // بناء آلاف عناصر DOM عند كل إقلاع كان يُنهك محرّك العرض على الأجهزة
+    // الضعيفة حتى يُقتل — وهو ما يظهر للمستخدم كـ«تم إيقاف التطبيق».
+    // الاقتراحات تُبنى عند الكتابة فقط عبر handleSmartSearch (≤ 300 خيار).
+}
 
-    list.innerHTML = "";
-    list.appendChild(fragment);
+// حدّ أقصى لعدد الاقتراحات المعروضة دفعةً واحدة
+const AYAT_SUGGESTION_LIMIT = 40;
+
+// تمرير آمن: المتصفحات القديمة تعتبر الكائن قيمةً صادقة فتقفز لأعلى الصفحة
+function scrollElementIntoView(el) {
+    if (!el) return;
+    try {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (_) {
+        el.scrollIntoView();
+    }
 }
 
 // أيقونات وألوان الأنشطة — مطابقة لـ StudentsScreen في تطبيق Flutter
@@ -801,11 +801,11 @@ function searchAyat(raw, surahScope) {
 }
 
 // إعادة القائمة لوضعها الكامل (كل المصحف) — تُستدعى عند مسح البحث بلا سورة مختارة
+// عند إفراغ البحث: نعرض عيّنة صغيرة فقط — لا المصحف كاملاً
 function rebuildFullAyatList() {
     const list = document.getElementById('ayatList');
     if (!list || typeof QURAN_DATA === 'undefined') return;
-    if (list.options.length === QURAN_DATA.length) return; // كاملة أصلاً
-    renderOptions(QURAN_DATA);
+    renderOptions(QURAN_DATA.slice(0, AYAT_SUGGESTION_LIMIT));
 }
 
 function handleSmartSearch(inputEl) {
@@ -2349,7 +2349,7 @@ function convertStringIDsToNumbers() {
                 store.delete(student.id);
 
                 // حفظ نسخة جديدة بنفس البيانات لكن بالرقم
-                const newStudent = { ...student, id: newID };
+                const newStudent = Object.assign({}, student, { id: newID });
                 store.put(newStudent);
             }
             cursor.continue();
@@ -3348,7 +3348,7 @@ async function openExamRequestForm(existing) {
 
     onExamTypeChange();
     card.style.display = 'block';
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollElementIntoView(card);
 }
 
 function closeExamRequestForm() {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.72';
+const CACHE_NAME = 'quran-app-v1.73';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'app.css'];
@@ -101,7 +101,7 @@ async function cacheFallback(cache, req) {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  let url; try { url = new URL(req.url); } catch { return; }
+  let url; try { url = new URL(req.url); } catch (_) { return; }
   if (url.origin !== self.location.origin) return;            // مرّر طلبات API الخارجية للشبكة
 
   e.respondWith((async () => {
