@@ -3036,6 +3036,7 @@ async function refreshSettingsInfo() {
     const pending = await countPendingRecords();
     set('settingsPending', pending === null ? "-" : String(pending));
 
+    refreshDebugPanel();
     await renderCirclesList();
 }
 
@@ -3924,6 +3925,113 @@ function updateEmpChipSub(circles, emp) {
     }
 
     el.textContent = center ? `${text} — ${center}` : text;
+}
+
+/* =========================================================
+   وضع التشخيص: كونسول داخل التطبيق + سجل أخطاء يبقى بعد الانهيار
+   ========================================================= */
+
+function getRecordedErrors() {
+    try { return JSON.parse(localStorage.getItem('qmc_errors') || '[]'); }
+    catch (_) { return []; }
+}
+
+function isDebugMode() {
+    return localStorage.getItem('qmc_debug') === '1';
+}
+
+async function toggleDebugMode() {
+    const on = isDebugMode();
+
+    if (on) {
+        localStorage.removeItem('qmc_debug');
+        refreshDebugPanel();
+        return showAlert({
+            title: "أُوقف وضع التشخيص",
+            message: "سيختفي الكونسول بعد إعادة تحميل التطبيق.",
+            icon: "🐞",
+        });
+    }
+
+    const ok = await showConfirm({
+        title: "تفعيل وضع التشخيص",
+        message: "سيظهر زر كونسول عائم داخل التطبيق لعرض الأخطاء.\n\n" +
+                 "سيُعاد تحميل التطبيق الآن.",
+        confirmText: "تفعيل",
+        icon: "🐞",
+    });
+    if (!ok) return;
+
+    localStorage.setItem('qmc_debug', '1');
+    location.reload();
+}
+
+// تقرير نصّي جاهز للإرسال (نسخ إلى الحافظة)
+async function copyDebugReport() {
+    const errors = getRecordedErrors();
+
+    const lines = [
+        "تقرير تشخيص — تطبيق الصفوة",
+        "النسخة: " + (localStorage.getItem('appVersion') || '-'),
+        "المستخدم: " + (getCurrentUser() || '-'),
+        "المتصفح: " + navigator.userAgent,
+        "الاتصال: " + (navigator.onLine ? 'متصل' : 'دون اتصال'),
+        "عدد الأخطاء: " + errors.length,
+        "──────────────",
+    ];
+
+    errors.forEach((e, i) => {
+        lines.push(`${i + 1}) [${e.kind}] ${e.msg}` + (e.at ? `\n    عند: ${e.at}` : '') + `\n    ${e.t}`);
+    });
+
+    const text = lines.join('\n');
+
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast("تم نسخ التقرير");
+    } catch (_) {
+        // بديل للمتصفحات القديمة التي لا تدعم الحافظة
+        showAlert({ title: "تقرير التشخيص", message: text, icon: "🐞" });
+    }
+}
+
+function clearRecordedErrors() {
+    localStorage.removeItem('qmc_errors');
+    refreshDebugPanel();
+    showToast("تم مسح سجل الأخطاء");
+}
+
+function refreshDebugPanel() {
+    const state = document.getElementById('debugState');
+    const count = document.getElementById('debugErrorCount');
+    const box   = document.getElementById('debugErrors');
+    const label = document.getElementById('debugToggleLabel');
+
+    const on = isDebugMode();
+    if (state) {
+        state.textContent = on ? "مُفعَّل ✅" : "متوقّف";
+        state.style.color = on ? "#137333" : "";
+    }
+    if (label) label.textContent = on ? "إيقاف" : "تفعيل";
+
+    const errors = getRecordedErrors();
+    if (count) count.textContent = String(errors.length);
+
+    if (!box) return;
+    if (!errors.length) {
+        box.innerHTML = '<div class="debug-empty">لا أخطاء مسجّلة</div>';
+        return;
+    }
+
+    // الأحدث أولاً
+    box.innerHTML = errors.slice().reverse().map(e =>
+        `<div class="debug-row">
+            <span class="debug-kind">${escapeHtml(e.kind)}</span>
+            <span class="debug-msg">${escapeHtml(e.msg)}</span>
+            ${e.at ? `<span class="debug-at">${escapeHtml(e.at)}</span>` : ''}
+        </div>`
+    ).join('') +
+    `<button class="btn-cancel" style="margin-top:8px;width:100%" onclick="clearRecordedErrors()">مسح السجل</button>`;
 }
 
 // إظهار طرفَي معرّف الجهاز فقط (لا داعي لعرضه كاملاً)

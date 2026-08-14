@@ -95,6 +95,51 @@
 }
 
 </style>
+
+<!-- ===== وضع التشخيص =====
+     يسجّل الأخطاء المبكرة في localStorage (تبقى حتى لو انهار التطبيق)،
+     ويُحمّل Eruda — كونسول داخل الصفحة — عند التفعيل فقط.
+     التفعيل: رابط ‎?debug=1‎ أو زر «وضع التشخيص» في الإعدادات. -->
+<script>
+(function () {
+    // 1) التقاط الأخطاء دائماً (خفيف جداً) وحفظ آخر 20 منها
+    function record(kind, message, extra) {
+        try {
+            var list = JSON.parse(localStorage.getItem('qmc_errors') || '[]');
+            list.push({
+                t: new Date().toISOString(),
+                kind: kind,
+                msg: String(message || '').slice(0, 400),
+                at: String(extra || '').slice(0, 200)
+            });
+            if (list.length > 20) list = list.slice(list.length - 20);
+            localStorage.setItem('qmc_errors', JSON.stringify(list));
+        } catch (e) { /* الحافظة ممتلئة أو معطّلة */ }
+    }
+
+    window.addEventListener('error', function (e) {
+        record('error', e.message, (e.filename || '') + ':' + (e.lineno || ''));
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+        var r = e.reason;
+        record('promise', (r && r.message) ? r.message : r, '');
+    });
+    window.__qmcRecordError = record;
+
+    // 2) تحميل الكونسول عند الطلب فقط
+    var wanted = /[?&]debug=1/.test(location.search) ||
+                 localStorage.getItem('qmc_debug') === '1';
+    if (!wanted) return;
+
+    try { localStorage.setItem('qmc_debug', '1'); } catch (e) {}
+
+    var s = document.createElement('script');
+    s.src = 'vendor/eruda/eruda.min.js';
+    s.onload = function () { try { eruda.init(); } catch (e) {} };
+    s.onerror = function () { record('debug', 'تعذّر تحميل أداة التشخيص', ''); };
+    document.head.appendChild(s);
+})();
+</script>
 </head>
    <script>
     (function() {
@@ -606,6 +651,29 @@
                 <div class="sync-actions">
                     <button id="settingsSyncBtn" class="btn-sync"><i class="fas fa-sync-alt"></i> <span class="btn-text">رفع السجلات</span></button>
                     <button id="settingsPullBtn" class="btn-pull"><i class="fas fa-cloud-download-alt"></i> <span class="btn-text">سحب البيانات</span></button>
+                </div>
+            </div>
+
+            <!-- التشخيص -->
+            <div class="card">
+                <h3><i class="fas fa-bug"></i> التشخيص</h3>
+                <p class="section-note" style="margin:0 0 10px">
+                    يُظهر كونسول داخل التطبيق ويعرض آخر الأخطاء المسجّلة — استخدمه إذا تعطّل التطبيق على جهاز ما.
+                </p>
+                <div class="table-wrap responsive">
+                    <table class="info-table">
+                        <tr><th>وضع التشخيص</th><td id="debugState">-</td></tr>
+                        <tr><th>أخطاء مسجّلة</th><td id="debugErrorCount">0</td></tr>
+                    </table>
+                </div>
+                <div id="debugErrors" class="debug-errors"></div>
+                <div class="add-student-actions" style="margin-top:10px">
+                    <button class="btn-pull" id="debugToggleBtn" onclick="toggleDebugMode()">
+                        <i class="fas fa-terminal"></i> <span id="debugToggleLabel">تفعيل</span>
+                    </button>
+                    <button class="btn-cancel" onclick="copyDebugReport()">
+                        <i class="fas fa-copy"></i> نسخ التقرير
+                    </button>
                 </div>
             </div>
 

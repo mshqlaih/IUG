@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.73';
+const CACHE_NAME = 'quran-app-v1.74';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'app.css'];
@@ -13,7 +13,8 @@ const ASSETS = ['./quran_data.js', './STATIC_LOOKUP.json', './manifest.json',
 
 // ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت.
 // لم تعد تُحمَّل مع الصفحة، بل عند أول تصدير — لكن تخزينها يُبقي التصدير يعمل offline.
-const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js'];
+const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js',
+                  './vendor/eruda/eruda.min.js'];
 
 // تجاوز كاش المتصفح عند التخزين.
 // بدونه قد يسلّم المتصفحُ الـ SW نسخةً قديمة من app.js فتُخزَّن تحت اسم
