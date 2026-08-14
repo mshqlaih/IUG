@@ -96,6 +96,19 @@ function requestSync() {
 function runPageSync() {
     _syncInProgress = true;
     Promise.resolve(syncRecordsFromPage())
+        // الترشيحات المعلّقة تُرفع مع الأنشطة في نفس الدورة
+        .then(() => (typeof syncExamRequests === 'function') ? syncExamRequests() : null)
+        .then(result => {
+            if (result && (result.ok || result.fail)) {
+                console.log(`ترشيحات: نجح ${result.ok}، فشل ${result.fail}`);
+                if (typeof renderExamRequests === 'function') {
+                    getAllExamRequests().then(list => {
+                        _examRequests = list;
+                        renderExamRequests();
+                    });
+                }
+            }
+        })
         .catch(err => console.error("❌ خطأ أثناء المزامنة:", err))
         .finally(() => { _syncInProgress = false; });
 }
@@ -234,7 +247,7 @@ loadStaticLookup();
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 13); // 13: إضافة مخزن الحلقات
+    const request = indexedDB.open(DB_NAME, 14); // 14: إضافة مخزن طلبات الاختبار
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
@@ -275,6 +288,11 @@ function initDB() {
         // حلقات المستخدم (قد تكون أكثر من حلقة) — مصدرها getUserCircles
         if (!db.objectStoreNames.contains("circles")) {
             db.createObjectStore("circles", { keyPath: "circleNo" });
+        }
+
+        // طلبات الاختبار: تحمل نسخة السيرفر والترشيحات المحلية بانتظار الرفع
+        if (!db.objectStoreNames.contains("examRequests")) {
+            db.createObjectStore("examRequests", { keyPath: "key" });
         }
 
 
@@ -3003,6 +3021,18 @@ async function resetLocalData() {
     const pending = await countPendingRecords();
     if (pending === null) return show("❌ تعذّر فحص السجلات المعلّقة.", "#c0392b");
 
+    // الترشيحات المعلّقة تضيع أيضاً — لا بد من رفعها قبل إعادة الضبط
+    const pendingReq = await countPendingExamRequests();
+    if (pendingReq > 0) {
+        show(`⛔ يوجد ${pendingReq} ترشيح لم يُرفع بعد.`, "#c0392b");
+        return showAlert({
+            title: "لا يمكن إعادة الضبط الآن",
+            message: `يوجد ${pendingReq} ترشيح اختبار لم يُرفع إلى السيرفر.\n\n` +
+                     `افتح شاشة «الطلبات» مع اتصال بالإنترنت حتى تُرفع، ثم أعد المحاولة.`,
+            icon: "⛔",
+        });
+    }
+
     if (pending > 0) {
         show(`⛔ يوجد ${pending} سجل لم يُرفع بعد. اضغط «رفع السجلات» أولاً حتى يصبح العدد صفراً.`, "#c0392b");
         return showAlert({
@@ -3032,9 +3062,11 @@ async function resetLocalData() {
 
     try {
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(["students", "records"], "readwrite");
-            tx.objectStore("students").clear();
-            tx.objectStore("records").clear();
+            const stores = ["students", "records"];
+            if (db.objectStoreNames.contains("examRequests")) stores.push("examRequests");
+
+            const tx = db.transaction(stores, "readwrite");
+            stores.forEach(s => tx.objectStore(s).clear());
             tx.oncomplete = resolve;
             tx.onerror = () => reject(tx.error || new Error("فشل حذف المخازن"));
         });
@@ -3052,6 +3084,696 @@ async function resetLocalData() {
     } finally {
         if (btn) btn.disabled = false;
     }
+}
+
+/* =========================================================
+   شاشة الطلبات: ترشيح الطلبة للاختبار
+   (نفس عقد AddExamRequestScreen + ExamRequestService في Flutter)
+   ========================================================= */
+
+let _examRequests = [];       // الترشيحات المعروضة
+let _examSession  = null;     // إعدادات الجلسة الفعّالة
+let _examLookups  = {};       // { MEANING_CODE: [{value, name, sort}] }
+
+// أقل عدد أجزاء حسب نوع الاختبار — مطابق لـ _minParts في Flutter
+function minPartsForExamType(type) {
+    const t = String(type || '');
+    if (t === '1') return 1;   // فردي: مفتوح
+    if (t === '2') return 3;   // مثل 28–30
+    return 5;                  // باقي الأنواع
+}
+
+function saveExamCache(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+}
+function readExamCache(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch (_) { return fallback; }
+}
+
+// جلب الثوابت وإعدادات الجلسة (وتخزينها للعمل دون اتصال)
+async function refreshExamMeta() {
+    _examLookups = readExamCache('exam_lookups', {});
+    _examSession = readExamCache('exam_session', null);
+
+    if (!navigator.onLine) return;
+
+    try {
+        const items = await QMC.getLookups();
+        if (items.length) {
+            const map = {};
+            items.forEach(it => {
+                const code = it.lookup_meaning_code;
+                if (!code) return;
+                (map[code] = map[code] || []).push({
+                    value: String(it.lookup_value),
+                    name : it.lookup_a_name || String(it.lookup_value),
+                    sort : Number(it.sort_order || 0),
+                });
+            });
+            Object.keys(map).forEach(k => map[k].sort((a, b) => a.sort - b.sort));
+            _examLookups = map;
+            saveExamCache('exam_lookups', map);
+        }
+    } catch (err) {
+        console.warn("تعذّر جلب الثوابت:", err);
+    }
+
+    try {
+        const cfg = await QMC.getExamActiveSession(getCurrentUser());
+        _examSession = cfg;
+        saveExamCache('exam_session', cfg);
+    } catch (err) {
+        console.warn("تعذّر جلب جلسة الاختبار:", err);
+    }
+}
+
+function examLookup(code) {
+    return _examLookups[code] || [];
+}
+
+function examLookupName(code, value) {
+    const found = examLookup(code).find(x => String(x.value) === String(value));
+    return found ? found.name : cellValue(value);
+}
+
+// أعلام الجلسة
+function canSetExamDate() {
+    return !!(_examSession && _examSession.can_set_exam_date === 'Y');
+}
+function allowExamPlace() {
+    return !!(_examSession && _examSession.allow_add_test_location === 'Y');
+}
+
+// أماكن الجلسة: قد تصل نصّ JSON أو مصفوفة مُحلّلة (مطابق لـ parseSessionPlaces)
+function examSessionPlaces() {
+    const raw = _examSession && _examSession.session_places;
+    if (!raw) return [];
+    let list = raw;
+    if (typeof raw === 'string') {
+        try { list = JSON.parse(raw); } catch (_) { return []; }
+    }
+    if (!Array.isArray(list)) return [];
+    return list
+        .filter(p => p && p.place_no !== null && p.place_no !== undefined)
+        .map(p => ({ no: Number(p.place_no), name: String(p.place_name || '') }));
+}
+
+/* ===== النموذج ===== */
+
+function fillJuzSelect(id, selected) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- اختر الجزء --</option>';
+    for (let n = 1; n <= 30; n++) {
+        const o = document.createElement('option');
+        o.value = n;
+        o.textContent = JUZ_NAMES[n] || ('الجزء ' + n);
+        sel.appendChild(o);
+    }
+    if (selected) sel.value = String(selected);
+}
+
+function fillExamLookupSelect(id, code, placeholder, selected) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+    examLookup(code).forEach(it => {
+        const o = document.createElement('option');
+        o.value = it.value;
+        o.textContent = it.name;
+        sel.appendChild(o);
+    });
+    if (selected) sel.value = String(selected);
+}
+
+function setExamRequestStatus(msg, color) {
+    const el = document.getElementById('examRequestStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = color || '';
+}
+
+function onExamTypeChange() {
+    const type = (document.getElementById('reqExamType') || {}).value || '';
+    const hint = document.getElementById('reqPartsHint');
+    if (!hint) return;
+
+    const min = minPartsForExamType(type);
+    hint.textContent = (type && min > 1)
+        ? `ℹ️ هذا النوع يتطلّب ${min} أجزاء على الأقل`
+        : '';
+}
+
+// بحث الطالب داخل نموذج الترشيح (يشارك قائمة الاقتراحات مع شاشة النشاط)
+function handleRequestStudentSearch(inputEl) {
+    const list = document.getElementById('studentsDataList');
+    const hidden = document.getElementById('reqStudentNo');
+    if (!list || !hidden) return;
+
+    const raw = String(inputEl.value || '').trim();
+    const q = normalizeAr(raw).toLowerCase();
+
+    let matches = _studentsCache;
+    if (q) {
+        matches = _studentsCache.filter(s =>
+            normalizeAr(fullStudentName(s)).toLowerCase().indexOf(q) !== -1 ||
+            String(s.id || '').indexOf(q) !== -1 ||
+            String(s.idNo || '').indexOf(q) !== -1
+        );
+    }
+
+    const frag = document.createDocumentFragment();
+    matches.slice(0, 50).forEach(s => {
+        const o = document.createElement('option');
+        o.value = studentPickerLabel(s);
+        frag.appendChild(o);
+    });
+    list.innerHTML = '';
+    list.appendChild(frag);
+
+    let chosen = _studentsCache.find(s => studentPickerLabel(s) === raw);
+    if (!chosen && q && matches.length === 1) chosen = matches[0];
+    hidden.value = chosen ? String(chosen.id) : '';
+}
+
+function clearRequestStudent() {
+    const input = document.getElementById('reqStudentPicker');
+    const hidden = document.getElementById('reqStudentNo');
+    if (input) input.value = '';
+    if (hidden) hidden.value = '';
+}
+
+async function openExamRequestForm(existing) {
+    await refreshExamMeta();
+
+    const card = document.getElementById('examRequestCard');
+    if (!card) return;
+
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+
+    clearRequestStudent();
+    set('reqEditId', existing ? existing.requestId : '');
+    set('reqExamDate', existing ? (existing.examDate || '').split('T')[0] : '');
+    setExamRequestStatus('', '');
+
+    fillExamLookupSelect('reqExamType', 'EXAM_TYPE', '-- اختر النوع --', existing && existing.examType);
+    fillJuzSelect('reqPartFrom', existing && existing.partFrom);
+    fillJuzSelect('reqPartTo', existing && existing.partTo);
+
+    // موعد الاختبار: يظهر فقط إن سُمح للمحفّظ بتحديده
+    const dateField = document.getElementById('reqExamDateField');
+    const prayerField = document.getElementById('reqPrayerField');
+    const showDate = canSetExamDate();
+    if (dateField) dateField.style.display = showDate ? 'flex' : 'none';
+    if (prayerField) prayerField.style.display = showDate ? 'flex' : 'none';
+    if (showDate) {
+        fillExamLookupSelect('reqPrayerTime', 'EXAM_PRAYER_TIME_CODE',
+                             '-- بدون تحديد --', existing && existing.prayerCode);
+    }
+
+    // مكان الاختبار: يظهر فقط إن سمحت الجلسة ووُجدت أماكن
+    const places = examSessionPlaces();
+    const placeField = document.getElementById('reqPlaceField');
+    const showPlace = allowExamPlace() && places.length > 0;
+    if (placeField) placeField.style.display = showPlace ? 'flex' : 'none';
+    if (showPlace) {
+        const sel = document.getElementById('reqPlaceNo');
+        sel.innerHTML = '<option value="">— بدون تحديد —</option>';
+        places.forEach(p => {
+            const o = document.createElement('option');
+            o.value = p.no;
+            o.textContent = p.name || ('مكان ' + p.no);
+            sel.appendChild(o);
+        });
+        if (existing && existing.placeNo) sel.value = String(existing.placeNo);
+    }
+
+    if (existing) {
+        const s = _studentsCache.find(st => Number(st.id) === Number(existing.studentNo));
+        set('reqStudentNo', existing.studentNo);
+        set('reqStudentPicker', s ? studentPickerLabel(s) : (existing.studentName || ''));
+    }
+
+    const label = document.getElementById('examRequestSubmitLabel');
+    if (label) label.textContent = existing ? 'حفظ التعديل' : 'ترشيح للاختبار';
+
+    onExamTypeChange();
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeExamRequestForm() {
+    const card = document.getElementById('examRequestCard');
+    if (card) card.style.display = 'none';
+    clearRequestStudent();
+    setExamRequestStatus('', '');
+    const edit = document.getElementById('reqEditId');
+    if (edit) edit.value = '';
+}
+
+function toggleExamRequestForm() {
+    const card = document.getElementById('examRequestCard');
+    if (!card) return;
+    if (card.style.display === 'none' || !card.style.display) openExamRequestForm(null);
+    else closeExamRequestForm();
+}
+
+async function submitExamRequest() {
+    const val = id => String((document.getElementById(id) || {}).value || '').trim();
+
+    const studentNo = Number(val('reqStudentNo'));
+    const examType  = val('reqExamType');
+    const partFrom  = Number(val('reqPartFrom'));
+    const partTo    = Number(val('reqPartTo'));
+
+    if (!studentNo) return setExamRequestStatus("❌ اختر الطالب من القائمة", '#c0392b');
+    if (!examType)  return setExamRequestStatus("❌ اختر نوع الاختبار", '#c0392b');
+    if (!partFrom || !partTo) return setExamRequestStatus("❌ اختر الجزء (من) و(إلى)", '#c0392b');
+
+    if (partFrom > partTo) {
+        return setExamRequestStatus("❌ (من جزء) يجب أن يكون أقل أو يساوي (إلى جزء)", '#c0392b');
+    }
+
+    const count = partTo - partFrom + 1;
+    const minP  = minPartsForExamType(examType);
+    if (count < minP) {
+        return setExamRequestStatus(
+            `❌ نوع الاختبار يتطلّب ${minP} أجزاء على الأقل (اخترتَ ${count})`, '#c0392b');
+    }
+
+    const examDate = canSetExamDate() ? val('reqExamDate') : '';
+    if (examDate && examDate < new Date().toISOString().split('T')[0]) {
+        return setExamRequestStatus("❌ لا يمكن أن يكون تاريخ الاختبار قبل اليوم", '#c0392b');
+    }
+
+    const editId = val('reqEditId');
+    const existing = editId
+        ? _examRequests.find(r => String(r.key) === String(editId))
+        : null;
+
+    const student = _studentsCache.find(s => Number(s.id) === studentNo);
+    const circle = student && student.circleNo
+        ? (await getCirclesFromDb()).find(c => Number(c.circleNo) === Number(student.circleNo))
+        : null;
+
+    // ✅ الحفظ محلياً أولاً — يعمل دون اتصال ثم يُرفع تلقائياً
+    const record = {
+        key       : (existing && existing.key) || ("local_" + Date.now()),
+        requestId : existing ? existing.requestId : null,
+        studentNo : studentNo,
+        studentName: fullStudentName(student) || (existing && existing.studentName) || '',
+        circleName: (circle && circle.circleName) || (existing && existing.circleName) || '',
+        examType  : examType,
+        partFrom  : partFrom,
+        partTo    : partTo,
+        status    : (existing && existing.status) || "P",
+        sessionId : (existing && existing.sessionId) || (_examSession ? _examSession.session_id : null),
+        sessionName: (existing && existing.sessionName) || (_examSession ? _examSession.session_name : ''),
+        examDate  : examDate || null,
+        prayerCode: canSetExamDate() ? (val('reqPrayerTime') || null) : (existing ? existing.prayerCode : null),
+        placeNo   : val('reqPlaceNo') ? Number(val('reqPlaceNo')) : null,
+        examAvg   : existing ? existing.examAvg : null,
+        canEdit   : true,
+        synced    : false,
+        pendingDelete: false,
+        syncError : '',
+        createdAt : new Date().toISOString(),
+    };
+
+    const btn = document.getElementById('submitExamRequestBtn');
+    if (btn) btn.disabled = true;
+
+    try {
+        await putExamRequest(record);
+    } catch (err) {
+        if (btn) btn.disabled = false;
+        console.error("❌ تعذّر الحفظ المحلي:", err);
+        return setExamRequestStatus("❌ تعذّر الحفظ محلياً", '#c0392b');
+    }
+
+    closeExamRequestForm();
+    _examRequests = await getAllExamRequests();
+    renderExamRequests();
+
+    if (!navigator.onLine) {
+        if (btn) btn.disabled = false;
+        return showToast("حُفظ محلياً — سيُرفع عند عودة الاتصال");
+    }
+
+    // متصل: ارفعه فوراً وأظهر رفض السيرفر إن وقع
+    try {
+        const result = await syncExamRequests();
+        _examRequests = await getAllExamRequests();
+        renderExamRequests();
+
+        if (result && result.fail > 0) {
+            const failed = _examRequests.find(r => r.synced === false && r.syncError);
+            showAlert({
+                title: "رفض السيرفر الترشيح",
+                message: (failed && (extractArabicError(failed.syncError) || failed.syncError))
+                         || "سبب غير معروف — سيُعاد المحاولة لاحقاً.",
+                icon: "⚠️",
+            });
+        } else {
+            showToast(editId ? "تم حفظ التعديل" : "تم ترشيح الطالب للاختبار");
+        }
+    } catch (err) {
+        console.error("❌ تعذّر رفع الترشيح:", err);
+        showToast("حُفظ محلياً — سيُرفع لاحقاً");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+/* ===== التخزين المحلي وطابور المزامنة ===== */
+
+function normalizeExamRequest(item) {
+    return {
+        requestId : item.request_id,
+        studentNo : item.student_no,
+        studentName: item.student_name || '',
+        circleName: item.circle_name || '',
+        examType  : String(item.exam_type == null ? '' : item.exam_type),
+        partFrom  : item.part_from,
+        partTo    : item.part_to,
+        status    : item.status || '',
+        sessionId : item.session_id || null,
+        sessionName: item.session_name || '',
+        examDate  : item.exam_date || '',
+        prayerCode: item.exam_prayer_time_code || '',
+        placeNo   : item.place_no || null,
+        examAvg   : item.exam_avg,
+        canEdit   : item.can_edit === 'Y',
+    };
+}
+
+function examStore(mode) {
+    if (!db || !db.objectStoreNames.contains("examRequests")) return null;
+    return db.transaction("examRequests", mode || "readonly").objectStore("examRequests");
+}
+
+function getAllExamRequests() {
+    return new Promise((resolve) => {
+        const store = examStore();
+        if (!store) return resolve([]);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror   = () => resolve([]);
+    });
+}
+
+function putExamRequest(rec) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("examRequests", "readwrite");
+        tx.objectStore("examRequests").put(rec);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+function deleteExamRequestLocal(key) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("examRequests", "readwrite");
+        tx.objectStore("examRequests").delete(key);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+// عدد الترشيحات التي لم تُرفع بعد (للحماية عند إعادة الضبط والخروج)
+async function countPendingExamRequests() {
+    const all = await getAllExamRequests();
+    return all.filter(r => r.synced === false).length;
+}
+
+/* دمج نسخة السيرفر مع المحلي — نفس منطق fetchAndSaveRequests في Flutter:
+   لا نُفرغ المخزن، بل نحذف ما لم يعد موجوداً ونُبقي المحلي غير المتزامن. */
+async function fetchExamRequestsFromServer() {
+    const items = await QMC.getExamRequests(getCurrentUser());
+    const serverList = items.map(normalizeExamRequest).filter(r => r.requestId != null);
+
+    const existing = await getAllExamRequests();
+
+    // المحلي غير المتزامن يُحفَظ — إلا حذفاً رفضه السيرفر فنُظهر نسخته من جديد
+    const keepLocal = existing.filter(r =>
+        r.synced === false && !(r.pendingDelete && r.syncError));
+    const keepKeys = new Set(keepLocal.map(r => String(r.key)));
+    const serverKeys = new Set(serverList.map(r => String(r.requestId)));
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("examRequests", "readwrite");
+        const store = tx.objectStore("examRequests");
+
+        existing.forEach(r => {
+            const k = String(r.key);
+            if (!keepKeys.has(k) && !serverKeys.has(k)) store.delete(r.key);
+        });
+
+        serverList.forEach(r => {
+            const key = String(r.requestId);
+            if (keepKeys.has(key)) return;      // النسخة المحلية أحدث، لا تدهسها
+            store.put(Object.assign({}, r, {
+                key: key, synced: true, pendingDelete: false, syncError: '',
+            }));
+        });
+
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+/* رفع الترشيحات المعلّقة ثم سحب النسخة المعتمدة.
+   يُرجع { ok, fail } أو null إن لم يكن هناك ما يُرفع. */
+async function syncExamRequests() {
+    if (!db) return null;
+
+    const pending = (await getAllExamRequests()).filter(r => r.synced === false);
+    if (!pending.length) return null;
+    if (!navigator.onLine) return { ok: 0, fail: pending.length, offline: true };
+
+    let ok = 0, fail = 0;
+
+    for (const rec of pending) {
+        try {
+            let res;
+            if (rec.pendingDelete) {
+                // حذف مؤجّل: يُحذف من السيرفر إن كان له معرّف حقيقي
+                res = rec.requestId
+                    ? await QMC.deleteExamRequest(rec)
+                    : { ok: true, error: '' };
+            } else {
+                res = await QMC.saveExamRequest(examRequestPayload(rec));
+            }
+
+            if (!res.ok) throw new Error(res.error || 'رفض السيرفر الطلب');
+
+            // النسخة المؤقتة تُحذف؛ ستعود من السيرفر بمعرّفها الحقيقي
+            await deleteExamRequestLocal(rec.key);
+            ok++;
+        } catch (err) {
+            console.warn("❌ فشل مزامنة ترشيح:", rec.key, err);
+            await putExamRequest(Object.assign({}, rec, {
+                synced: false,
+                syncError: (err && err.message) || String(err),
+            }));
+            fail++;
+        }
+    }
+
+    try {
+        await fetchExamRequestsFromServer();
+    } catch (err) {
+        console.warn("تعذّر تحديث قائمة الترشيحات بعد المزامنة:", err);
+    }
+
+    return { ok: ok, fail: fail };
+}
+
+// جسم الإرسال للسيرفر من سجل محلي
+function examRequestPayload(rec) {
+    return {
+        request_id           : rec.requestId || null,
+        student_no           : rec.studentNo,
+        exam_type            : rec.examType,
+        part_from            : rec.partFrom,
+        part_to              : rec.partTo,
+        status               : rec.status || "P",
+        session_id           : rec.sessionId || null,
+        exam_date            : rec.examDate || null,
+        exam_prayer_time_code: rec.prayerCode || null,
+        place_no             : rec.placeNo || null,
+    };
+}
+
+async function loadExamRequests() {
+    const list = document.getElementById('requestsList');
+    if (!list) return;
+
+    // اعرض المخزون المحلي فوراً (يعمل دون اتصال)
+    _examRequests = await getAllExamRequests();
+    renderExamRequests();
+
+    if (!navigator.onLine) return;
+
+    // ارفع المعلّق أولاً ثم اسحب المعتمد
+    try {
+        const synced = await syncExamRequests();
+        if (!synced) await fetchExamRequestsFromServer();
+    } catch (err) {
+        console.warn("تعذّر تحديث طلبات الاختبار:", err);
+    }
+
+    _examRequests = await getAllExamRequests();
+    renderExamRequests();
+}
+
+function examStatusBadge(status) {
+    const s = String(status || '').toUpperCase();
+    const name = examLookupName('EXAM_REQUEST_STATUS', status);
+    const cls = (s === 'P') ? 'req-pending' : (s === 'A' ? 'req-done' : 'req-other');
+    const label = (name && name !== status) ? name : (s === 'P' ? 'معلّق' : cellValue(status) || '—');
+    return `<span class="req-badge ${cls}">${escapeHtml(label)}</span>`;
+}
+
+function examRequestCardHtml(r) {
+    const student = _studentsCache.find(s => Number(s.id) === Number(r.studentNo));
+    const name = r.studentName || fullStudentName(student) || `الطالب ${r.studentNo}`;
+
+    const parts = (r.partFrom && r.partTo)
+        ? (r.partFrom === r.partTo
+            ? (JUZ_NAMES[r.partFrom] || ('الجزء ' + r.partFrom))
+            : `${JUZ_NAMES[r.partFrom] || r.partFrom} - ${JUZ_NAMES[r.partTo] || r.partTo}`)
+        : '';
+
+    const meta = [
+        examLookupName('EXAM_TYPE', r.examType),
+        parts,
+        r.circleName,
+        r.sessionName,
+        r.examDate ? `📅 ${String(r.examDate).split('T')[0]}` : '',
+    ].filter(Boolean).map(escapeHtml).join(' • ');
+
+    const editable = (String(r.status).toUpperCase() === 'P');
+    const key = escapeHtml(String(r.key));
+    const actions = editable ? `
+        <div class="student-actions">
+            <button class="act-btn" title="تعديل الترشيح" onclick="editExamRequest('${key}')"><i class="fas fa-pen" style="color:#1967d2"></i></button>
+            <button class="act-btn" title="حذف الترشيح" onclick="removeExamRequest('${key}')"><i class="fas fa-trash" style="color:#c5221f"></i></button>
+        </div>` : '';
+
+    // حالة الرفع: بانتظار الرفع أو رفض من السيرفر
+    let pendingHtml = '';
+    if (r.synced === false) {
+        const err = (extractArabicError(r.syncError) || '').trim();
+        pendingHtml = err
+            ? `<span class="req-badge req-err" title="${escapeHtml(err)}" data-err="${escapeHtml(err)}" onclick="showSyncErrorDetails(this.dataset.err)">⚠️ رُفض</span>`
+            : `<span class="req-badge req-wait">⏳ بانتظار الرفع</span>`;
+    }
+
+    return `
+    <div class="student-card">
+        <div class="student-card-head">
+            <span class="student-name">${escapeHtml(name)}</span>
+            <span class="req-badges">${pendingHtml}${examStatusBadge(r.status)}</span>
+        </div>
+        <div class="student-last">
+            <span class="student-last-icon"><i class="fas fa-clipboard-check" style="color:#FF9800"></i></span>
+            <span class="student-last-text">${meta}</span>
+        </div>
+        ${actions}
+    </div>`;
+}
+
+function renderExamRequests() {
+    const wrap  = document.getElementById('requestsList');
+    const empty = document.getElementById('requestsEmpty');
+    if (!wrap) return;
+
+    const searchEl = document.getElementById('requestSearch');
+    const q = normalizeAr(searchEl ? searchEl.value : '').toLowerCase();
+
+    // المعلَّم للحذف يختفي فوراً وإن لم يصل السيرفر بعد
+    let list = _examRequests.filter(r => !r.pendingDelete);
+    if (q) {
+        list = list.filter(r => {
+            const student = _studentsCache.find(s => Number(s.id) === Number(r.studentNo));
+            const name = r.studentName || fullStudentName(student) || '';
+            return normalizeAr(name).toLowerCase().indexOf(q) !== -1 ||
+                   String(r.studentNo || '').indexOf(q) !== -1;
+        });
+    }
+
+    wrap.innerHTML = list.map(examRequestCardHtml).join('');
+
+    if (empty) {
+        empty.style.display = list.length ? 'none' : 'block';
+        empty.textContent = _examRequests.length
+            ? 'لا نتائج مطابقة لبحثك'
+            : 'لا توجد ترشيحات بعد — اضغط «ترشيح طالب» للبدء';
+    }
+}
+
+function editExamRequest(key) {
+    const r = _examRequests.find(x => String(x.key) === String(key));
+    if (!r) return showAlert("لم يُعثر على الطلب");
+    openExamRequestForm(r);
+}
+
+async function removeExamRequest(key) {
+    const r = _examRequests.find(x => String(x.key) === String(key));
+    if (!r) return showAlert("لم يُعثر على الطلب");
+
+    const student = _studentsCache.find(s => Number(s.id) === Number(r.studentNo));
+    const name = r.studentName || fullStudentName(student) || `الطالب ${r.studentNo}`;
+    const onServer = !!r.requestId;
+
+    const ok = await showConfirm({
+        title: "حذف الترشيح",
+        message: `${name}\n${examLookupName('EXAM_TYPE', r.examType)}\n\n` +
+                 (onServer ? "سيُحذف من السيرفر ومن هذا الجهاز."
+                           : "لم يُرفع بعد، فسيُحذف من هذا الجهاز فقط."),
+        confirmText: "حذف",
+        danger: true,
+        icon: "🗑️",
+    });
+    if (!ok) return;
+
+    // لم يُرفع أصلاً ⇒ حذف محلي مباشر
+    if (!onServer) {
+        await deleteExamRequestLocal(r.key);
+        _examRequests = await getAllExamRequests();
+        renderExamRequests();
+        return showToast("تم حذف الترشيح");
+    }
+
+    // مرفوع: علّمه للحذف ثم نفّذ إن توفّر الاتصال، وإلا انتظر عودته
+    await putExamRequest(Object.assign({}, r, {
+        synced: false, pendingDelete: true, syncError: '',
+    }));
+    _examRequests = await getAllExamRequests();
+    renderExamRequests();
+
+    if (!navigator.onLine) {
+        return showToast("سيُحذف من السيرفر عند عودة الاتصال");
+    }
+
+    const result = await syncExamRequests();
+    _examRequests = await getAllExamRequests();
+    renderExamRequests();
+
+    if (result && result.fail > 0) {
+        const failed = _examRequests.find(x => String(x.key) === String(key));
+        return showAlert({
+            title: "تعذّر الحذف من السيرفر",
+            message: (failed && (extractArabicError(failed.syncError) || failed.syncError))
+                     || "خطأ غير معروف",
+            icon: "⚠️",
+        });
+    }
+    showToast("تم حذف الترشيح");
 }
 
 // دور المسمّع في الحلقة (emp_role) — نفس ترميز تطبيق Flutter
@@ -3172,7 +3894,14 @@ function displayEmpData(data) {
 
 async function handleLogout() {
     const pending = await countPendingRecords();
-    const warn = pending ? `\n\n⚠️ يوجد ${pending} سجل لم يُرفع بعد — ارفعه أولاً حتى لا تفقده.` : '';
+    const pendingReq = await countPendingExamRequests();
+
+    const bits = [];
+    if (pending) bits.push(`${pending} سجل نشاط`);
+    if (pendingReq) bits.push(`${pendingReq} ترشيح اختبار`);
+    const warn = bits.length
+        ? `\n\n⚠️ يوجد ${bits.join(' و')} لم يُرفع بعد — ارفعه أولاً حتى لا تفقده.`
+        : '';
 
     const ok = await showConfirm({
         title: "تسجيل الخروج",

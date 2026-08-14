@@ -308,6 +308,74 @@ window.QMC = (function () {
     throw new Error(extractServerError(decoded, raw));
   }
 
+  /* ===================== طلبات الاختبار ===================== */
+
+  // كل الثوابت من السيرفر (EXAM_TYPE، EXAM_PRAYER_TIME_CODE… غير موجودة في
+  // STATIC_LOOKUP.json المحلي)
+  async function getLookups() {
+    const res = await apiFetch("getLookup");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    return (body && body.items) || [];
+  }
+
+  // إعدادات جلسة الاختبار الفعّالة للمستخدم:
+  // can_set_exam_date / allow_add_test_location / session_places / session_id…
+  async function getExamActiveSession(username = getUserName()) {
+    const res = await apiFetch(`getExamActiveSession/${encodeURIComponent(username)}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    const items = (body && body.items) || [];
+    return items.length ? items[0] : null;
+  }
+
+  // طلبات الاختبار الخاصة بالمستخدم
+  async function getExamRequests(username = getUserName()) {
+    const res = await apiFetch(`exam_request_dml?username=${encodeURIComponent(username)}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    return (body && body.items) || [];
+  }
+
+  // يفحص رد addNewExamRequest (نفس شرط Flutter: status = success)
+  function readExamDmlResult(status, raw) {
+    const decoded = safeDecode(raw);
+    if (status >= 200 && status < 300 &&
+        decoded && typeof decoded === "object" && !Array.isArray(decoded) &&
+        String(decoded.status || "").toLowerCase() === "success") {
+      return { ok: true, error: "", data: decoded };
+    }
+    return { ok: false, error: extractServerError(decoded, raw), data: null };
+  }
+
+  // ترشيح طالب للاختبار (إنشاء أو تعديل) — p_action = SAVE
+  async function saveExamRequest(payload) {
+    const res = await apiFetch("addNewExamRequest", {
+      method: "POST",
+      body: Object.assign({ p_action: "SAVE", created_by: getUserName() }, payload),
+    });
+    const raw = await res.text().catch(() => "");
+    return readExamDmlResult(res.status, raw);
+  }
+
+  // حذف ترشيح — الإجراء يفحص student_no/part_from قبل التفرّع فنرسلها كاملة
+  async function deleteExamRequest(req) {
+    const res = await apiFetch("addNewExamRequest", {
+      method: "POST",
+      body: {
+        p_action  : "DELETE",
+        request_id: req.requestId,
+        student_no: req.studentNo,
+        exam_type : req.examType,
+        part_from : req.partFrom || 1,
+        part_to   : req.partTo   || 1,
+        created_by: getUserName(),
+      },
+    });
+    const raw = await res.text().catch(() => "");
+    return readExamDmlResult(res.status, raw);
+  }
+
   function isOnline() {
     return navigator.onLine;
   }
@@ -327,6 +395,11 @@ window.QMC = (function () {
     getUserCircles,
     lookupCivilRecord,
     addNewStudent,
+    getLookups,
+    getExamActiveSession,
+    getExamRequests,
+    saveExamRequest,
+    deleteExamRequest,
     isOnline,
   };
 })();

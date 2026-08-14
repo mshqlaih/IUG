@@ -155,6 +155,7 @@
         <button class="tab-btn active" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-calendar-check"></i><span>النشاط</span></button>
         <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلبة</span></button>
         <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
+        <button class="tab-btn" data-tab="requestsTab" onclick="openTab('requestsTab', this)"><i class="fas fa-clipboard-check"></i><span>الطلبات</span></button>
         <button class="tab-btn" data-tab="settingsTab" onclick="openTab('settingsTab', this)"><i class="fas fa-gear"></i><span>الإعدادات</span></button>
     </div>
 
@@ -472,6 +473,86 @@
             </div>
         </div>
 
+        <!-- شاشة الطلبات: ترشيح الطلبة للاختبار -->
+        <div id="requestsTab" class="tab-content">
+            <div class="section-title">الطلبات</div>
+            <div class="section-note">ترشيح طلابك لاختبار الأجزاء، ومتابعة حالة الترشيحات السابقة.</div>
+
+            <div class="students-toolbar">
+                <div class="search-wrap">
+                    <i class="fas fa-magnifying-glass search-icon"></i>
+                    <input type="search" id="requestSearch" placeholder="ابحث باسم الطالب" oninput="renderExamRequests()">
+                </div>
+                <button class="btn-new-student" onclick="toggleExamRequestForm()">
+                    <i class="fas fa-user-plus"></i> <span>ترشيح طالب</span>
+                </button>
+            </div>
+
+            <!-- نموذج الترشيح -->
+            <div class="card" id="examRequestCard" style="display:none">
+                <h3><i class="fas fa-clipboard-check"></i> ترشيح طالب للاختبار</h3>
+                <p class="add-student-note">
+                    <i class="fas fa-circle-info"></i> يمكن تعديل الطلب أو حذفه ما دامت حالته «معلّق».
+                </p>
+
+                <div class="grid">
+                    <div class="field" style="grid-column: 1 / -1;">
+                        <label>الطالب</label>
+                        <div class="input-with-clear">
+                            <input list="studentsDataList" id="reqStudentPicker" autocomplete="off"
+                                   placeholder="اكتب اسم الطالب أو رقمه" oninput="handleRequestStudentSearch(this)">
+                            <span class="clear-btn" onclick="clearRequestStudent()">✖</span>
+                        </div>
+                        <input type="hidden" id="reqStudentNo">
+                    </div>
+
+                    <div class="field">
+                        <label>نوع الاختبار</label>
+                        <select id="reqExamType" onchange="onExamTypeChange()"></select>
+                    </div>
+
+                    <div class="field">
+                        <label>من جزء</label>
+                        <select id="reqPartFrom"></select>
+                    </div>
+
+                    <div class="field">
+                        <label>إلى جزء</label>
+                        <select id="reqPartTo"></select>
+                    </div>
+
+                    <div class="field" id="reqExamDateField" style="display:none">
+                        <label>تاريخ الاختبار (اختياري)</label>
+                        <input type="date" id="reqExamDate">
+                    </div>
+
+                    <div class="field" id="reqPrayerField" style="display:none">
+                        <label>وقت الاختبار (الصلاة)</label>
+                        <select id="reqPrayerTime"></select>
+                    </div>
+
+                    <div class="field" id="reqPlaceField" style="display:none">
+                        <label>مكان الاختبار</label>
+                        <select id="reqPlaceNo"></select>
+                    </div>
+                </div>
+
+                <small class="field-hint" id="reqPartsHint"></small>
+                <div id="examRequestStatus" class="settings-status"></div>
+
+                <div class="add-student-actions">
+                    <button class="btn-save" id="submitExamRequestBtn" onclick="submitExamRequest()">
+                        <i class="fas fa-check"></i> <span id="examRequestSubmitLabel">ترشيح للاختبار</span>
+                    </button>
+                    <button class="btn-cancel" onclick="closeExamRequestForm()">إلغاء</button>
+                </div>
+                <input type="hidden" id="reqEditId">
+            </div>
+
+            <div id="requestsList" class="students-cards"></div>
+            <div id="requestsEmpty" class="students-empty" style="display:none">لا توجد ترشيحات بعد</div>
+        </div>
+
         <!-- شاشة الإعدادات -->
         <div id="settingsTab" class="tab-content">
             <div class="section-title">الإعدادات</div>
@@ -586,6 +667,9 @@
             window.scrollTo(0,0);
             if (tabId === "settingsTab" && typeof refreshSettingsInfo === "function") {
                 refreshSettingsInfo();
+            }
+            if (tabId === "requestsTab" && typeof loadExamRequests === "function") {
+                loadExamRequests();
             }
         }
 
