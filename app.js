@@ -225,29 +225,129 @@ function getCurrentUser() {
 
 window.onload = () => {
     fillAyatSearchList();
-    loadStaticLookup();
     initDB();
     document.getElementById('activityDate').valueAsDate = new Date();
     requestAppVersion();
     refreshSettingsInfo();
 };
 
-function loadStaticLookup() {
-    return fetch('./STATIC_LOOKUP.json')
-        .then(response => response.json())
-        .then(data => {
-            STATIC_LOOKUP = data;
-            console.log("✔ STATIC_LOOKUP loaded:", STATIC_LOOKUP);
-        })
-        .catch(err => console.error("❌ خطأ في تحميل STATIC_LOOKUP:", err));
+/* =========================================================
+   الثوابت (Lookups): مصدرها السيرفر عبر getLookup وتُخزَّن في IndexedDB.
+   ملف STATIC_LOOKUP.json صار بذرة أولى فقط لأول تشغيل دون اتصال —
+   فأي قيمة تُضاف على السيرفر تصل تلقائياً بلا تحديث للتطبيق.
+   ========================================================= */
+
+let LOOKUPS = {};        // { MEANING_CODE: [{ value, name, sort }] }
+let lookupMap = {};      // { MEANING_CODE: { value: name } } — للترجمة السريعة
+
+// يبني الصيغ المشتقّة ويحدّث الواجهات التي تعتمد عليها
+function applyLookups(list) {
+    LOOKUPS = {};
+    lookupMap = {};
+    STATIC_LOOKUP = [];
+
+    list.forEach(it => {
+        const code = it.code;
+        if (!code) return;
+
+        (LOOKUPS[code] = LOOKUPS[code] || []).push({
+            value: String(it.value), name: it.name, sort: Number(it.sort) || 0,
+        });
+
+        if (!lookupMap[code]) lookupMap[code] = {};
+        lookupMap[code][String(it.value)] = it.name;
+
+        // الصيغة القديمة يعتمدها ترتيب النشاط واسمه
+        STATIC_LOOKUP.push({
+            LOOKUP_MEANING_CODE: code,
+            LOOKUP_VALUE: String(it.value),
+            LOOKUP_A_NAME: it.name,
+            SORT_ORDER: Number(it.sort) || 0,
+        });
+    });
+
+    Object.keys(LOOKUPS).forEach(k => LOOKUPS[k].sort((a, b) => a.sort - b.sort));
+
+    // أعِد بناء ما يُشتق من الثوابت مباشرة
+    populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
+    populateSelectFromLookups("rating", "ACTIVITY_GRADE");
+    redrawActivityIcons();
+    redrawRatingOptions();
 }
 
-// استدعاء عند بداية الصفحة
-loadStaticLookup();
+// توحيد شكل العنصر أياً كان مصدره (السيرفر أو الملف البذرة)
+function normalizeLookupItem(it) {
+    const code  = it.lookup_meaning_code || it.LOOKUP_MEANING_CODE || '';
+    const value = it.lookup_value        || it.LOOKUP_VALUE        || '';
+    const name  = it.lookup_a_name       || it.LOOKUP_A_NAME       || String(value);
+    const sort  = it.sort_order          || it.SORT_ORDER          || 0;
+    return { key: code + '_' + value, code: code, value: String(value), name: name, sort: Number(sort) || 0 };
+}
+
+function readLookupsFromDb() {
+    return new Promise((resolve) => {
+        if (!db || !db.objectStoreNames.contains("lookups")) return resolve([]);
+        try {
+            const req = db.transaction("lookups").objectStore("lookups").getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror   = () => resolve([]);
+        } catch (_) { resolve([]); }
+    });
+}
+
+function writeLookupsToDb(list) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("lookups", "readwrite");
+        const store = tx.objectStore("lookups");
+        store.clear();
+        list.forEach(it => store.put(it));
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+// البذرة المرفقة — تُستخدم فقط إن كان المخزن فارغاً ولا اتصال
+function seedLookupsFromFile() {
+    return fetch('./STATIC_LOOKUP.json')
+        .then(r => r.json())
+        .then(data => (data || []).map(normalizeLookupItem))
+        .catch(err => { console.warn("تعذّر قراءة ملف الثوابت البذرة:", err); return []; });
+}
+
+async function loadAllLookups() {
+    // 1) المخزون المحلي أولاً ليعمل التطبيق فوراً ودون اتصال
+    let stored = await readLookupsFromDb();
+    if (stored.length) applyLookups(stored);
+
+    // 2) التحديث من السيرفر (المصدر المعتمد)
+    if (navigator.onLine) {
+        try {
+            const items = await QMC.getLookups();
+            if (items.length) {
+                const list = items.map(normalizeLookupItem).filter(x => x.code);
+                await writeLookupsToDb(list);
+                applyLookups(list);
+                console.log(`✅ تم تحديث ${list.length} ثابتاً من السيرفر`);
+                return;
+            }
+        } catch (err) {
+            console.warn("تعذّر جلب الثوابت من السيرفر:", err);
+        }
+    }
+
+    // 3) أول تشغيل دون اتصال ولا مخزون ⇒ البذرة المرفقة
+    if (!stored.length) {
+        const seed = await seedLookupsFromFile();
+        if (seed.length) {
+            applyLookups(seed);
+            console.log("ℹ️ استُخدمت الثوابت المرفقة (بذرة أولى)");
+        }
+    }
+}
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 14); // 14: إضافة مخزن طلبات الاختبار
+    const request = indexedDB.open(DB_NAME, 15); // 15: إضافة مخزن الثوابت (lookups)
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
@@ -295,12 +395,18 @@ function initDB() {
             db.createObjectStore("examRequests", { keyPath: "key" });
         }
 
+        // الثوابت من السيرفر (getLookup) — تُغني عن تحديث ملف ثابت يدوياً
+        if (!db.objectStoreNames.contains("lookups")) {
+            db.createObjectStore("lookups", { keyPath: "key" });
+        }
+
 
     };
 
     request.onsuccess = (e) => {
         db = e.target.result;
-        refreshAll();
+        // الثوابت أولاً: تعتمدها أسماء الأنشطة والتقديرات وأنواع الاختبار
+        loadAllLookups().then(refreshAll);
         fetchAndStoreEmpData(getCurrentUser());
         fetchAndStoreCircles();
         refreshSettingsInfo();
@@ -474,21 +580,11 @@ function activityIconHtml(type, extraClass) {
     return `<i class="fas ${st.fa} ${extraClass || ''}" style="color:${st.color}"></i>`;
 }
 
-function initIconSelector() {
+// تُستدعى بعد كل تحديث للثوابت — أوضح وأضمن من مراقب التغيّر
+function redrawActivityIcons() {
     const select = document.getElementById('activityType');
     const container = document.getElementById('iconsContainer');
-
-    if (!select || !container) return;
-
-    // مراقب ذكي: بمجرد تعبئة القائمة بالبيانات، يقوم برسم الأيقونات
-    const observer = new MutationObserver(() => {
-        if (select.options.length > 0) {
-            drawIcons(select, container);
-            observer.disconnect(); // نتوقف عن المراقبة بعد أول تعبئة ناجحة
-        }
-    });
-
-    observer.observe(select, { childList: true });
+    if (select && container && select.options.length) drawIcons(select, container);
 }
 
 function drawIcons(select, container) {
@@ -545,19 +641,11 @@ function selectActivityType(value, options) {
 // لون لكل تقدير: ممتاز ← جيد جداً ← جيد ← مقبول
 const RATING_COLORS = { "1": "#137333", "2": "#1967d2", "3": "#e8710a", "4": "#5f6368" };
 
-function initRatingSelector() {
+// تُستدعى بعد كل تحديث للثوابت — أوضح وأضمن من مراقب التغيّر
+function redrawRatingOptions() {
     const select = document.getElementById('rating');
     const container = document.getElementById('ratingOptions');
-    if (!select || !container) return;
-
-    // القائمة تُعبَّأ لاحقاً من STATIC_LOOKUP، فننتظر أول تعبئة
-    const observer = new MutationObserver(() => {
-        if (select.options.length > 0) {
-            drawRatingOptions(select, container);
-            observer.disconnect();
-        }
-    });
-    observer.observe(select, { childList: true });
+    if (select && container && select.options.length) drawRatingOptions(select, container);
 }
 
 function drawRatingOptions(select, container) {
@@ -598,28 +686,6 @@ function syncRatingSelection() {
         input.checked = (input.value === value);
         input.closest('.rating-chip').classList.toggle('checked', input.checked);
     });
-}
-
-populateSelectFromLookups("activityType", "RECITATION_ATTENDANCE_TYPE");
-populateSelectFromLookups("rating", "ACTIVITY_GRADE");
-
-initIconSelector();
-initRatingSelector();
-
-let lookupMap = {};
-
-function loadLookups() {
-    return fetch('./STATIC_LOOKUP.json')
-        .then(response => response.json())
-        .then(data => {
-            lookupMap = {};
-            data.forEach(item => {
-                const code = item.LOOKUP_MEANING_CODE;
-                if (!lookupMap[code]) lookupMap[code] = {};
-                lookupMap[code][item.LOOKUP_VALUE] = item.LOOKUP_A_NAME;
-            });
-        })
-        .catch(err => console.error("❌ خطأ في تحميل الثوابت:", err));
 }
 
 // 3. محرك البحث الذكي (بقرة 155 / ق 3 / ص 20 / احقاف ج 26)
@@ -1478,9 +1544,6 @@ function refreshAll() {
                 }
                 syncStudentPickerText();
             }
-            return loadLookups();
-        })
-        .then(() => {
             renderStudentCards();
             displayRecords();
         })
@@ -2269,26 +2332,26 @@ function convertStringIDsToNumbers() {
     };
 }
 
+// تعبئة قائمة من الثوابت المحمّلة (بلا شبكة — المصدر LOOKUPS في الذاكرة)
 function populateSelectFromLookups(selectId, meaningCode) {
-    fetch('./STATIC_LOOKUP.json')
-        .then(response => response.json())
-        .then(data => {
-            // تصفية الثوابت حسب LOOKUP_MEANING_CODE المطلوب
-            const items = data
-                .filter(item => item.LOOKUP_MEANING_CODE === meaningCode)
-                .sort((a, b) => (Number(a.SORT_ORDER) || 0) - (Number(b.SORT_ORDER) || 0));
+    const select = document.getElementById(selectId);
+    if (!select) return;
 
-            const select = document.getElementById(selectId);
-            select.innerHTML = ""; // تفريغ القائمة أولاً
+    const items = LOOKUPS[meaningCode] || [];
+    if (!items.length) return;               // لم تُحمّل بعد؛ ستُستدعى ثانيةً
 
-            items.forEach(item => {
-                const option = document.createElement("option");
-                option.value = item.LOOKUP_VALUE;   // القيمة الحقيقية
-                option.textContent = item.LOOKUP_A_NAME; // النص المعروض
-                select.appendChild(option);
-            });
-        })
-        .catch(error => console.error("❌ خطأ في تحميل الثوابت:", error));
+    const previous = select.value;
+    select.innerHTML = "";
+
+    items.forEach(item => {
+        const option = document.createElement("option");
+        option.value = item.value;
+        option.textContent = item.name;
+        select.appendChild(option);
+    });
+
+    // حافظ على الاختيار السابق إن بقي موجوداً
+    if (previous && items.some(i => i.value === String(previous))) select.value = previous;
 }
 
 function syncRecordsFromPage() {
@@ -3018,7 +3081,6 @@ async function resetLocalData() {
 
 let _examRequests = [];       // الترشيحات المعروضة
 let _examSession  = null;     // إعدادات الجلسة الفعّالة
-let _examLookups  = {};       // { MEANING_CODE: [{value, name, sort}] }
 
 // أقل عدد أجزاء حسب نوع الاختبار — مطابق لـ _minParts في Flutter
 function minPartsForExamType(type) {
@@ -3038,32 +3100,15 @@ function readExamCache(key, fallback) {
     } catch (_) { return fallback; }
 }
 
-// جلب الثوابت وإعدادات الجلسة (وتخزينها للعمل دون اتصال)
+// إعدادات جلسة الاختبار (الثوابت مصدرها LOOKUPS الموحّد)
 async function refreshExamMeta() {
-    _examLookups = readExamCache('exam_lookups', {});
     _examSession = readExamCache('exam_session', null);
 
     if (!navigator.onLine) return;
 
-    try {
-        const items = await QMC.getLookups();
-        if (items.length) {
-            const map = {};
-            items.forEach(it => {
-                const code = it.lookup_meaning_code;
-                if (!code) return;
-                (map[code] = map[code] || []).push({
-                    value: String(it.lookup_value),
-                    name : it.lookup_a_name || String(it.lookup_value),
-                    sort : Number(it.sort_order || 0),
-                });
-            });
-            Object.keys(map).forEach(k => map[k].sort((a, b) => a.sort - b.sort));
-            _examLookups = map;
-            saveExamCache('exam_lookups', map);
-        }
-    } catch (err) {
-        console.warn("تعذّر جلب الثوابت:", err);
+    // تأكّد أن الثوابت محدّثة (تشمل EXAM_TYPE وأوقات الصلاة)
+    if (!LOOKUPS['EXAM_TYPE'] || !LOOKUPS['EXAM_TYPE'].length) {
+        try { await loadAllLookups(); } catch (_) {}
     }
 
     try {
@@ -3076,7 +3121,7 @@ async function refreshExamMeta() {
 }
 
 function examLookup(code) {
-    return _examLookups[code] || [];
+    return LOOKUPS[code] || [];
 }
 
 function examLookupName(code, value) {
@@ -3244,6 +3289,16 @@ async function openExamRequestForm(existing) {
 
     const label = document.getElementById('examRequestSubmitLabel');
     if (label) label.textContent = existing ? 'حفظ التعديل' : 'ترشيح للاختبار';
+
+    // اسم اللجنة الفعّالة — الترشيح يُسجَّل عليها
+    const note = document.getElementById('examSessionNote');
+    if (note) {
+        const sessionName = _examSession && _examSession.session_name;
+        note.innerHTML = sessionName
+            ? `<i class="fas fa-landmark"></i> اللجنة الفعّالة: <b>${escapeHtml(sessionName)}</b>` +
+              ` — يمكن تعديل الطلب أو حذفه ما دامت حالته «معلّق».`
+            : `<i class="fas fa-circle-info"></i> يمكن تعديل الطلب أو حذفه ما دامت حالته «معلّق».`;
+    }
 
     onExamTypeChange();
     card.style.display = 'block';
