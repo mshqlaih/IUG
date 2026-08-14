@@ -736,6 +736,24 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .btn-danger { background: #c0392b; color: #fff; }
 .btn-danger:hover { background: #a5301f; }
 
+/* ===== لافتة تعذُّر العمل دون اتصال ===== */
+.sw-error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    max-width: 1000px;
+    margin: 10px auto 0;
+    padding: 12px 14px;
+    background: #fdecea;
+    border: 1px solid #f5c6cb;
+    border-radius: 12px;
+    color: #8a1c13;
+    font-size: 13px;
+    line-height: 1.6;
+    font-weight: 600;
+}
+.sw-error-banner i { margin-top: 2px; flex-shrink: 0; }
+
 /* ===== لوحة التشخيص ===== */
 .debug-errors { margin-top: 10px; }
 .debug-empty {

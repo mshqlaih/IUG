@@ -66,7 +66,39 @@ if ('serviceWorker' in navigator) {
             }
         });
 
-    }).catch(err => console.log("خطأ في تسجيل الـ SW:", err));
+    }).catch(err => {
+        console.log("خطأ في تسجيل الـ SW:", err);
+        reportOfflineUnavailable(err);
+    });
+} else {
+    reportOfflineUnavailable(new Error("المتصفح لا يدعم Service Worker"));
+}
+
+/* فشل تسجيل Service Worker يعني: لا عمل دون اتصال، ولا تثبيت سليم للتطبيق.
+   أشهر سبب على الأجهزة القديمة: الاتصال غير موثوق (سياق غير آمن) بسبب
+   تاريخ/وقت خاطئ في الجهاز أو مخزن شهادات جذرية قديم. كان الخطأ يُسجَّل في
+   الكونسول فقط فيبقى المستخدم لا يدري لماذا لا يعمل التطبيق. */
+function reportOfflineUnavailable(err) {
+    const insecure = (typeof window.isSecureContext !== 'undefined') && !window.isSecureContext;
+    const isSecurityError = err && (err.name === 'SecurityError' || /SecurityError/i.test(String(err)));
+
+    localStorage.setItem('qmc_sw_error', String((err && err.message) || err || ''));
+
+    if (typeof window.__qmcRecordError === 'function') {
+        window.__qmcRecordError('sw', (err && err.message) || String(err),
+                                'isSecureContext=' + window.isSecureContext);
+    }
+
+    const banner = document.getElementById('offlineUnavailableBanner');
+    const text   = document.getElementById('offlineUnavailableText');
+    if (!banner || !text) return;
+
+    text.innerHTML = (insecure || isSecurityError)
+        ? 'تعذّر تفعيل العمل دون اتصال لأن الجهاز لا يثق باتصال الموقع.' +
+          '<br>غالباً السبب <b>تاريخ أو وقت الجهاز</b> — فعّل «التاريخ والوقت التلقائي» ثم أعد التشغيل.'
+        : 'تعذّر تفعيل العمل دون اتصال على هذا المتصفح. حدّث المتصفح ثم أعد المحاولة.';
+
+    banner.style.display = 'flex';
 }
 
 // --- مزامنة احتياطية للصفحة (iOS لا يدعم Background Sync) ---
@@ -3970,15 +4002,25 @@ async function toggleDebugMode() {
 async function copyDebugReport() {
     const errors = getRecordedErrors();
 
+    const swError = localStorage.getItem('qmc_sw_error');
+    const swState = ('serviceWorker' in navigator)
+        ? (navigator.serviceWorker.controller ? 'نشط ✅' : (swError ? 'فشل ❌' : 'غير مُفعَّل'))
+        : 'غير مدعوم';
+
     const lines = [
         "تقرير تشخيص — تطبيق الصفوة",
         "النسخة: " + (localStorage.getItem('appVersion') || '-'),
         "المستخدم: " + (getCurrentUser() || '-'),
         "المتصفح: " + navigator.userAgent,
         "الاتصال: " + (navigator.onLine ? 'متصل' : 'دون اتصال'),
+        // الحاسم في مشاكل العمل دون اتصال: السياق الآمن وحالة Service Worker
+        "سياق آمن: " + (window.isSecureContext ? 'نعم ✅' : 'لا ❌'),
+        "العمل دون اتصال: " + swState,
+        swError ? ("سبب فشل SW: " + swError) : null,
+        "تاريخ الجهاز: " + new Date().toString(),
         "عدد الأخطاء: " + errors.length,
         "──────────────",
-    ];
+    ].filter(Boolean);
 
     errors.forEach((e, i) => {
         lines.push(`${i + 1}) [${e.kind}] ${e.msg}` + (e.at ? `\n    عند: ${e.at}` : '') + `\n    ${e.t}`);
@@ -4013,6 +4055,23 @@ function refreshDebugPanel() {
         state.style.color = on ? "#137333" : "";
     }
     if (label) label.textContent = on ? "إيقاف" : "تفعيل";
+
+    // الحالة الأمنية وحالة العمل دون اتصال — أهم سطرين في التشخيص
+    const secure = document.getElementById('debugSecure');
+    if (secure) {
+        const isSec = !!window.isSecureContext;
+        secure.textContent = isSec ? "نعم ✅" : "لا ❌ (اتصال غير موثوق)";
+        secure.style.color = isSec ? "#137333" : "#c5221f";
+    }
+
+    const swEl = document.getElementById('debugSw');
+    if (swEl) {
+        const swError = localStorage.getItem('qmc_sw_error');
+        const active = ('serviceWorker' in navigator) && navigator.serviceWorker.controller;
+        swEl.textContent = active ? "نشط ✅" : (swError ? "فشل ❌" : "غير مُفعَّل");
+        swEl.style.color = active ? "#137333" : (swError ? "#c5221f" : "");
+        if (swError) swEl.title = swError;
+    }
 
     const errors = getRecordedErrors();
     if (count) count.textContent = String(errors.length);

@@ -176,6 +176,12 @@
         </div>
     </header>
 
+    <!-- لافتة تعذُّر العمل دون اتصال (فشل تسجيل Service Worker) -->
+    <div id="offlineUnavailableBanner" class="sw-error-banner" style="display:none;">
+        <i class="fas fa-triangle-exclamation"></i>
+        <span id="offlineUnavailableText"></span>
+    </div>
+
     <!-- لافتة تحديث PWA (تظهر عند توفّر نسخة جديدة) -->
     <div id="updateBanner" class="update-banner" style="display:none;">
         <span><i class="fas fa-rotate"></i> يتوفّر تحديث جديد للتطبيق.</span>
@@ -663,6 +669,8 @@
                 <div class="table-wrap responsive">
                     <table class="info-table">
                         <tr><th>وضع التشخيص</th><td id="debugState">-</td></tr>
+                        <tr><th>سياق آمن</th><td id="debugSecure">-</td></tr>
+                        <tr><th>العمل دون اتصال</th><td id="debugSw">-</td></tr>
                         <tr><th>أخطاء مسجّلة</th><td id="debugErrorCount">0</td></tr>
                     </table>
                 </div>
