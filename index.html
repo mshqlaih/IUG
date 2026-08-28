@@ -180,6 +180,9 @@
     <div id="offlineUnavailableBanner" class="sw-error-banner" style="display:none;">
         <i class="fas fa-triangle-exclamation"></i>
         <span id="offlineUnavailableText"></span>
+        <button type="button" class="sw-error-close"
+                onclick="document.getElementById('offlineUnavailableBanner').style.display='none'"
+                aria-label="إغلاق">✕</button>
     </div>
 
     <!-- لافتة تحديث PWA (تظهر عند توفّر نسخة جديدة) -->
@@ -207,6 +210,7 @@
         <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلبة</span></button>
         <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
         <button class="tab-btn" data-tab="requestsTab" onclick="openTab('requestsTab', this)"><i class="fas fa-clipboard-check"></i><span>الطلبات</span></button>
+        <button class="tab-btn" data-tab="coursesTab" onclick="openTab('coursesTab', this)"><i class="fas fa-graduation-cap"></i><span>الدورات</span></button>
         <button class="tab-btn" data-tab="settingsTab" onclick="openTab('settingsTab', this)"><i class="fas fa-gear"></i><span>الإعدادات</span></button>
     </div>
 
@@ -603,6 +607,115 @@
             <div id="requestsEmpty" class="students-empty" style="display:none">لا توجد ترشيحات بعد</div>
         </div>
 
+        <!-- شاشة الدورات: القائمة ← النموذج ← الكشف -->
+        <div id="coursesTab" class="tab-content">
+
+            <!-- (1) قائمة الدورات -->
+            <div id="coursesListView">
+                <div class="section-title">اختبارات الدورات</div>
+                <div class="section-note">أنشئ الدورة، سجّل طلابها، ثم ارصد درجاتهم من كشف الدورة.</div>
+
+                <div class="students-toolbar">
+                    <div class="search-wrap">
+                        <i class="fas fa-magnifying-glass search-icon"></i>
+                        <input type="search" id="courseSearch" placeholder="بحث باسم الدورة أو تصنيفها" oninput="renderCoursesList()">
+                    </div>
+                    <button class="btn-new-student" onclick="openCourseForm()">
+                        <i class="fas fa-plus"></i> <span>دورة جديدة</span>
+                    </button>
+                </div>
+
+                <div id="coursesList" class="students-cards"></div>
+                <div id="coursesEmpty" class="students-empty" style="display:none">لا دورات بعد</div>
+            </div>
+
+            <!-- (2) نموذج إنشاء/تعديل دورة -->
+            <div id="courseFormView" style="display:none">
+                <button class="btn-back" onclick="showCoursesView('coursesListView')">
+                    <i class="fas fa-arrow-right"></i> رجوع للدورات
+                </button>
+
+                <div class="card">
+                    <h3><i class="fas fa-graduation-cap"></i> <span id="courseFormTitle">دورة جديدة</span></h3>
+                    <p class="add-student-note">
+                        <i class="fas fa-wifi"></i> إنشاء الدورة يتطلّب اتصالاً — رقم الدورة يصدره السيرفر.
+                    </p>
+
+                    <div class="grid">
+                        <div class="field" style="grid-column: 1 / -1;">
+                            <label>اسم الدورة *</label>
+                            <input type="text" id="courseName" placeholder="مثلاً: دورة تأسيسية FT2608">
+                        </div>
+                        <div class="field">
+                            <label>تصنيف الدورة *</label>
+                            <select id="courseClassNo"></select>
+                        </div>
+                        <div class="field">
+                            <label>المركز *</label>
+                            <select id="courseCenterNo"></select>
+                        </div>
+                        <div class="field">
+                            <label>تاريخ البداية *</label>
+                            <input type="date" id="courseStartDate">
+                        </div>
+                        <div class="field">
+                            <label>تاريخ النهاية</label>
+                            <input type="date" id="courseEndDate">
+                        </div>
+                        <div class="field" style="grid-column: 1 / -1;">
+                            <label>أيام الدورة *</label>
+                            <div id="courseDays" class="day-chips"></div>
+                        </div>
+                        <div class="field">
+                            <label>مكان الدورة</label>
+                            <input type="text" id="coursePlace">
+                        </div>
+                        <div class="field">
+                            <label>هوية المدرّس *</label>
+                            <input lang="en" inputmode="numeric" type="text" maxlength="9" id="courseTeacherId"
+                                   placeholder="9 خانات" oninput="onlyDigits(this, 9)">
+                        </div>
+                        <div class="field">
+                            <label>جوال المدرّس</label>
+                            <input lang="en" inputmode="numeric" type="text" maxlength="10" id="courseTeacherMobile"
+                                   oninput="onlyDigits(this, 10)">
+                        </div>
+                    </div>
+
+                    <div id="courseFormStatus" class="settings-status"></div>
+                    <div class="add-student-actions">
+                        <button class="btn-save" id="courseSaveBtn" onclick="submitCourseForm()">
+                            <i class="fas fa-check"></i> حفظ الدورة
+                        </button>
+                        <button class="btn-cancel" onclick="showCoursesView('coursesListView')">إلغاء</button>
+                    </div>
+                    <input type="hidden" id="courseEditNo">
+                </div>
+            </div>
+
+            <!-- (3) كشف الدورة والرصد -->
+            <div id="courseRosterView" style="display:none">
+                <button class="btn-back" onclick="backToCoursesList()">
+                    <i class="fas fa-arrow-right"></i> رجوع للدورات
+                </button>
+
+                <div class="section-title" id="rosterTitle">كشف الدورة</div>
+                <div id="rosterHeader" class="roster-header"></div>
+
+                <div class="students-toolbar">
+                    <div class="search-wrap">
+                        <i class="fas fa-magnifying-glass search-icon"></i>
+                        <input type="search" id="rosterSearch" placeholder="بحث بالاسم أو رقم الهوية" oninput="renderCourseRoster()">
+                    </div>
+                    <button class="btn-new-student" onclick="openAddCourseStudents()">
+                        <i class="fas fa-user-plus"></i> <span>تسجيل طلبة</span>
+                    </button>
+                </div>
+
+                <div id="rosterList" class="students-cards"></div>
+            </div>
+        </div>
+
         <!-- شاشة الإعدادات -->
         <div id="settingsTab" class="tab-content">
             <div class="section-title">الإعدادات</div>
@@ -714,6 +827,71 @@
     <datalist id="ayatList"></datalist>
     <datalist id="studentsDataList"></datalist>
 
+    <!-- اختيار مرحلة الرصد (النصفي/النهائي) -->
+    <div id="stagePickModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <h4 class="modal-title" id="stagePickTitle"></h4>
+            <div class="modal-message">اختر المرحلة المراد رصدها</div>
+            <div id="stagePickBody" class="stage-pick-body"></div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-cancel" onclick="closeStagePick()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ورقة رصد درجات الدورة -->
+    <div id="recordModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+        <div class="modal-box record-box">
+            <h4 class="modal-title" id="recordTitle"></h4>
+            <div class="record-subtitle" id="recordSubtitle"></div>
+
+            <div class="record-summary">
+                <span class="record-total" id="recordTotal">—</span>
+                <span class="record-tier" id="recordTier"></span>
+            </div>
+
+            <div id="recordBody" class="record-body"></div>
+
+            <div class="field" style="margin-top:10px">
+                <label>تاريخ الاختبار</label>
+                <input type="date" id="recordDate">
+            </div>
+            <div class="field">
+                <label>ملاحظات</label>
+                <input type="text" id="recordNotes" placeholder="اختياري">
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-cancel" onclick="closeCourseRecord()">إلغاء</button>
+                <button type="button" class="modal-btn modal-confirm" id="recordSaveBtn" onclick="saveCourseRecord()">حفظ النتيجة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- تسجيل طلبة في الدورة -->
+    <div id="addStudentsModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <h4 class="modal-title">تسجيل طلبة في الدورة</h4>
+            <div class="modal-message">
+                أدخل أرقام الهويات — كل رقم في سطر أو مفصولة بفواصل.
+                التسجيل ذرّي: يُقبل الكشف كاملاً أو يُرفض كاملاً.
+            </div>
+            <div class="field">
+                <label>أرقام الهويات</label>
+                <textarea id="courseStudentIds" rows="5" placeholder="412345678&#10;438110207"></textarea>
+            </div>
+            <div class="field">
+                <label>تاريخ التسجيل</label>
+                <input type="date" id="courseRegisterDate">
+            </div>
+            <div id="addStudentsStatus" class="settings-status"></div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-cancel" onclick="closeAddCourseStudents()">إلغاء</button>
+                <button type="button" class="modal-btn modal-confirm" onclick="submitCourseStudents()">تسجيل</button>
+            </div>
+        </div>
+    </div>
+
     <!-- نافذة تأكيد موحّدة (بديل confirm/alert المتصفح) -->
     <div id="appModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-box">
@@ -745,6 +923,10 @@
             if (tabId === "requestsTab" && typeof loadExamRequests === "function") {
                 loadExamRequests();
             }
+            if (tabId === "coursesTab" && typeof loadCourses === "function") {
+                showCoursesView('coursesListView');
+                loadCourses();
+            }
         }
 
         // فتح شاشة الإعدادات من أيقونة الحساب في الترويسة
@@ -756,6 +938,8 @@
          — تحميلهما عند الإقلاع كان يضيف ~1.8 ميغابايت ويُسقط التطبيق على الأجهزة الضعيفة -->
     <script src="api.js"></script>
     <script src="app.js"></script>
+    <!-- بعد app.js: يعتمد على db و showConfirm و escapeHtml وغيرها -->
+    <script src="courses.js"></script>
     
         <div id="toast" class="toast-hidden"></div>
 </body>

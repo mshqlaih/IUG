@@ -79,24 +79,34 @@ if ('serviceWorker' in navigator) {
    تاريخ/وقت خاطئ في الجهاز أو مخزن شهادات جذرية قديم. كان الخطأ يُسجَّل في
    الكونسول فقط فيبقى المستخدم لا يدري لماذا لا يعمل التطبيق. */
 function reportOfflineUnavailable(err) {
-    const insecure = (typeof window.isSecureContext !== 'undefined') && !window.isSecureContext;
-    const isSecurityError = err && (err.name === 'SecurityError' || /SecurityError/i.test(String(err)));
-
-    localStorage.setItem('qmc_sw_error', String((err && err.message) || err || ''));
+    const msg = String((err && err.message) || err || '');
+    localStorage.setItem('qmc_sw_error', msg);
 
     if (typeof window.__qmcRecordError === 'function') {
-        window.__qmcRecordError('sw', (err && err.message) || String(err),
-                                'isSecureContext=' + window.isSecureContext);
+        window.__qmcRecordError('sw', msg, 'isSecureContext=' + window.isSecureContext);
     }
 
     const banner = document.getElementById('offlineUnavailableBanner');
     const text   = document.getElementById('offlineUnavailableText');
     if (!banner || !text) return;
 
-    text.innerHTML = (insecure || isSecurityError)
-        ? 'تعذّر تفعيل العمل دون اتصال لأن الجهاز لا يثق باتصال الموقع.' +
-          '<br>غالباً السبب <b>تاريخ أو وقت الجهاز</b> — فعّل «التاريخ والوقت التلقائي» ثم أعد التشغيل.'
-        : 'تعذّر تفعيل العمل دون اتصال على هذا المتصفح. حدّث المتصفح ثم أعد المحاولة.';
+    // خطأ الشهادة: الجهاز لا يملك الجذر المطلوب (أندرويد أقدم من 7.1.1 مع
+    // شهادات Let's Encrypt) أو تاريخه خاطئ. الحل عند المستخدم لا في الكود.
+    const sslProblem = /SSL|certificate|شهادة/i.test(msg);
+    const insecure = (typeof window.isSecureContext !== 'undefined') && !window.isSecureContext;
+
+    if (sslProblem || insecure) {
+        text.innerHTML =
+            '<b>التطبيق يعمل، لكن دون حفظ للعمل بلا إنترنت.</b>' +
+            '<br>سبب ذلك أن جهازك لا يستطيع التحقق من شهادة أمان الموقع.' +
+            '<br>الحل: تأكّد أن <b>تاريخ ووقت الجهاز تلقائيان</b>، وإن استمرّت المشكلة فجهازك ' +
+            'يحتاج تحديث شهادات الأمان (الإصدارات الأقدم من أندرويد 7.1). ' +
+            'راجع مسؤول النظام.';
+    } else {
+        text.innerHTML =
+            '<b>التطبيق يعمل، لكن دون حفظ للعمل بلا إنترنت.</b>' +
+            '<br>متصفحك لا يدعم هذه الخاصية — حدّثه ثم أعد المحاولة.';
+    }
 
     banner.style.display = 'flex';
 }
@@ -129,6 +139,7 @@ function runPageSync() {
     _syncInProgress = true;
     Promise.resolve(syncRecordsFromPage())
         // الترشيحات المعلّقة تُرفع مع الأنشطة في نفس الدورة
+        .then(() => (typeof syncCourseResults === 'function') ? syncCourseResults() : null)
         .then(() => (typeof syncExamRequests === 'function') ? syncExamRequests() : null)
         .then(result => {
             if (result && (result.ok || result.fail)) {
@@ -402,7 +413,7 @@ async function loadAllLookups() {
 
 // 2. تهيئة قاعدة البيانات
 function initDB() {
-    const request = indexedDB.open(DB_NAME, 15); // 15: إضافة مخزن الثوابت (lookups)
+    const request = indexedDB.open(DB_NAME, 16); // 16: مخزنا الدورات ومخطّطات التقييم
     request.onupgradeneeded = (e) => {
         db = e.target.result;
 
@@ -453,6 +464,16 @@ function initDB() {
         // الثوابت من السيرفر (getLookup) — تُغني عن تحديث ملف ثابت يدوياً
         if (!db.objectStoreNames.contains("lookups")) {
             db.createObjectStore("lookups", { keyPath: "key" });
+        }
+
+        // الدورات: القائمة والكشوف وطابور الرصد — حمولات JSON خام بمفتاح نصّي
+        if (!db.objectStoreNames.contains("courses")) {
+            db.createObjectStore("courses", { keyPath: "key" });
+        }
+
+        // مخطّطات التقييم (رؤوس/بنود/فئات) — مصدر ورقة درجات الدورة
+        if (!db.objectStoreNames.contains("grading")) {
+            db.createObjectStore("grading", { keyPath: "key" });
         }
 
 
@@ -4123,9 +4144,13 @@ async function handleLogout() {
     const pending = await countPendingRecords();
     const pendingReq = await countPendingExamRequests();
 
+    const pendingCourse = (typeof countPendingCourseResults === 'function')
+        ? await countPendingCourseResults() : 0;
+
     const bits = [];
     if (pending) bits.push(`${pending} سجل نشاط`);
     if (pendingReq) bits.push(`${pendingReq} ترشيح اختبار`);
+    if (pendingCourse) bits.push(`${pendingCourse} نتيجة دورة`);
     const warn = bits.length
         ? `\n\n⚠️ يوجد ${bits.join(' و')} لم يُرفع بعد — ارفعه أولاً حتى لا تفقده.`
         : '';

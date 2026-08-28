@@ -753,6 +753,155 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     font-weight: 600;
 }
 .sw-error-banner i { margin-top: 2px; flex-shrink: 0; }
+.sw-error-banner span { flex: 1; }
+.sw-error-close {
+    background: transparent;
+    color: #8a1c13;
+    padding: 2px 8px;
+    font-size: 15px;
+    width: auto;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+.sw-error-close:hover { background: rgba(138,28,19,0.08); }
+
+/* ===== الدورات ===== */
+.btn-back {
+    background: #eef1f5;
+    color: #3c4043;
+    padding: 8px 14px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    width: auto;
+}
+.btn-back:hover { background: #e2e6eb; }
+
+.course-warn {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    color: #8a6d00;
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.roster-header {
+    background: #e8f5f2;
+    border: 1px solid #cfe9e3;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+    line-height: 1.7;
+}
+.roster-class { font-weight: 700; color: #0b5c4d; }
+.roster-total { color: #3c4043; }
+.roster-count { color: #5f6368; font-size: 11.5px; }
+.roster-card { cursor: pointer; }
+.roster-card:hover { background: #f7faff; }
+
+/* أيام الدورة */
+.day-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 11px;
+    border: 1.5px solid #dfe3ea;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #5f6368;
+    cursor: pointer;
+    user-select: none;
+}
+.day-chip input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px; height: 14px; min-width: 14px;
+    padding: 0; margin: 0;
+    border: 2px solid #c3c8d0;
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: border-box;
+    font-size: 0;
+}
+.day-chip.checked { border-color: #1967d2; background: #e8f0fe; color: #1967d2; }
+.day-chip.checked input { border-color: #1967d2; background: #1967d2; }
+
+/* اختيار المرحلة */
+.stage-pick-body { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.stage-pick {
+    width: 100%;
+    background: #f5f7fa;
+    color: #202124;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+.stage-pick:hover { background: #e8eef7; }
+
+/* ورقة الرصد */
+.record-box { max-width: 520px; text-align: right; }
+.record-subtitle { font-size: 12.5px; color: #5f6368; margin-bottom: 10px; }
+.record-summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    background: #e8f0fe;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+.record-total { font-size: 20px; font-weight: 800; color: #1967d2; }
+.record-tier { font-size: 12.5px; color: #3c4043; font-weight: 600; }
+.record-body { max-height: 45vh; overflow-y: auto; }
+.record-section {
+    font-size: 12px;
+    font-weight: 700;
+    color: #5f6368;
+    background: #fafbfc;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin: 10px 0 6px;
+}
+.crit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+.crit-label { flex: 1; font-size: 13px; color: #202124; min-width: 0; }
+.crit-input { width: 88px; flex-shrink: 0; padding: 8px; margin: 0; font-size: 14px; text-align: center; }
+.crit-max { font-size: 11px; color: #9aa0a6; min-width: 46px; flex-shrink: 0; }
+.crit-pool { background: #fafbfc; border-radius: 8px; padding: 8px 10px; }
+.crit-pool-value {
+    width: 88px;
+    text-align: center;
+    font-weight: 800;
+    color: #137333;
+    flex-shrink: 0;
+}
+.crit-pool-value.deducted { color: #c5221f; }
+
+#courseStudentIds {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    box-sizing: border-box;
+    background: #fafafa;
+    font-family: inherit;
+    direction: ltr;
+    text-align: left;
+}
 
 /* ===== لوحة التشخيص ===== */
 .debug-errors { margin-top: 10px; }

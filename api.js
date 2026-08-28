@@ -391,6 +391,134 @@ window.QMC = (function () {
     return readExamDmlResult(res.status, raw);
   }
 
+  /* ===================== الدورات ومخطّطات التقييم ===================== */
+
+  // نمط هذه الخدمات: السيرفر يردّ 200 حتى مع الخطأ ⇒ الحكم من الجسم (status)
+  async function coursesPost(path, body) {
+    const res = await apiFetch("Courses/" + path, { method: "POST", body: body });
+    const raw = await res.text().catch(() => "");
+    const decoded = safeDecode(raw);
+
+    if (res.status === 404) {
+      throw new Error("نقطة «Courses/" + path + "» غير مسجّلة على السيرفر.\n" +
+                      "شغّل docs/ords_course_admin.sql أولاً.");
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("انتهت الجلسة أو لا صلاحية — أعد تسجيل الدخول");
+    }
+    if (res.status < 200 || res.status >= 300) {
+      throw new Error(extractServerError(decoded, raw));
+    }
+    if (!decoded || typeof decoded !== "object") {
+      throw new Error("استجابة غير مفهومة من السيرفر");
+    }
+    if (String(decoded.status || "").toLowerCase() !== "success") {
+      throw new Error(extractServerError(decoded, raw));
+    }
+    return decoded;
+  }
+
+  async function coursesGet(path) {
+    const res = await apiFetch("Courses/" + path);
+    if (res.status === 404) {
+      throw new Error("نقطة «Courses/" + path + "» غير موجودة على السيرفر");
+    }
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      throw new Error("استجابة غير مفهومة من السيرفر");
+    }
+    return body;
+  }
+
+  // قائمة الدورات التي يحقّ للمستخدم الرصد فيها
+  async function getCourses(username = getUserName()) {
+    const body = await coursesGet("getCourses/" + encodeURIComponent(username));
+    return body.courses || [];
+  }
+
+  // كشف دورة كامل: الطلبة + ما رُصد + العلامات — في نداء واحد
+  function getCourseDetail(courseNo) {
+    return coursesGet("getCourse/" + encodeURIComponent(courseNo));
+  }
+
+  // تصنيفات الدورات واللجان الفعّالة (لنموذج الإنشاء)
+  function getCourseFormMeta(username = getUserName()) {
+    return coursesGet("getCourseFormMeta/" + encodeURIComponent(username));
+  }
+
+  // إنشاء دورة — السيرفر يُصدر course_no ويشتقّ session_id بنفسه
+  async function createCourse(payload) {
+    const data = await coursesPost("createCourse", payload);
+    const no = data.course_no;
+    if (typeof no !== "number" && !(typeof no === "string" && no.trim() !== "")) {
+      throw new Error("حُفظت الدورة ولم يُرجع السيرفر رقمها — حدّث القائمة");
+    }
+    return Number(no);
+  }
+
+  function updateCourse(payload) { return coursesPost("updateCourse", payload); }
+  function deleteCourse(courseNo) { return coursesPost("deleteCourse", { course_no: courseNo }); }
+
+  // تسجيل دفعة طلاب — ذرّية: تُقبل كلها أو تُرفض كلها
+  function addCourseStudents(courseNo, idNos, registerDate) {
+    return coursesPost("addStudents", {
+      course_no: courseNo,
+      register_date: registerDate,
+      students: idNos.map(id => ({ id_no: id })),
+    });
+  }
+
+  function removeCourseStudent(courseNo, idNo) {
+    return coursesPost("removeStudent", { course_no: courseNo, id_no: idNo });
+  }
+
+  // رصد نتيجة. يُرجع { ok, rejected, error }:
+  //   ok=true وصلت · rejected=true رفضٌ لن ينجح بالإعادة · وإلا عطب شبكة فتبقى بالطابور
+  async function saveCourseResult(payload) {
+    let res;
+    try {
+      res = await apiFetch("Courses/saveResult", { method: "POST", body: payload });
+    } catch (_) {
+      return { ok: false, rejected: false, error: "" };   // شبكة — يبقى في الطابور
+    }
+
+    if (res.status === 404) {
+      return { ok: false, rejected: true,
+               error: "نقطة Courses/saveResult غير مسجّلة على السيرفر" };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, rejected: true, error: "انتهت الجلسة أو لا صلاحية — أعد الدخول" };
+    }
+    if (res.status !== 200) return { ok: false, rejected: false, error: "" };
+
+    const raw = await res.text().catch(() => "");
+    const decoded = safeDecode(raw);
+    if (!decoded || typeof decoded !== "object") {
+      return { ok: false, rejected: false, error: "" };   // جسم غامض ⇒ أعد لاحقاً
+    }
+    if (String(decoded.status || "").toLowerCase() === "success") {
+      return { ok: true, rejected: false, error: "" };
+    }
+    return { ok: false, rejected: true, error: extractServerError(decoded, raw) };
+  }
+
+  // مخطّطات التقييم: الرؤوس والبنود والفئات في حمولة واحدة
+  async function getGradingSchemes() {
+    const res = await apiFetch("Grading/getGradingSchemes");
+    if (!res.ok) throw new Error("تعذّر جلب مخطّطات التقييم (رمز " + res.status + ")");
+    return (await res.json().catch(() => null)) || {};
+  }
+
+  async function getGradingVersion() {
+    try {
+      const res = await apiFetch("Grading/getGradingVersion", { timeoutMs: 15000 });
+      if (!res.ok) return null;
+      const body = await res.json().catch(() => null);
+      return body && body.version != null ? String(body.version) : null;
+    } catch (_) { return null; }
+  }
+
   function isOnline() {
     return navigator.onLine;
   }
@@ -415,6 +543,17 @@ window.QMC = (function () {
     getExamRequests,
     saveExamRequest,
     deleteExamRequest,
+    getCourses,
+    getCourseDetail,
+    getCourseFormMeta,
+    createCourse,
+    updateCourse,
+    deleteCourse,
+    addCourseStudents,
+    removeCourseStudent,
+    saveCourseResult,
+    getGradingSchemes,
+    getGradingVersion,
     isOnline,
   };
 })();
