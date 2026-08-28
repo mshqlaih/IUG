@@ -845,15 +845,16 @@
             <h4 class="modal-title" id="civilSearchTitle">البحث في السجل المدني</h4>
             <div class="modal-message">الصق الاسم الرباعي في الحقل الأول ليتوزّع تلقائياً، أو ابحث بجزء منه.</div>
 
-            <div class="grid">
+            <!-- الأول+الأب في سطر، والجد+العائلة في سطر، والهوية وحدها -->
+            <div class="civil-grid">
                 <div class="field"><label>الاسم الأول</label>
                     <input type="text" id="civilFirst" onchange="spreadCivilName()"></div>
                 <div class="field"><label>اسم الأب</label><input type="text" id="civilFather"></div>
                 <div class="field"><label>اسم الجد</label><input type="text" id="civilGfather"></div>
                 <div class="field"><label>اسم العائلة</label><input type="text" id="civilFamily"></div>
-                <div class="field"><label>رقم الهوية</label>
+                <div class="field civil-span"><label>رقم الهوية</label>
                     <input lang="en" inputmode="numeric" type="text" maxlength="9" id="civilIdNo"
-                           oninput="onlyDigits(this, 9)"></div>
+                           oninput="onlyDigits(this, 9)" placeholder="ابحث بالرقم مباشرةً (اختياري)"></div>
             </div>
 
             <div class="add-student-actions">

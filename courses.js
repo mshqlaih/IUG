@@ -824,7 +824,39 @@ async function removeCourse(courseNo) {
 /* نافذة عامّة: تُستعمل من أي حقل يطلب رقم هوية — لا تعرف شيئاً عن الدورات.
    نظير CivilPersonSearchScreen + CivilPersonField في Flutter. */
 
-let _civilTarget = null;   // { idField, nameField } الحقول التي تُملأ عند الاختيار
+let _civilTarget = null;    // { idField, nameField } الحقول التي تُملأ عند الاختيار
+let _civilResults = [];     // آخر نتائج البحث (نمرّر الفهرس لا الكائن)
+
+/* يقبل شكلَي السجل: نتيجة البحث (full_name) والاستعلام بالهوية
+   (first_name … family_name) — فمصدرٌ واحد للنموذج لا اثنان. */
+function normalizeCivilPerson(j, fallbackId) {
+    const dateOnly = v => {
+        const s = (v == null ? '' : String(v)).trim();
+        if (!s) return null;
+        return s.length >= 10 ? s.substring(0, 10) : s;
+    };
+    const compose = () => [j.first_name, j.father_name, j.gfather_name, j.family_name]
+        .map(x => (x == null ? '' : String(x)).trim())
+        .filter(Boolean).join(' ');
+
+    const full = (j.full_name == null ? '' : String(j.full_name)).trim();
+    const death = dateOnly(j.death_date);
+
+    return {
+        idNo      : String(j.id_no != null ? j.id_no : (fallbackId || '')).trim(),
+        fullName  : full || compose(),
+        gender    : j.gender == null ? null : String(j.gender).trim(),
+        birthDate : dateOnly(j.birth_date),
+        deathDate : death,
+        isDeceased: !!death,
+    };
+}
+
+function civilGenderLabel(g) {
+    if (g === 'F') return 'أنثى';
+    if (g === 'M') return 'ذكر';
+    return '';
+}
 
 function openCivilSearch(idFieldId, nameFieldId, title) {
     _civilTarget = { idField: idFieldId, nameField: nameFieldId || null };
@@ -896,17 +928,27 @@ async function runCivilSearch() {
 
     try {
         const res = await QMC.searchCivil(query);
-        if (!res.people.length) {
+        _civilResults = res.people.map(p => normalizeCivilPerson(p));
+
+        if (!_civilResults.length) {
             return setCivilResults('<div class="civil-hint">لا نتائج مطابقة.</div>');
         }
 
-        const rows = res.people.map(p => {
-            const name = [p.first_name, p.father_name, p.gfather_name, p.family_name]
-                .filter(Boolean).join(' ');
-            const id = String(p.id_no || '');
-            return `<button type="button" class="civil-row" onclick="pickCivilPerson('${escapeHtml(id)}', '${escapeHtml(name)}')">
-                        <span class="civil-name">${escapeHtml(name)}</span>
-                        <span class="civil-id">${escapeHtml(id)}</span>
+        const rows = _civilResults.map((p, i) => {
+            // الميلاد والجنس يفرّقان بين متشابهي الأسماء
+            const meta = [
+                p.birthDate ? 'مواليد ' + p.birthDate : '',
+                civilGenderLabel(p.gender),
+            ].filter(Boolean).join(' · ');
+
+            return `<button type="button" class="civil-row${p.isDeceased ? ' deceased' : ''}"
+                            onclick="pickCivilPerson(${i})">
+                        <span class="civil-main">
+                            <span class="civil-name">${escapeHtml(p.fullName || 'بلا اسم')}</span>
+                            ${meta ? `<span class="civil-meta">${escapeHtml(meta)}</span>` : ''}
+                        </span>
+                        ${p.isDeceased ? `<span class="civil-dead">متوفّى ${escapeHtml(p.deathDate)}</span>` : ''}
+                        <span class="civil-id">${escapeHtml(p.idNo)}</span>
                     </button>`;
         }).join('');
 
@@ -917,17 +959,40 @@ async function runCivilSearch() {
     }
 }
 
-function pickCivilPerson(idNo, name) {
+async function pickCivilPerson(index) {
+    const p = _civilResults[index];
+    if (!p) return;
+
+    // اختيار متوفّى غالباً خطأ — نسأل قبل القبول ولا نمنع
+    if (p.isDeceased) {
+        const ok = await showConfirm({
+            title: "الشخص متوفّى",
+            message: `${p.fullName}\nتاريخ الوفاة: ${p.deathDate}\n\nهل تريد اختياره رغم ذلك؟`,
+            confirmText: "اختيار", danger: true, icon: "⚠️",
+        });
+        if (!ok) return;
+    }
+
     if (_civilTarget) {
         const idEl = document.getElementById(_civilTarget.idField);
-        if (idEl) idEl.value = idNo;
+        if (idEl) idEl.value = p.idNo;
         if (_civilTarget.nameField) {
             const nameEl = document.getElementById(_civilTarget.nameField);
-            if (nameEl) nameEl.textContent = name;
+            if (nameEl) nameEl.textContent = civilPersonSummary(p);
         }
     }
     closeCivilSearch();
-    showToast("اختير: " + name);
+    showToast("اختير: " + p.fullName);
+}
+
+// سطر تعريفي مختصر يظهر تحت حقل الهوية
+function civilPersonSummary(p) {
+    const bits = [p.fullName];
+    if (p.birthDate) bits.push('مواليد ' + p.birthDate);
+    const g = civilGenderLabel(p.gender);
+    if (g) bits.push(g);
+    if (p.isDeceased) bits.push('⚠️ متوفّى ' + p.deathDate);
+    return bits.filter(Boolean).join(' · ');
 }
 
 // يعرض اسم صاحب الهوية المكتوبة تحت الحقل (تأكيدٌ بصري قبل الحفظ)
@@ -941,11 +1006,14 @@ async function resolveCivilName(idFieldId, nameFieldId) {
     if (!navigator.onLine) return;
 
     nameEl.textContent = 'جارٍ الجلب…';
+    nameEl.classList.remove('deceased-hint');
     try {
-        const p = await QMC.lookupCivilRecord(id);
-        nameEl.textContent = p
-            ? [p.first_name, p.father_name, p.gfather_name, p.family_name].filter(Boolean).join(' ')
-            : 'لا سجل مدني لهذا الرقم';
+        const raw = await QMC.lookupCivilRecord(id);
+        if (!raw) { nameEl.textContent = 'لا سجل مدني لهذا الرقم'; return; }
+
+        const p = normalizeCivilPerson(raw, id);
+        nameEl.textContent = civilPersonSummary(p);
+        nameEl.classList.toggle('deceased-hint', p.isDeceased);
     } catch (_) {
         nameEl.textContent = '';
     }

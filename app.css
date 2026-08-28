@@ -929,6 +929,18 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 }
 .btn-civil-search:hover { background: #d2e3fc; }
 
+/* شبكة حقول البحث: سطران باسمين ثم الهوية وحدها */
+.civil-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+.civil-grid .civil-span { grid-column: 1 / -1; }
+@media (max-width: 380px) {
+    .civil-grid { grid-template-columns: 1fr; }
+}
+
 /* نتائج السجل المدني */
 .civil-results { max-height: 40vh; overflow-y: auto; margin-top: 10px; }
 .civil-row {
@@ -946,8 +958,32 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     font-size: 13px;
 }
 .civil-row:hover { background: #f7faff; border-color: #c6dafc; }
-.civil-name { font-weight: 700; color: #202124; flex: 1; min-width: 0; }
+.civil-main { display: flex; flex-direction: column; flex: 1; min-width: 0; align-items: flex-start; }
+.civil-name {
+    font-weight: 700;
+    color: #202124;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.civil-meta { font-size: 11.5px; color: #5f6368; font-weight: 500; margin-top: 2px; }
 .civil-id { font-size: 12px; color: #5f6368; direction: ltr; flex-shrink: 0; }
+
+/* المتوفّى: تمييز صريح كي لا يُختار سهواً */
+.civil-row.deceased { background: #fdecea; border-color: #f5c6cb; }
+.civil-row.deceased:hover { background: #fbdbd7; }
+.civil-dead {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #fff;
+    background: #c5221f;
+    border-radius: 999px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.field-hint.deceased-hint { color: #c5221f; font-weight: 700; }
 .civil-hint {
     font-size: 12.5px;
     color: #5f6368;

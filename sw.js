@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v1.79';
+const CACHE_NAME = 'quran-app-v1.80';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'courses.js', 'app.css'];
