@@ -74,9 +74,13 @@ window.QMC = (function () {
   }
 
   // --- بيانات الموظف/المركز/الحلقة ---
+  // ⚠️ 404 ليست خطأً: المستخدم قد يكون إدارياً أو مبرمجاً بلا سجل موظف
+  //    (لا مركز ولا حلقة). نُرجع null ليتعامل المستدعي معها كحالة طبيعية،
+  //    بدل رمي استثناء يظهر «HTTP 404» أحمر في كل إقلاع.
   async function getEmployee(idno) {
     const res = await apiFetch(`employees/${encodeURIComponent(idno)}`);
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("تعذّر جلب بيانات الموظف (رمز " + res.status + ")");
     return res.json();
   }
 

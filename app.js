@@ -3032,10 +3032,27 @@ function fetchAndStoreEmpData(teacherID) {
             console.log("📦 تم جلب البيانات من التخزين المحلي (IndexedDB)");
             displayEmpData(getRequest.result);
         } else {
-            // 🌐 الحالة الثانية: البيانات غير موجودة، نطلبها من السيرفر
-            fetchDataFromServer(teacherID);
+            // 🌐 الحالة الثانية: البيانات غير موجودة، نطلبها من السيرفر.
+            // ⚠️ لا بد من catch هنا: بدونه يصير الرفض unhandledrejection
+            //    ويُسجَّل خطأً في لوحة التشخيص عند كل إقلاع.
+            fetchDataFromServer(teacherID).catch(err => {
+                console.warn("تعذّر جلب بيانات الموظف:", err);
+                showNoEmployeeRecord();
+            });
         }
     };
+}
+
+// لا سجل موظف لهذا المستخدم (إداري/مبرمج) — حالة طبيعية لا خطأ
+function showNoEmployeeRecord() {
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+    set("empName", "لا سجل موظف لهذا المستخدم");
+    set("empChipName", getCurrentUser() || "مستخدم");
+    set("empChipSub", "لا مركز ولا حلقة مرتبطة بهذا الحساب");
+    renderCirclesList();
 }
 
 // دالة لجلب البيانات من السيرفر وتخزينها
@@ -3065,8 +3082,11 @@ function fetchDataFromServer(teacherID) {
                   tx.onerror = () => reject(tx.error);
               });
           }
-          console.warn("⚠️ لم يتم العثور على بيانات في السيرفر");
-          throw new Error("لم يتم العثور على بيانات الموظف");
+          // ⚠️ لا سجل موظف = حالة طبيعية للإداريين، لا فشل. نُرجع null بدل
+          //    رمي استثناء يظهر خطأً أحمر لمستخدمٍ حسابه سليم.
+          console.log("ℹ️ لا سجل موظف لهذا المستخدم");
+          showNoEmployeeRecord();
+          return null;
       });
 }
 
@@ -3091,9 +3111,12 @@ function refreshEmpData() {
     show("🔄 جارٍ التحديث من السيرفر…", "#3498db");
 
     Promise.all([fetchDataFromServer(user), fetchAndStoreCircles()])
-        .then(([, circles]) => {
+        .then(([emp, circles]) => {
             const extra = circles && circles.length ? ` (${circles.length} حلقة)` : "";
-            show("✅ تم تحديث بياناتك" + extra + ".", "#27ae60");
+            show(emp
+                    ? "✅ تم تحديث بياناتك" + extra + "."
+                    : "ℹ️ لا سجل موظف لهذا المستخدم" + extra + ".",
+                 emp ? "#27ae60" : "#5f6368");
             refreshSettingsInfo();
             setTimeout(() => show("", ""), 4000);
         })
