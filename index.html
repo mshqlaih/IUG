@@ -648,11 +648,14 @@
                         </div>
                         <div class="field">
                             <label>تصنيف الدورة *</label>
-                            <select id="courseClassNo"></select>
+                            <select id="courseClassNo" onchange="updateCourseSessionHint()"></select>
                         </div>
                         <div class="field">
                             <label>المركز *</label>
-                            <select id="courseCenterNo"></select>
+                            <select id="courseCenterNo" onchange="updateCourseSessionHint()"></select>
+                        </div>
+                        <div class="field" style="grid-column: 1 / -1;">
+                            <div id="courseSessionHint" class="course-session-hint"></div>
                         </div>
                         <div class="field">
                             <label>تاريخ البداية *</label>
@@ -672,8 +675,16 @@
                         </div>
                         <div class="field">
                             <label>هوية المدرّس *</label>
-                            <input lang="en" inputmode="numeric" type="text" maxlength="9" id="courseTeacherId"
-                                   placeholder="9 خانات" oninput="onlyDigits(this, 9)">
+                            <div class="id-with-search">
+                                <input lang="en" inputmode="numeric" type="text" maxlength="9" id="courseTeacherId"
+                                       placeholder="9 خانات" oninput="onlyDigits(this, 9)"
+                                       onblur="resolveCivilName('courseTeacherId','courseTeacherName')">
+                                <button type="button" class="btn-civil-search" title="بحث بالاسم في السجل المدني"
+                                        onclick="openCivilSearch('courseTeacherId','courseTeacherName','اختر المدرّس')">
+                                    <i class="fas fa-magnifying-glass"></i>
+                                </button>
+                            </div>
+                            <small class="field-hint" id="courseTeacherName"></small>
                         </div>
                         <div class="field">
                             <label>جوال المدرّس</label>
@@ -728,6 +739,7 @@
                     <table class="info-table">
                         <tr><th>اسم المستخدم</th><td id="settingsUserName">-</td></tr>
                         <tr><th>اسم الموظف</th><td id="empName">-</td></tr>
+                        <tr><th>الصلاحية</th><td id="settingsRole">-</td></tr>
                         <tr><th>المركز</th><td id="centerInfo">-</td></tr>
                         <tr><th>معرّف الجهاز</th><td id="settingsDeviceId">-</td></tr>
                     </table>
@@ -826,6 +838,34 @@
 
     <datalist id="ayatList"></datalist>
     <datalist id="studentsDataList"></datalist>
+
+    <!-- البحث في السجل المدني (يخدم أي حقل هوية) -->
+    <div id="civilSearchModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+        <div class="modal-box record-box">
+            <h4 class="modal-title" id="civilSearchTitle">البحث في السجل المدني</h4>
+            <div class="modal-message">الصق الاسم الرباعي في الحقل الأول ليتوزّع تلقائياً، أو ابحث بجزء منه.</div>
+
+            <div class="grid">
+                <div class="field"><label>الاسم الأول</label>
+                    <input type="text" id="civilFirst" onchange="spreadCivilName()"></div>
+                <div class="field"><label>اسم الأب</label><input type="text" id="civilFather"></div>
+                <div class="field"><label>اسم الجد</label><input type="text" id="civilGfather"></div>
+                <div class="field"><label>اسم العائلة</label><input type="text" id="civilFamily"></div>
+                <div class="field"><label>رقم الهوية</label>
+                    <input lang="en" inputmode="numeric" type="text" maxlength="9" id="civilIdNo"
+                           oninput="onlyDigits(this, 9)"></div>
+            </div>
+
+            <div class="add-student-actions">
+                <button type="button" class="btn-save" onclick="runCivilSearch()">
+                    <i class="fas fa-magnifying-glass"></i> بحث
+                </button>
+                <button type="button" class="btn-cancel" onclick="closeCivilSearch()">إغلاق</button>
+            </div>
+
+            <div id="civilResults" class="civil-results"></div>
+        </div>
+    </div>
 
     <!-- اختيار مرحلة الرصد (النصفي/النهائي) -->
     <div id="stagePickModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">

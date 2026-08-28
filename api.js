@@ -249,6 +249,50 @@ window.QMC = (function () {
     return (body && body.items) || [];
   }
 
+  // --- صلاحيات المستخدم (نفس عقد AccessService في Flutter) ---
+  // getUserAccess/{username} → items[0] وقد تكون مغلّفة داخل result_json
+  async function getUserAccess(username = getUserName()) {
+    const res = await apiFetch("getUserAccess/" + encodeURIComponent(username));
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    const outer = (body && body.items) || [];
+    if (!outer.length) return null;
+
+    const first = outer[0];
+    // الصيغة المغلّفة: result_json نصّ JSON بداخله items مرة أخرى
+    if (first && first.result_json) {
+      try {
+        const inner = JSON.parse(String(first.result_json));
+        const items = (inner && inner.items) || [];
+        if (items.length) return items[0];
+      } catch (_) { /* نسقط إلى الصيغة المباشرة */ }
+    }
+    return first || null;
+  }
+
+  // --- البحث في السجل المدني بالاسم (civil/searchCivil) ---
+  // أقصى ما يردّه السيرفر 60 صفاً (ROWNUM <= 60)
+  const CIVIL_SEARCH_LIMIT = 60;
+
+  async function searchCivil(parts) {
+    const q = [];
+    ['first', 'father', 'gfather', 'family', 'id_no'].forEach(k => {
+      const v = parts && parts[k] ? String(parts[k]).trim() : '';
+      if (v) q.push(k + '=' + encodeURIComponent(v));
+    });
+    if (!q.length) return { people: [], truncated: false };
+
+    const res = await apiFetch("civil/searchCivil?" + q.join('&'), { timeoutMs: 25000 });
+    if (res.status === 404) {
+      throw new Error("نقطة searchCivil غير مسجّلة — شغّل docs/ords_civil_search.sql على السيرفر");
+    }
+    if (!res.ok) throw new Error("HTTP " + res.status);
+
+    const body = await res.json().catch(() => null);
+    const items = (body && body.items) || [];
+    return { people: items, truncated: items.length >= CIVIL_SEARCH_LIMIT };
+  }
+
   // --- السجل المدني: جلب بيانات الطالب برقم الهوية (نفس عقد CivilRegistryService في Flutter) ---
   // civil/getCivilRecord/{idno} → { items: [{ first_name, father_name, gfather_name,
   //                                           family_name, birth_date, gender }] }
@@ -537,6 +581,8 @@ window.QMC = (function () {
     pullStudents,
     getUserCircles,
     lookupCivilRecord,
+    searchCivil,
+    getUserAccess,
     addNewStudent,
     getLookups,
     getExamActiveSession,

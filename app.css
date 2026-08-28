@@ -903,6 +903,61 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     text-align: left;
 }
 
+/* ===== تلميح لجنة الدورة ===== */
+.course-session-hint {
+    font-size: 12.5px;
+    line-height: 1.6;
+    border-radius: 10px;
+    padding: 8px 11px;
+    background: #f1f3f4;
+    border: 1px solid #e0e3e7;
+    color: #5f6368;
+}
+.course-session-hint.ok   { background: #e6f4ea; border-color: #ceead6; color: #137333; }
+.course-session-hint.warn { background: #fff8e1; border-color: #ffe082; color: #8a6d00; }
+
+/* ===== حقل هوية مع بحث بالاسم ===== */
+.id-with-search { display: flex; gap: 6px; align-items: stretch; }
+.id-with-search input { flex: 1; min-width: 0; }
+.btn-civil-search {
+    background: #e8f0fe;
+    color: #1967d2;
+    padding: 0 14px;
+    border-radius: 8px;
+    width: auto;
+    flex-shrink: 0;
+}
+.btn-civil-search:hover { background: #d2e3fc; }
+
+/* نتائج السجل المدني */
+.civil-results { max-height: 40vh; overflow-y: auto; margin-top: 10px; }
+.civil-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: #fff;
+    border: 1px solid #e3e8ef;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    text-align: right;
+    font-size: 13px;
+}
+.civil-row:hover { background: #f7faff; border-color: #c6dafc; }
+.civil-name { font-weight: 700; color: #202124; flex: 1; min-width: 0; }
+.civil-id { font-size: 12px; color: #5f6368; direction: ltr; flex-shrink: 0; }
+.civil-hint {
+    font-size: 12.5px;
+    color: #5f6368;
+    text-align: center;
+    padding: 12px;
+    background: #fafbfc;
+    border: 1px dashed #dadce0;
+    border-radius: 10px;
+}
+
 /* ===== لوحة التشخيص ===== */
 .debug-errors { margin-top: 10px; }
 .debug-empty {

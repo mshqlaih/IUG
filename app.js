@@ -274,6 +274,65 @@ window.onload = () => {
     refreshSettingsInfo();
 };
 
+/* =========================================================
+   صلاحيات المستخدم (getUserAccess) — تحقّق واجهةٍ فقط.
+   ⚠️ الفرض الحقيقي على السيرفر: QMC_CAN_MANAGE_COURSES وأخواتها.
+      إخفاء التبويب يمنع الالتباس، ولا يمنع من يتحايل — والسيرفر يردّه.
+   ========================================================= */
+
+let USER_ACCESS = null;
+
+function userRoleName() {
+    return String((USER_ACCESS && USER_ACCESS.role_name) || '').toLowerCase();
+}
+
+// نفس قائمة الأدوار في canManageCourses بتطبيق Flutter — لا تتفرّع عنها
+function canManageCourses() {
+    const r = userRoleName();
+    return r.indexOf('contributor') !== -1 ||
+           r.indexOf('administrator') !== -1 ||
+           r.indexOf('programmer') !== -1 ||
+           r.indexOf('memo_supervisor') !== -1;
+}
+
+// يُظهر/يُخفي التبويبات المرهونة بصلاحية
+function applyAccessToTabs() {
+    const btn = document.querySelector('.tab-btn[data-tab="coursesTab"]');
+    const tab = document.getElementById('coursesTab');
+    const allowed = canManageCourses();
+
+    if (btn) btn.style.display = allowed ? '' : 'none';
+
+    // لو كان التبويب مفتوحاً ثم زالت الصلاحية، أعِد المستخدم لشاشة النشاط
+    if (!allowed && tab && tab.classList.contains('active')) {
+        openTab('activityTab', document.querySelector('.tab-btn[data-tab="activityTab"]'));
+    }
+}
+
+async function loadUserAccess() {
+    // المخزون أولاً ليعمل دون اتصال
+    try {
+        const raw = localStorage.getItem('user_access');
+        if (raw) USER_ACCESS = JSON.parse(raw);
+    } catch (_) { USER_ACCESS = null; }
+    applyAccessToTabs();
+
+    if (!navigator.onLine) return;
+
+    try {
+        const cfg = await QMC.getUserAccess(getCurrentUser());
+        if (cfg) {
+            USER_ACCESS = cfg;
+            localStorage.setItem('user_access', JSON.stringify(cfg));
+            console.log("✔ صلاحية المستخدم:", cfg.role_name);
+        }
+    } catch (err) {
+        console.warn("تعذّر جلب صلاحيات المستخدم:", err);
+    }
+    applyAccessToTabs();
+    refreshSettingsInfo();
+}
+
 /* تحميل مكتبة عند الطلب.
    مكتبتا التصدير تزنان ~1.8 ميغابايت؛ تحميلهما مع كل إقلاع كان يستهلك ذاكرة
    التطبيق المثبَّت (WebAPK) على الأجهزة الضعيفة فينهار قبل أن يظهر. */
@@ -485,6 +544,7 @@ function initDB() {
         loadAllLookups().then(refreshAll);
         fetchAndStoreEmpData(getCurrentUser());
         fetchAndStoreCircles();
+        loadUserAccess();
         refreshSettingsInfo();
 
          if (!window._syncOnlineListenerAdded) {
@@ -3078,6 +3138,9 @@ async function refreshSettingsInfo() {
 
     const user = getCurrentUser();
     set('settingsUserName', user || "غير مسجَّل");
+
+    const role = (USER_ACCESS && USER_ACCESS.role_name) ? String(USER_ACCESS.role_name) : '';
+    set('settingsRole', role || "غير محدّدة");
 
     const deviceId = localStorage.getItem("device_id") || "";
     set('settingsDeviceId', deviceId ? maskDeviceId(deviceId) : "-");

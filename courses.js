@@ -578,6 +578,53 @@ function courseFormStatus(msg, color) {
     el.style.color = color || '';
 }
 
+/* اللجنة التي ستُسنَد إلى (مركز × تصنيف).
+   ⚠️ عرضٌ فقط — السيرفر يحسمها بنفسه ولا يقبلها من العميل، وإلا لأسند من
+      يصوغ طلباً دورتَه إلى أي لجنة شاء. الرابط عمود COURSE_CLASSES المفصول
+      بنقطتين ('291:292'), ويصل نصاً أو مصفوفة فنقبل الاثنين. */
+function courseSessionClasses(raw) {
+    if (Array.isArray(raw)) return raw.map(Number).filter(n => !Number.isNaN(n));
+    const s = raw == null ? '' : String(raw).trim();
+    if (!s) return [];
+    return s.split(':').map(x => parseInt(x.trim(), 10)).filter(n => !Number.isNaN(n));
+}
+
+function sessionForCourse(centerNo, classNo) {
+    const sessions = (_courseMeta && _courseMeta.sessions) || [];
+    for (let i = 0; i < sessions.length; i++) {
+        const s = sessions[i];
+        if (Number(s.center_no) !== Number(centerNo)) continue;
+        if (courseSessionClasses(s.course_classes).indexOf(Number(classNo)) !== -1) return s;
+    }
+    return null;
+}
+
+// يُحدَّث كلما تغيّر المركز أو التصنيف
+function updateCourseSessionHint() {
+    const el = document.getElementById('courseSessionHint');
+    if (!el) return;
+
+    const centerNo = String((document.getElementById('courseCenterNo') || {}).value || '');
+    const classNo  = String((document.getElementById('courseClassNo') || {}).value || '');
+
+    if (!centerNo || !classNo) {
+        el.className = 'course-session-hint';
+        el.innerHTML = '<i class="fas fa-circle-info"></i> اختر المركز والتصنيف لمعرفة اللجنة التي ستُسنَد إليها الدورة.';
+        return;
+    }
+
+    const s = sessionForCourse(centerNo, classNo);
+    if (s) {
+        el.className = 'course-session-hint ok';
+        el.innerHTML = '<i class="fas fa-landmark"></i> اللجنة: <b>' +
+                       escapeHtml(s.session_name || ('لجنة ' + s.session_id)) + '</b>';
+    } else {
+        el.className = 'course-session-hint warn';
+        el.innerHTML = '<i class="fas fa-triangle-exclamation"></i> لا لجنة فعّالة تخدم هذا التصنيف في هذا المركز — ' +
+                       'قد يرفض السيرفر الحفظ أو تُنشأ الدورة بلا لجنة فلا يُرصد فيها.';
+    }
+}
+
 function renderCourseDayChips(selected) {
     const wrap = document.getElementById('courseDays');
     if (!wrap) return;
@@ -646,7 +693,13 @@ async function openCourseForm(courseNo) {
     }
 
     renderCourseDayChips([]);
+    const teacherName = document.getElementById('courseTeacherName');
+    if (teacherName) teacherName.textContent = '';
+    updateCourseSessionHint();
     showCoursesView('courseFormView');
+
+    const saveBtn = document.getElementById('courseSaveBtn');
+    if (saveBtn) saveBtn.disabled = false;
 
     if (!isEdit) return;
 
@@ -668,6 +721,8 @@ async function openCourseForm(courseNo) {
         if (classSel) classSel.value = String(d.courseClassNo == null ? '' : d.courseClassNo);
         if (centerSel) centerSel.value = String(d.centerNo == null ? '' : d.centerNo);
         renderCourseDayChips((d.courseDays || '').split(':').filter(Boolean));
+        updateCourseSessionHint();
+        resolveCivilName('courseTeacherId', 'courseTeacherName');
         courseFormStatus('', '');
     } catch (err) {
         courseFormStatus('❌ ' + (err.message || 'تعذّر جلب بيانات الدورة'), '#c0392b');
@@ -762,6 +817,137 @@ async function removeCourse(courseNo) {
         await loadCourses();
     } catch (err) {
         showAlert({ title: "تعذّر الحذف", message: err.message || 'خطأ غير معروف', icon: "⚠️" });
+    }
+}
+
+/* ===================== البحث في السجل المدني ===================== */
+/* نافذة عامّة: تُستعمل من أي حقل يطلب رقم هوية — لا تعرف شيئاً عن الدورات.
+   نظير CivilPersonSearchScreen + CivilPersonField في Flutter. */
+
+let _civilTarget = null;   // { idField, nameField } الحقول التي تُملأ عند الاختيار
+
+function openCivilSearch(idFieldId, nameFieldId, title) {
+    _civilTarget = { idField: idFieldId, nameField: nameFieldId || null };
+
+    const t = document.getElementById('civilSearchTitle');
+    if (t) t.textContent = title || 'البحث في السجل المدني';
+
+    ['civilFirst', 'civilFather', 'civilGfather', 'civilFamily'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    // ابدأ من الرقم المكتوب في الحقل إن وُجد
+    const idEl = document.getElementById(idFieldId);
+    const idNo = idEl ? String(idEl.value || '').trim() : '';
+    const idInput = document.getElementById('civilIdNo');
+    if (idInput) idInput.value = idNo;
+
+    setCivilResults('<div class="civil-hint">اكتب جزءاً من الاسم ثم اضغط «بحث».</div>');
+    document.getElementById('civilSearchModal').style.display = 'flex';
+}
+
+function closeCivilSearch() {
+    const m = document.getElementById('civilSearchModal');
+    if (m) m.style.display = 'none';
+    _civilTarget = null;
+}
+
+function setCivilResults(html) {
+    const el = document.getElementById('civilResults');
+    if (el) el.innerHTML = html;
+}
+
+/* لصق الاسم الرباعي في الحقل الأول يوزّعه على الحقول الأربعة —
+   المُدخِل ينسخ «لمى طارق جابر الزاملي» ولا يحتمل تقطيعه بيده كل مرّة.
+   وما زاد يُضمّ إلى العائلة (أسماء العائلات مركّبة أحياناً). */
+function spreadCivilName() {
+    const first = document.getElementById('civilFirst');
+    if (!first) return;
+    const parts = String(first.value || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return;
+
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('civilFirst', parts[0]);
+    set('civilFather', parts[1] || '');
+    set('civilGfather', parts[2] || '');
+    set('civilFamily', parts.slice(3).join(' '));
+}
+
+async function runCivilSearch() {
+    const val = id => String((document.getElementById(id) || {}).value || '').trim();
+
+    const query = {
+        first  : val('civilFirst'),
+        father : val('civilFather'),
+        gfather: val('civilGfather'),
+        family : val('civilFamily'),
+        id_no  : val('civilIdNo'),
+    };
+
+    if (!query.first && !query.father && !query.gfather && !query.family && !query.id_no) {
+        return setCivilResults('<div class="civil-hint">اكتب جزءاً من الاسم أو رقم الهوية أولاً.</div>');
+    }
+    if (!navigator.onLine) {
+        return setCivilResults('<div class="civil-hint">لا يوجد اتصال — البحث في السجل المدني يتطلّب الإنترنت.</div>');
+    }
+
+    setCivilResults('<div class="civil-hint">🔄 جارٍ البحث…</div>');
+
+    try {
+        const res = await QMC.searchCivil(query);
+        if (!res.people.length) {
+            return setCivilResults('<div class="civil-hint">لا نتائج مطابقة.</div>');
+        }
+
+        const rows = res.people.map(p => {
+            const name = [p.first_name, p.father_name, p.gfather_name, p.family_name]
+                .filter(Boolean).join(' ');
+            const id = String(p.id_no || '');
+            return `<button type="button" class="civil-row" onclick="pickCivilPerson('${escapeHtml(id)}', '${escapeHtml(name)}')">
+                        <span class="civil-name">${escapeHtml(name)}</span>
+                        <span class="civil-id">${escapeHtml(id)}</span>
+                    </button>`;
+        }).join('');
+
+        setCivilResults(rows + (res.truncated
+            ? '<div class="civil-hint">النتائج مقتطعة عند 60 — ضيّق البحث.</div>' : ''));
+    } catch (err) {
+        setCivilResults('<div class="civil-hint">❌ ' + escapeHtml(err.message || 'تعذّر البحث') + '</div>');
+    }
+}
+
+function pickCivilPerson(idNo, name) {
+    if (_civilTarget) {
+        const idEl = document.getElementById(_civilTarget.idField);
+        if (idEl) idEl.value = idNo;
+        if (_civilTarget.nameField) {
+            const nameEl = document.getElementById(_civilTarget.nameField);
+            if (nameEl) nameEl.textContent = name;
+        }
+    }
+    closeCivilSearch();
+    showToast("اختير: " + name);
+}
+
+// يعرض اسم صاحب الهوية المكتوبة تحت الحقل (تأكيدٌ بصري قبل الحفظ)
+async function resolveCivilName(idFieldId, nameFieldId) {
+    const idEl = document.getElementById(idFieldId);
+    const nameEl = document.getElementById(nameFieldId);
+    if (!idEl || !nameEl) return;
+
+    const id = String(idEl.value || '').trim();
+    if (!/^\d{9}$/.test(id)) { nameEl.textContent = ''; return; }
+    if (!navigator.onLine) return;
+
+    nameEl.textContent = 'جارٍ الجلب…';
+    try {
+        const p = await QMC.lookupCivilRecord(id);
+        nameEl.textContent = p
+            ? [p.first_name, p.father_name, p.gfather_name, p.family_name].filter(Boolean).join(' ')
+            : 'لا سجل مدني لهذا الرقم';
+    } catch (_) {
+        nameEl.textContent = '';
     }
 }
 
