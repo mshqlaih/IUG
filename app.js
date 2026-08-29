@@ -295,17 +295,63 @@ function canManageCourses() {
            r.indexOf('memo_supervisor') !== -1;
 }
 
-// يُظهر/يُخفي التبويبات المرهونة بصلاحية
+// الشاشات المسموح بها من السيرفر — قائمة فارغة تعني «الكل» (كما في Flutter)
+function allowedScreens() {
+    const s = USER_ACCESS && USER_ACCESS.screens;
+    if (Array.isArray(s)) return s.map(x => String(x));
+    // قد تصل نصاً مفصولاً بفواصل
+    if (typeof s === 'string' && s.trim()) {
+        return s.split(/[,:;]/).map(x => x.trim()).filter(Boolean);
+    }
+    return [];
+}
+
+// ربط تبويبات الويب برموز الشاشات في Flutter
+const TAB_SCREEN_CODES = {
+    activityTab: 'activity',
+    studentsTab: 'students',
+    logsTab    : 'reports',
+    requestsTab: 'requests',
+    coursesTab : 'courses',
+};
+
+/* يُظهر/يُخفي التبويبات حسب الصلاحية — نفس منطق _applyAccess في Flutter:
+   قائمة الشاشات الفارغة تعني الكل، والدورات مرهونة بالدور فوق ذلك.
+   ⚠️ حارس: إن أدّت التصفية إلى شريط فارغ نعرض الكل بدل أن يعلق المستخدم. */
 function applyAccessToTabs() {
-    const btn = document.querySelector('.tab-btn[data-tab="coursesTab"]');
-    const tab = document.getElementById('coursesTab');
-    const allowed = canManageCourses();
+    const screens = allowedScreens();
+    const buttons = Array.from(document.querySelectorAll('.tab-btn[data-tab]'));
 
-    if (btn) btn.style.display = allowed ? '' : 'none';
+    // بوّابتان منفصلتان: الدور (لا يُتجاوز أبداً) وقائمة الشاشات
+    const roleAllows = (tabId) =>
+        (tabId === 'coursesTab') ? canManageCourses() : true;
 
-    // لو كان التبويب مفتوحاً ثم زالت الصلاحية، أعِد المستخدم لشاشة النشاط
-    if (!allowed && tab && tab.classList.contains('active')) {
-        openTab('activityTab', document.querySelector('.tab-btn[data-tab="activityTab"]'));
+    const screenAllows = (tabId) => {
+        // الإعدادات دائماً ظاهرة: منها التشخيص والمزامنة وإعادة الضبط
+        if (tabId === 'settingsTab') return true;
+        const code = TAB_SCREEN_CODES[tabId];
+        return !screens.length || (code && screens.indexOf(code) !== -1);
+    };
+
+    const byRole = buttons.filter(b => roleAllows(b.dataset.tab));
+    let visible = byRole.filter(b => screenAllows(b.dataset.tab));
+
+    /* ⚠️ الحارس يقيس شاشات العمل لا العدد الكلي: «الإعدادات» ظاهرة دائماً،
+       فقائمة صلاحيات لا تُطابق شيئاً كانت تترك المستخدم أمامها وحدها.
+       وحين يعمل الحارس يُسقط تصفية الشاشات وحدها — **لا بوّابة الدور**،
+       وإلا أعاد تبويب الدورات لمن لا يملك صلاحيته. */
+    const hasWorkTab = visible.some(b => b.dataset.tab !== 'settingsTab');
+    if (!hasWorkTab) visible = byRole;
+
+    buttons.forEach(b => {
+        b.style.display = (visible.indexOf(b) !== -1) ? '' : 'none';
+    });
+
+    // لو كانت الشاشة المفتوحة قد أُخفيت، انتقل لأول شاشة متاحة
+    const activeBtn = document.querySelector('.tab-btn.active');
+    if (activeBtn && activeBtn.style.display === 'none') {
+        const first = visible[0];
+        if (first) openTab(first.dataset.tab, first);
     }
 }
 
@@ -1207,8 +1253,11 @@ async function editRecord(id) {
     setEditingMode(true);
 
     // 1) الطالب
+    // ⚠️ سجل قديم قد يخصّ طالباً خارج نطاق حلقاتك اليوم (تغيّر دورك فيها).
+    //    نُضيف خياراً مؤقتاً له كي يبقى السجل قابلاً للتعديل بدل أن يُفرَّغ.
     const sel = document.getElementById('studentSelect');
     if (sel) {
+        ensureStudentOption(sel, rec.student);
         sel.value = String(rec.student);
         syncStudentPickerText();
         sel.dispatchEvent(new Event('change'));
@@ -1354,6 +1403,32 @@ function persistRecord(record, onSaved) {
 
 let _studentsCache = [];          // كل الطلبة من IndexedDB
 let _lastActivityByStudent = {};  // رقم الطالب ← آخر نشاط له
+let _circlesCache = [];           // حلقات المستخدم بأدواره فيها
+
+/* شاشة الطلبة فقط: تُعرض حلقات المحفّظ الذي دوره فيها M (أساسي) أو A (مساعد).
+   ⚠️ Q (استعلام فقط) يُستبعد — لا يُسجَّل نشاط لطالب حلقةٍ لا تُدرّسها.
+      ولا نفلتر إلا إذا وصلت بيانات الأدوار أصلاً، وإلا أخفينا كل الطلبة
+      على من لم تُحدَّث حلقاته بعد. (نفس _restrictByRole في Flutter) */
+function circleRoleRestrictionActive() {
+    return _circlesCache.some(c => String(c.empRole || '').trim() !== '');
+}
+
+function allowedCircleNos() {
+    const set = {};
+    _circlesCache.forEach(c => {
+        const r = String(c.empRole || '').trim().toUpperCase();
+        if (r === 'M' || r === 'A') set[Number(c.circleNo)] = true;
+    });
+    return set;
+}
+
+// الطلبة الذين يحقّ للمستخدم العمل عليهم في شاشة الطلبة
+function studentsInMyCircles() {
+    if (!circleRoleRestrictionActive()) return _studentsCache;
+    const allowed = allowedCircleNos();
+    return _studentsCache.filter(s =>
+        s.circleNo != null && allowed[Number(s.circleNo)] === true);
+}
 
 function fullStudentName(s) {
     if (!s) return "";
@@ -1392,7 +1467,13 @@ function loadStudentsAndActivities() {
                 const prev = _lastActivityByStudent[key];
                 if (!prev || isLaterActivity(r, prev)) _lastActivityByStudent[key] = r;
             });
-            resolve();
+
+            // الحلقات تلزم تصفية الطلبة بدور المستخدم فيها — ننتظرها قبل الرسم
+            // وإلا ظهر الكشف كاملاً للحظة ثم انكمش.
+            getCirclesFromDb().then(list => {
+                _circlesCache = list || [];
+                resolve();
+            });
         };
         tx.onerror = () => resolve();
     });
@@ -1517,7 +1598,9 @@ function renderStudentCards() {
     const searchEl = document.getElementById('studentSearch');
     const q = normalizeAr(searchEl ? searchEl.value : '').toLowerCase();
 
-    let list = _studentsCache.slice();
+    // طلبة الحلقات التي يحقّ للمستخدم العمل عليها فقط
+    const scoped = studentsInMyCircles();
+    let list = scoped.slice();
 
     if (q) {
         list = list.filter(s =>
@@ -1533,9 +1616,15 @@ function renderStudentCards() {
 
     if (empty) {
         empty.style.display = list.length ? 'none' : 'block';
-        empty.textContent = _studentsCache.length
-            ? 'لا نتائج مطابقة لبحثك'
-            : 'لا يوجد طلاب لعرضهم حالياً — اسحب البيانات من الإعدادات أو أضف طالباً جديداً';
+        if (scoped.length) {
+            empty.textContent = 'لا نتائج مطابقة لبحثك';
+        } else if (_studentsCache.length) {
+            // عنده طلبة لكن لا حلقة يُدرّسها — الفرق يستحق التوضيح
+            empty.textContent = 'لا طلبة في حلقاتك — دورك في حلقاتك «استعلام فقط»، ' +
+                                'ولا يُسجَّل نشاط إلا لحلقة تُدرّسها.';
+        } else {
+            empty.textContent = 'لا يوجد طلاب لعرضهم حالياً — اسحب البيانات من الإعدادات أو أضف طالباً جديداً';
+        }
     }
 }
 
@@ -1545,6 +1634,7 @@ function openActivityForStudent(studentId, type) {
 
     const sel = document.getElementById('studentSelect');
     if (sel) {
+        ensureStudentOption(sel, studentId);
         sel.value = String(studentId);
         syncStudentPickerText();
         sel.dispatchEvent(new Event('change'));
@@ -1611,9 +1701,12 @@ function handleStudentSearch(inputEl) {
     const raw = String(inputEl.value || '').trim();
     const q   = normalizeAr(raw).toLowerCase();
 
-    let matches = _studentsCache;
+    // لا يُسجَّل نشاط إلا لطالب حلقةٍ يُدرّسها المستخدم (M أو A)
+    const scoped = studentsInMyCircles();
+
+    let matches = scoped;
     if (q) {
-        matches = _studentsCache.filter(s =>
+        matches = scoped.filter(s =>
             normalizeAr(fullStudentName(s)).toLowerCase().indexOf(q) !== -1 ||
             String(s.id || '').indexOf(q) !== -1 ||
             String(s.idNo || '').indexOf(q) !== -1
@@ -1630,7 +1723,7 @@ function handleStudentSearch(inputEl) {
     list.appendChild(frag);
 
     // تحديد الطالب: تطابق تام مع نص الاقتراح، أو نتيجة وحيدة
-    let chosen = _studentsCache.find(s => studentPickerLabel(s) === raw);
+    let chosen = scoped.find(s => studentPickerLabel(s) === raw);
     if (!chosen && q && matches.length === 1) chosen = matches[0];
 
     const newValue = chosen ? String(chosen.id) : '';
@@ -1638,6 +1731,21 @@ function handleStudentSearch(inputEl) {
         sel.value = newValue;
         sel.dispatchEvent(new Event('change'));
     }
+}
+
+/* يضمن وجود خيار للطالب في القائمة ولو كان خارج نطاق الحلقات الحالي.
+   يلزم لتعديل سجل قديم بعد تغيّر دور المستخدم في حلقة الطالب. */
+function ensureStudentOption(sel, studentId) {
+    if (!sel || !studentId) return;
+    const id = String(studentId);
+    const exists = Array.from(sel.options).some(o => o.value === id);
+    if (exists) return;
+
+    const s = _studentsCache.find(st => String(st.id) === id);
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = (s ? fullStudentName(s) : ('الطالب ' + id)) + ' (خارج حلقاتك)';
+    sel.appendChild(opt);
 }
 
 // يعكس اختيار الـ select على نص مربع البحث (عند التعديل أو الفتح من بطاقة طالب)
@@ -1668,14 +1776,16 @@ function refreshAll() {
     loadStudentsAndActivities()
         .then(() => {
             if (sel) {
-                _studentsCache.forEach(s => {
+                // شاشة النشاط أيضاً: طلبة الحلقات التي يُدرّسها المستخدم فقط
+                const scoped = studentsInMyCircles();
+                scoped.forEach(s => {
                     const opt = document.createElement('option');
                     opt.value = s.id;
                     opt.textContent = fullStudentName(s);
                     sel.appendChild(opt);
                 });
-                // أعِد الاختيار السابق إن كان الطالب ما زال موجوداً
-                if (previous && _studentsCache.some(s => String(s.id) === String(previous))) {
+                // أعِد الاختيار السابق إن كان الطالب ما زال ضمن النطاق
+                if (previous && scoped.some(s => String(s.id) === String(previous))) {
                     sel.value = previous;
                 }
                 syncStudentPickerText();
@@ -2206,7 +2316,10 @@ async function fetchAndStoreCircles() {
         });
 
         console.log(`✅ تم تخزين ${items.length} حلقة`);
+        // الأدوار وصلت ⇒ أعِد تصفية الطلبة ورسم القوائم
+        _circlesCache = await getCirclesFromDb();
         renderCirclesList();
+        renderStudentCards();
         return items;
     } catch (err) {
         console.warn("تعذّر جلب حلقات المستخدم:", err);
@@ -4036,9 +4149,19 @@ async function renderCirclesList() {
     }).join('');
 
     if (count) {
-        count.textContent = isFallback
-            ? 'من بيانات الموظف'
-            : (rows.length === 1 ? 'حلقة واحدة' : `${rows.length} حلقات`);
+        if (isFallback) {
+            count.textContent = 'من بيانات الموظف';
+        } else {
+            // نُبرز كم حلقة تُدرّسها فعلاً — لأنها وحدها التي يظهر طلابها
+            const teaching = rows.filter(c => {
+                const r = String(c.empRole || '').trim().toUpperCase();
+                return r === 'M' || r === 'A';
+            }).length;
+            const total = rows.length === 1 ? 'حلقة واحدة' : `${rows.length} حلقات`;
+            count.textContent = (teaching && teaching !== rows.length)
+                ? `${total} · تُدرّس ${teaching}`
+                : total;
+        }
     }
 
     updateEmpChipSub(isFallback ? [] : rows, emp);
