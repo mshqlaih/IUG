@@ -322,9 +322,16 @@ function applyAccessToTabs() {
     const screens = allowedScreens();
     const buttons = Array.from(document.querySelectorAll('.tab-btn[data-tab]'));
 
-    // بوّابتان منفصلتان: الدور (لا يُتجاوز أبداً) وقائمة الشاشات
-    const roleAllows = (tabId) =>
-        (tabId === 'coursesTab') ? canManageCourses() : true;
+    /* ⚠️⚠️ **تبويب الدورات لم يعد محجوباً بالدور — وكان حجبه خطأً.**
+       `canManageCourses` تخصّ **إنشاء** الدورة وتعديلها وحذفها، لا رؤيتَها.
+       ومن يرصد نتائجها هو عضو لجنتها (`QMC_CAN_RECORD_COURSE_N` على
+       السيرفر)، وهو غالباً ليس contributor ولا administrator — فكان
+       التبويب يختفي عمّن وُجدت الشاشة من أجله أصلاً.
+       وتطبيق Flutter لا يحجبه: مدخل «اختبارات الدورات» في الدرج بلا حارس،
+       والحارس على أزرار الإدارة وحدها. فوُحّد السلوك هنا.
+       والصلاحية الحقيقية على السيرفر في الحالين: قائمة `getCourses` تُصفّى
+       بعضوية اللجنة، فمن لا لجنة له يرى شاشةً فارغة لا بيانات غيره. */
+    const roleAllows = () => true;
 
     const screenAllows = (tabId) => {
         // الإعدادات دائماً ظاهرة: منها التشخيص والمزامنة وإعادة الضبط
@@ -337,9 +344,7 @@ function applyAccessToTabs() {
     let visible = byRole.filter(b => screenAllows(b.dataset.tab));
 
     /* ⚠️ الحارس يقيس شاشات العمل لا العدد الكلي: «الإعدادات» ظاهرة دائماً،
-       فقائمة صلاحيات لا تُطابق شيئاً كانت تترك المستخدم أمامها وحدها.
-       وحين يعمل الحارس يُسقط تصفية الشاشات وحدها — **لا بوّابة الدور**،
-       وإلا أعاد تبويب الدورات لمن لا يملك صلاحيته. */
+       فقائمة صلاحيات لا تُطابق شيئاً كانت تترك المستخدم أمامها وحدها. */
     const hasWorkTab = visible.some(b => b.dataset.tab !== 'settingsTab');
     if (!hasWorkTab) visible = byRole;
 

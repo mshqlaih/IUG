@@ -482,6 +482,11 @@ function showCoursesView(name) {
 }
 
 async function loadCourses() {
+    // ⚠️ زرّ الإنشاء وحده مرهونٌ بالدور — لا التبويب كلّه: من يرصد نتائج
+    //    دورةٍ هو عضو لجنتها، وليس بالضرورة صاحب صلاحية إنشائها.
+    const btnNew = document.getElementById('btnNewCourse');
+    if (btnNew) btnNew.style.display = canManageCourses() ? '' : 'none';
+
     // المخزون المحلي أولاً — يعمل دون اتصال
     if (!GRADING.schemes.length) await loadGradingFromDb();
     _courses = (await coursesStoreGet('courses', 'courses') || []).map(normalizeCourseSummary);
@@ -545,10 +550,11 @@ function courseCardHtml(c) {
         <div class="student-actions">
             <button class="act-btn" title="كشف الطلبة والرصد" onclick="openCourseRoster(${c.courseNo})">
                 <i class="fas fa-list-check" style="color:#1967d2"></i></button>
+            ${canManageCourses() ? `
             <button class="act-btn" title="تعديل الدورة" onclick="openCourseForm(${c.courseNo})">
                 <i class="fas fa-pen" style="color:#e8710a"></i></button>
             <button class="act-btn" title="حذف الدورة" onclick="removeCourse(${c.courseNo})">
-                <i class="fas fa-trash" style="color:#c5221f"></i></button>
+                <i class="fas fa-trash" style="color:#c5221f"></i></button>` : ''}
         </div>
     </div>`;
 }
