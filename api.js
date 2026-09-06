@@ -246,11 +246,17 @@ window.QMC = (function () {
   // --- حلقات المستخدم (نفس عقد UserCirclesService في Flutter) ---
   // getUserCircles?username=X → { items: [{ circle_no, circle_name, center_no,
   //                                         center_name, gender, circle_days, emp_role }] }
+  // ⚠️ **قائمةٌ فارغة هنا تعني «لا حلقات له» — لا «تعذّر الجلب».** وعليها
+  //    يُمحى المخزون المحلّي، فلا يجوز أن تنتج عن جسمٍ غير مفهوم: لذلك
+  //    يُرمى الخطأ بدل إرجاع [] عند تعذّر القراءة.
   async function getUserCircles(username = getUserName()) {
     const res = await apiFetch(`getUserCircles?username=${encodeURIComponent(username)}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const body = await res.json().catch(() => null);
-    return (body && body.items) || [];
+    if (!body || typeof body !== "object") {
+      throw new Error("استجابة غير مفهومة من getUserCircles");
+    }
+    return body.items || [];
   }
 
   // --- صلاحيات المستخدم (نفس عقد AccessService في Flutter) ---

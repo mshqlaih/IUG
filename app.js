@@ -1426,8 +1426,22 @@ let _circlesCache = [];           // حلقات المستخدم بأدواره 
    ⚠️ Q (استعلام فقط) يُستبعد — لا يُسجَّل نشاط لطالب حلقةٍ لا تُدرّسها.
       ولا نفلتر إلا إذا وصلت بيانات الأدوار أصلاً، وإلا أخفينا كل الطلبة
       على من لم تُحدَّث حلقاته بعد. (نفس _restrictByRole في Flutter) */
+/* هل جرت مزامنةٌ ناجحة لحلقات هذا المستخدم من قبل؟
+   ⚠️ يفرّق بين حالتين كانتا واحدة: «الأدوار لم تصل بعد» و«السيرفر قال:
+      لا حلقات لك». الأولى لا يُصفّى فيها شيء، والثانية يجب أن تُصفّى إلى
+      لا أحد. وبلا هذا التمييز يبقى طلابُ حلقةٍ رُفع عنها المستخدم ظاهرين
+      إلى الأبد — يُمحى سجلّ الحلقة ولا يُمحى أثرُه. */
+function circlesEverSynced() {
+    try { return localStorage.getItem('circles_synced_user') === getCurrentUser(); }
+    catch (_) { return false; }
+}
+
 function circleRoleRestrictionActive() {
-    return _circlesCache.some(c => String(c.empRole || '').trim() !== '');
+    if (_circlesCache.some(c => String(c.empRole || '').trim() !== '')) return true;
+    /* لا أدوار في المخزون. نُصفّي **فقط** إن كانت المزامنة قد جرت وأعادت
+       قائمةً فارغة — أي «لا حلقات له» يقيناً. أمّا حلقاتٌ موجودة بلا أدوار
+       (حمولة قديمة) فتبقى بلا تصفية كما كانت، وإلّا أُخفي كل الطلبة. */
+    return circlesEverSynced() && _circlesCache.length === 0;
 }
 
 function allowedCircleNos() {
@@ -2312,9 +2326,16 @@ async function fetchAndStoreCircles() {
 
     try {
         const items = await QMC.getUserCircles(user);
+
+        /* ⚠️⚠️ **القائمة الفارغة تُكتب ولا يُخرَج قبلها.** كان هنا خروجٌ
+           مبكّر عند `!items.length` — فلم يصل التنفيذ إلى `store.clear()`
+           أبداً في الحالة الوحيدة التي يلزم فيها المحو: من رُفع اسمه من
+           حلقاته يبقى المخزون المحلّي على حاله، فتظهر له الحلقة وطلابها
+           إلى الأبد ومعها شارة «محفّظ أساسي» — وهي بيانات لم يعد يملكها.
+           و`getUserCircles` ترمي عند أيّ عطبٍ أو جسمٍ غير مفهوم، فوصولُ
+           مصفوفةٍ فارغة إلى هنا **جوابٌ من السيرفر** لا إخفاق. */
         if (!items.length) {
-            console.warn("⚠️ لم تُرجع الخدمة أي حلقة لهذا المستخدم");
-            return [];
+            console.warn("⚠️ لم تُرجع الخدمة أي حلقة لهذا المستخدم — يُمحى المخزون");
         }
 
         await new Promise((resolve, reject) => {
@@ -2333,6 +2354,11 @@ async function fetchAndStoreCircles() {
         });
 
         console.log(`✅ تم تخزين ${items.length} حلقة`);
+        // علامةُ «جرت مزامنة لهذا المستخدم» — عليها تقوم التصفية حين تعود
+        // القائمة فارغة (راجع circleRoleRestrictionActive). وتُربط بالمستخدم
+        // كي لا ترث حسابٌ آخر على نفس الجهاز مزامنةَ من قبله.
+        try { localStorage.setItem('circles_synced_user', user); } catch (_) {}
+
         // الأدوار وصلت ⇒ أعِد تصفية الطلبة ورسم القوائم
         _circlesCache = await getCirclesFromDb();
         renderCirclesList();
@@ -4348,9 +4374,26 @@ function maskDeviceId(id) {
 
 // دالة موحدة لعرض البيانات في الواجهة (شاشة الإعدادات + شريط شاشة النشاط)
 function displayEmpData(data) {
-    const name   = data.EMP_NAME || data.emp_name || "";
-    const center = `${data.CENTER_NO} - ${data.CENTER_NAME}`;
-    const circle = `${data.CIRCLE_NO} - ${data.CIRCLE_NAME}`;
+    const name = data.EMP_NAME || data.emp_name || "";
+
+    /* ⚠️ **قالبٌ بلا حارس يطبع «null - null».** الحقلان يصلان فارغين لمن
+       لا مقعد له في مركزٍ بعينه — والمشرف العامّ منهم: مقعده في الجذر لا
+       في مركز. والقالب النصّي يحوّل `null` إلى الكلمة نفسها، فتُعرض كأنها
+       بيانات. فيُبنى السطر من الموجود وحده، ويُقال «غير محدّد» عند غيابهما
+       معاً. */
+    const join = (no, nm) => {
+        const parts = [];
+        if (no != null && String(no).trim() !== '' && String(no) !== 'null') {
+            parts.push(String(no).trim());
+        }
+        if (nm != null && String(nm).trim() !== '' && String(nm) !== 'null') {
+            parts.push(String(nm).trim());
+        }
+        return parts.length ? parts.join(' - ') : 'غير محدّد';
+    };
+
+    const center = join(data.CENTER_NO, data.CENTER_NAME);
+    const circle = join(data.CIRCLE_NO, data.CIRCLE_NAME);
 
     const set = (id, value) => {
         const el = document.getElementById(id);
@@ -4392,6 +4435,9 @@ async function handleLogout() {
     if (ok) {
         localStorage.removeItem("user_name");
         localStorage.removeItem("device_id");
+        // ⚠️ وعلامةُ مزامنة الحلقات: الجلسة الجديدة تبدأ من «غير معروف»، فلا
+        //    تُصفّى طلبةُ من دخل بلا اتصالٍ قبل أوّل مزامنة له.
+        localStorage.removeItem("circles_synced_user");
         // تفريغ مخزن الإعدادات كما طلب سابقاً
         const req = indexedDB.open("QuranProjectDB");
         req.onsuccess = (e) => {
