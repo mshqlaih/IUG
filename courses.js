@@ -341,6 +341,14 @@ function normalizeCourseDetail(j) {
             studentNo: s.student_no == null ? null : Number(s.student_no),
             name    : (String(s.name || '').trim()) || ('هوية ' + s.id_no),
             registerDate: s.register_date == null ? null : String(s.register_date).split('T')[0],
+            // ⚠️ أعمدة الكشف — تلزم **الدورات بلا ورقة درجات** وحدها: فيها
+            //    تُدخل الدرجة مباشرةً ولا وجود لها في `exams`. وكانت مهملةً
+            //    هنا، فكان الإدخال المباشر يُحفظ ولا يظهر.
+            //    ⚠️ ولا تُقرأ لدورةٍ لها مخطّط: السيرفر يحدّثها بعد الرصد،
+            //       وما رُصد أوفلاين لم يصلها بعد.
+            smtrAvg   : s.smtr_avg    == null ? null : Number(s.smtr_avg),
+            finalAvg  : s.final_avg   == null ? null : Number(s.final_avg),
+            studentAvg: s.student_avg == null ? null : Number(s.student_avg),
         })),
         exams: (j.exams || []).map(e => ({
             idNo     : String(e.id_no),
@@ -1101,23 +1109,41 @@ function renderCourseRoster() {
         return;
     }
 
+    // دورةٌ بلا ورقة درجات: لا مراحلَ ولا بنود ⇒ الدرجة تُدخل مباشرة
+    const noScheme = !stages.length;
+
     wrap.innerHTML = list.map(s => {
         const mid = recordOf(s.idNo, CourseStage.MID);
         const fin = recordOf(s.idNo, CourseStage.FINAL);
 
-        // ⚠️ المجموع من النتائج المرصودة لا من أعمدة الكشف: تلك تُحدَّث على
-        //    السيرفر، وما رُصد أوفلاين لم يصلها بعد فيبدو الطالب بلا نتيجة.
-        const sum = (mid && mid.totalMark != null ? mid.totalMark : 0) +
-                    (fin && fin.totalMark != null ? fin.totalMark : 0);
-        const any = (mid && mid.totalMark != null) || (fin && fin.totalMark != null);
-        const complete = (!hasMid || (mid && mid.totalMark != null)) && (fin && fin.totalMark != null);
+        // 🔑 **مصدران بحسب حال الدورة.** ذات ورقة الدرجات تُقرأ من النتائج
+        //    المرصودة — ⚠️ لا من أعمدة الكشف: تلك تُحدَّث على السيرفر، وما
+        //    رُصد أوفلاين لم يصلها بعد فيبدو الطالب بلا نتيجة.
+        //    وما لا ورقة له لا نتائجَ مرصودة أصلًا، فمصدرُه أعمدة الكشف —
+        //    وهي السبيل الوحيد لتسجيل نتيجةٍ فيه (الإدخال المباشر).
+        const midMark = noScheme ? s.smtrAvg  : (mid && mid.totalMark);
+        const finMark = noScheme ? s.finalAvg : (fin && fin.totalMark);
+
+        const any = (midMark != null) || (finMark != null);
+        // صفٌّ قديم: مجموعٌ محفوظ قبل إضافة عمودَي المرحلتين
+        const legacy = noScheme && !any && s.studentAvg != null;
+        const sum = any ? (midMark != null ? midMark : 0) + (finMark != null ? finMark : 0)
+                        : (s.studentAvg != null ? s.studentAvg : 0);
+        const complete = noScheme
+            ? (any || legacy)
+            : ((!hasMid || (mid && mid.totalMark != null)) && (fin && fin.totalMark != null));
         const pending = (mid && mid.pending) || (fin && fin.pending);
 
-        const tierObj = (any && complete && classNo != null) ? courseClassTier(classNo, sum) : null;
-        const tier = tierObj ? tierObj.tierLabelAr : (any ? 'غير مكتمل' : 'لم يُرصد');
+        const tierObj = (any && complete && !noScheme && classNo != null)
+            ? courseClassTier(classNo, sum) : null;
+        const tier = tierObj ? tierObj.tierLabelAr
+                   : (complete ? (noScheme ? 'مُدخَلة' : 'مكتمل')
+                               : (any ? 'غير مكتمل' : 'لم يُرصد'));
 
-        const marksLine = (hasMid ? `النصفي: ${courseNum(mid && mid.totalMark)} · ` : '') +
-                          `النهائي: ${courseNum(fin && fin.totalMark)}`;
+        const marksLine = legacy
+            ? 'مجموعٌ محفوظ بلا تفصيل المرحلتين'
+            : ((hasMid || noScheme) ? `النصفي: ${courseNum(midMark)} · ` : '') +
+              `النهائي: ${courseNum(finMark)}`;
 
         return `
         <div class="student-card roster-card" onclick="pickCourseStage('${escapeHtml(s.idNo)}')">
@@ -1125,7 +1151,10 @@ function renderCourseRoster() {
                 <span class="student-name">${escapeHtml(s.name)}${
                     pending ? ' <i class="fas fa-cloud-arrow-up" style="color:#e8710a" title="لم يُرفع بعد"></i>' : ''}</span>
                 <span class="req-badge ${complete ? 'req-done' : (any ? 'req-pending' : 'req-other')}">${
-                    any ? escapeHtml(courseNum(sum) + ' / ' + courseNum(total)) : '—'}</span>
+                    (any || legacy)
+                        ? escapeHtml(total > 0 ? courseNum(sum) + ' / ' + courseNum(total)
+                                               : courseNum(sum))
+                        : '—'}</span>
             </div>
             <div class="req-body">
                 <div class="req-row"><i class="fas fa-id-card" style="color:#5f6368"></i><span>${escapeHtml(s.idNo)}</span></div>
@@ -1141,10 +1170,10 @@ async function pickCourseStage(idNo) {
     const classNo = _openCourse ? _openCourse.courseClassNo : null;
     const stages = classNo == null ? [] : stagesOfCourseClass(classNo);
 
-    if (!stages.length) {
-        return showAlert({ title: "لا ورقة درجات",
-                           message: "لا ورقة درجات لتصنيف هذه الدورة — لا يمكن الرصد.", icon: "⚠️" });
-    }
+    // ✅ لا ورقة درجات ⇒ إدخالٌ مباشر بدل رسالةٍ تقول «لا سبيل».
+    //    (راجع `docs/ords_course_supervision.sql §5ب` — والسيرفر يرفضه
+    //     لدورةٍ لها مخطّط، فلا يلتبس المساران.)
+    if (!stages.length) return openDirectMark(idNo);
     if (stages.length === 1) return openCourseRecord(idNo, stages[0]);
 
     const student = _courseDetail.students.find(s => s.idNo === String(idNo));
@@ -1173,6 +1202,89 @@ function chooseCourseStage(idNo, stage) {
     const classNo = _openCourse ? _openCourse.courseClassNo : null;
     const scheme = stagesOfCourseClass(classNo).find(s => s.stage === stage);
     if (scheme) openCourseRecord(idNo, scheme);
+}
+
+/* ============ إدخالٌ مباشر — للدورات بلا ورقة درجات ============ */
+//
+// 🔑 هذه ليست ورقة رصدٍ مصغّرة: لا بنود ولا سقف ولا تقدير، لأن التصنيف
+//    غير مربوط بمخطّط أصلًا. حقلان فحسب يُكتبان في كشف المسجّلين
+//    (SMTR_AVG / FINAL_AVG)، وهما السبيل الوحيد لتسجيل نتيجةٍ في دورةٍ
+//    مثل «سند سورة الفاتحة».
+//
+// ⚠️ والحقل الفارغ يعني **امْحُ الدرجة** لا «لا تغيّر» — درجةٌ أُدخلت خطأً
+//    يجب أن تكون قابلةً للإزالة، ولا سبيل آخر إليها. ويُقال ذلك في الحوار
+//    نصًّا بدل أن يُكتشف بعد الحفظ.
+
+let _directMarkIdNo = null;
+
+function openDirectMark(idNo) {
+    if (!_courseDetail) return;
+    const s = _courseDetail.students.find(st => st.idNo === String(idNo));
+    if (!s) return;
+
+    _directMarkIdNo = String(idNo);
+
+    const title = document.getElementById('directMarkTitle');
+    const sub   = document.getElementById('directMarkSub');
+    const smtr  = document.getElementById('directMarkSmtr');
+    const fin   = document.getElementById('directMarkFinal');
+    const err   = document.getElementById('directMarkError');
+
+    if (title) title.textContent = s.name;
+    if (sub) {
+        sub.textContent = (_openCourse && (_openCourse.className || _openCourse.courseName)) || '';
+    }
+    if (smtr) smtr.value = s.smtrAvg == null ? '' : String(s.smtrAvg);
+    if (fin)  fin.value  = s.finalAvg == null ? '' : String(s.finalAvg);
+    if (err)  err.textContent = '';
+
+    const overlay = document.getElementById('directMarkModal');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function closeDirectMark() {
+    const overlay = document.getElementById('directMarkModal');
+    if (overlay) overlay.style.display = 'none';
+    _directMarkIdNo = null;
+}
+
+// يُرجع { value, ok } — الفراغ قيمةٌ صالحة معناها NULL
+function parseDirectMark(raw) {
+    const t = String(raw == null ? '' : raw).trim();
+    if (!t) return { value: null, ok: true };
+    // الفاصلة العربية تُقبل: لوحة المفاتيح العربية تُدخلها بدل النقطة
+    const n = Number(t.replace('٫', '.').replace('،', '.'));
+    if (!isFinite(n) || n < 0) return { value: null, ok: false };
+    return { value: n, ok: true };
+}
+
+async function saveDirectMark() {
+    if (!_directMarkIdNo || !_openCourse) return;
+
+    const err = document.getElementById('directMarkError');
+    const a = parseDirectMark((document.getElementById('directMarkSmtr') || {}).value);
+    const b = parseDirectMark((document.getElementById('directMarkFinal') || {}).value);
+    if (!a.ok || !b.ok) {
+        if (err) err.textContent = 'أدخل رقمًا موجبًا، أو اترك الحقل فارغًا لمحو الدرجة';
+        return;
+    }
+
+    const btn = document.getElementById('directMarkSave');
+    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+
+    try {
+        await QMC.saveCourseDirectMark(
+            Number(_openCourse.courseNo), _directMarkIdNo, a.value, b.value);
+        closeDirectMark();
+        // الكشف المخزَّن صار قديمًا — يُسحب من جديد (المفتاح `course_<رقم>`)
+        await coursesStoreDelete('courses', 'course_' + _openCourse.courseNo);
+        await openCourseRoster(_openCourse.courseNo);
+        showToast('✅ حُفظت الدرجة');
+    } catch (e) {
+        if (err) err.textContent = (e && e.message) || 'تعذّر الحفظ';
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'حفظ'; }
+    }
 }
 
 /* ===================== ورقة الرصد ===================== */

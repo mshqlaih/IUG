@@ -880,6 +880,37 @@
         </div>
     </div>
 
+    <!-- إدخالٌ مباشر — للدورات التي لا ورقة درجات لتصنيفها.
+         حقلان فحسب: لا بنود ولا سقف ولا تقدير، لأن التصنيف غير مربوط
+         بمخطّط. والحقل الفارغ يمحو الدرجة (مكتوبٌ في الحوار). -->
+    <div id="directMarkModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <h4 class="modal-title" id="directMarkTitle"></h4>
+            <div class="record-subtitle" id="directMarkSub"></div>
+
+            <div class="direct-mark-fields">
+                <label class="direct-mark-row">
+                    <span>درجة النصفي</span>
+                    <input type="number" inputmode="decimal" step="any" min="0"
+                           id="directMarkSmtr" dir="ltr">
+                </label>
+                <label class="direct-mark-row">
+                    <span>درجة النهائي</span>
+                    <input type="number" inputmode="decimal" step="any" min="0"
+                           id="directMarkFinal" dir="ltr">
+                </label>
+            </div>
+
+            <div class="direct-mark-hint">الحقل الفارغ يمحو الدرجة المحفوظة.</div>
+            <div class="direct-mark-error" id="directMarkError"></div>
+
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-cancel" onclick="closeDirectMark()">إلغاء</button>
+                <button type="button" class="modal-btn modal-ok" id="directMarkSave" onclick="saveDirectMark()">حفظ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ورقة رصد درجات الدورة -->
     <div id="recordModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
         <div class="modal-box record-box">

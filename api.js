@@ -521,6 +521,24 @@ window.QMC = (function () {
     return coursesPost("removeStudent", { course_no: courseNo, id_no: idNo });
   }
 
+  // درجة مباشرة في كشف المسجّلين — لدورةٍ لا ورقة درجات لتصنيفها وحدها.
+  //
+  // ⚠️ السيرفر يرفضها إن كان للتصنيف مخطّط فعّال: العمودان SMTR_AVG/FINAL_AVG
+  //    يُعاد اشتقاقهما من QMC_COURSE_EXAM بعد كل رصد نظاميّ، فالكتابة المباشرة
+  //    فيهما تُمحى بصمت عند أوّل رصد. والمسار الوحيد لدورةٍ لها مخطّط هو الرصد.
+  //
+  // ⚠️ وبلا طابور أوفلاين — بخلاف saveCourseResult: مسارٌ استثنائيّ مكتبيّ،
+  //    وطابورٌ ثانٍ بقواعد دمجٍ أخرى كلفتُه أكبر من نفعه. والقيمة null مقبولة:
+  //    بها تُمحى درجةٌ أُدخلت خطأً.
+  function saveCourseDirectMark(courseNo, idNo, smtr, finalMark) {
+    return coursesPost("saveDirectMark", {
+      course_no: courseNo,
+      id_no: idNo,
+      smtr_avg: smtr,
+      final_avg: finalMark,
+    });
+  }
+
   // رصد نتيجة. يُرجع { ok, rejected, error }:
   //   ok=true وصلت · rejected=true رفضٌ لن ينجح بالإعادة · وإلا عطب شبكة فتبقى بالطابور
   async function saveCourseResult(payload) {
@@ -596,6 +614,7 @@ window.QMC = (function () {
     getCourses,
     getCourseDetail,
     getCourseFormMeta,
+    saveCourseDirectMark,
     createCourse,
     updateCourse,
     deleteCourse,
