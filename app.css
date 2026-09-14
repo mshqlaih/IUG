@@ -902,6 +902,37 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .cr-crit { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 3px 0; border-top: 1px dashed #eceff3; }
 .cr-crit b { white-space: nowrap; }
 
+/* ===== كشف الدورة (طباعة و PDF) ===== */
+#printSheet { display: none; }
+.csheet { direction: rtl; color: #000; background: #fff; font-size: 11px; padding: 4px; }
+.csheet-org { text-align: center; font-weight: 700; font-size: 13px; }
+.csheet-title { text-align: center; font-weight: 800; font-size: 16px; margin: 4px 0 8px; }
+.csheet-info { border: 1px solid #555; background: #f4f8f7; padding: 6px 8px; margin-bottom: 8px; font-size: 11px; line-height: 1.8; }
+.csheet-info div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; }
+.csheet-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.csheet-table th, .csheet-table td {
+    border: 1px solid #555; padding: 4px 5px; text-align: center; white-space: nowrap;
+}
+.csheet-table th { background: #ddeeea; font-weight: 700; }
+.csheet-table tr { page-break-inside: avoid; break-inside: avoid; }
+.csheet-table thead { display: table-header-group; }   /* يتكرّر في كل صفحة */
+.csheet-table .csheet-name { text-align: right; white-space: normal; }
+.csheet-table .csheet-id { direction: ltr; }
+.csheet-table .csheet-tier { font-size: 10px; }
+.csheet-foot { text-align: left; font-size: 9px; color: #555; margin-top: 6px; }
+
+@media print {
+    @page { size: A4 portrait; margin: 12mm; }
+    body.printing-sheet { background: #fff !important; padding: 0 !important; margin: 0 !important; }
+    body.printing-sheet > * { display: none !important; }
+    body.printing-sheet > #printSheet { display: block !important; }
+    body.printing-sheet .csheet-table th,
+    body.printing-sheet .csheet-info {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
 /* أيام الدورة */
 .day-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .day-chip {

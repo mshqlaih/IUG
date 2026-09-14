@@ -1477,6 +1477,8 @@ function renderSvRoster() {
                 approved ? 'معتمدة — فكّ الاعتماد' : 'اعتماد النتائج'}</button>` +
             `<button type="button" class="cr-action" onclick="openSvAttFromRoster()">
                 <i class="fas fa-calendar-check"></i> سجلّ الحضور</button>` +
+            `<button type="button" class="cr-action" ${dis} onclick="openCourseSheet('sv')">
+                <i class="fas fa-print"></i> طباعة الكشف</button>` +
             (canManageCourses() ? `<button type="button" class="cr-action" ${_svBusy ? 'disabled' : ''} onclick="svAddStudents()">
                 <i class="fas fa-user-plus"></i> تسجيل طلاب</button>` : '') +
             `<button type="button" class="cr-action" ${_svBusy ? 'disabled' : ''} onclick="loadSvRoster(true)">
@@ -1875,4 +1877,332 @@ function openSvAttEntry(date) {
         date: date || null,
         onSaved: () => loadSvAtt(true),
     });
+}
+
+/* ============================================================================
+   كشف الدورة — طباعة · PDF · Excel   (نظير cs_course_sheet.dart)
+   ----------------------------------------------------------------------------
+   صفٌّ لكل مسجّل بحضوره ودرجاته وتقديره. يُفتح من كشف الإشراف ومن كشف المختبِر —
+   **لا من «دوراتي»**: فيه الدرجات، والمعلّم لا يراها قبل الاعتماد.
+
+   🔑 **الترتيب أبجديٌّ بالاسم** لا برقم التسجيل: الكشف يُسلَّم ورقةً تُبحث فيها
+      الأسماء باليد.
+   🔑 **يُبنى الكشف مرّةً ويُستعمل في المخرجات الثلاثة** — فلا يختلف المطبوع
+      عن PDF عن Excel في رقمٍ واحد.
+   ⚠️ الدرجة من **النتيجة المرصودة أوّلًا** ثم أعمدة الكشف: ما رُصد أوفلاين في
+      شاشة المختبِر لم يصل الأعمدة بعد، فلو قُرئت وحدها لخرج الكشف ناقصًا في
+      اليوم الذي يُطلب فيه تامًّا. (ودورةٌ بلا مخطّط لا نتائج لها ⇒ الأعمدة.)
+   ============================================================================ */
+
+let _sheet = null;
+
+const CR_DEFAULT_HEADER = 'أكاديمية الصفا للخدمات القرآنية';
+
+// اسم الجهة في الترويسة — من بيانات الحلقات المخزّنة، وإلّا الاسم الافتراضي
+function courseSheetHeaderName() {
+    try {
+        if (typeof _circlesCache !== 'undefined' && Array.isArray(_circlesCache)) {
+            for (let i = 0; i < _circlesCache.length; i++) {
+                const c = _circlesCache[i] || {};
+                const v = crS(c.centerName || c.center_name);
+                if (v) return v;
+            }
+        }
+    } catch (_) { /* الافتراضي */ }
+    return CR_DEFAULT_HEADER;
+}
+
+// اسم الملفّ باسم الدورة — محارف يرفضها نظام الملفّات تُبدَّل لا تُحذف
+function crSafeFileName(name) {
+    const s = crS(name).replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim();
+    return s || 'كشف الدورة';
+}
+
+function crDispDate(iso) {
+    const s = crS(iso);
+    if (s.length < 10) return s;
+    return s.substring(8, 10) + '/' + s.substring(5, 7) + '/' + s.substring(0, 4);
+}
+
+// صفوفٌ مرتّبة بالاسم. markOf(s) ⇒ [mid, fin]، وtierOf(total, complete) ⇒ نصّ
+function crSheetRows(students, markOf, hasMid, tierOf, presentBy) {
+    const sorted = students.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar'));
+    return sorted.map((s, i) => {
+        const m = markOf(s);
+        const mid = m[0], fin = m[1];
+        const any = mid != null || fin != null;
+        const total = any ? (mid || 0) + (fin || 0) : (s.studentAvg != null ? s.studentAvg : null);
+        // التقدير لمن اكتملت درجاته: مرحلتاه، أو مجموعٌ قديم محفوظ
+        const complete = (fin != null && (!hasMid || mid != null)) || (!any && s.studentAvg != null);
+        return {
+            seq: i + 1, idNo: s.idNo, name: s.name,
+            present: presentBy ? (presentBy[s.idNo] != null ? presentBy[s.idNo] : null) : null,
+            mid: mid, fin: fin, total: total,
+            tier: total == null ? null : tierOf(total, complete),
+        };
+    });
+}
+
+function crRecMark(rec) { return (rec && rec.totalMark != null) ? rec.totalMark : null; }
+
+// من كشف الإشراف — ومعه عمود الحضور إن وُجد سجلّه (مخزَّنًا أو من الشبكة)
+async function buildSvSheet() {
+    const c = _svCourse, roster = _svRoster;
+    let att = null;
+    try {
+        let raw = await coursesStoreGet('courses', 'cs_att_' + c.courseNo);
+        if (raw == null && navigator.onLine) {
+            raw = await QMC.getSvAttendance(c.courseNo);
+            try { await coursesStorePut('courses', 'cs_att_' + c.courseNo, raw); } catch (_) {}
+        }
+        if (raw != null) att = splitSvAtt(raw);
+    } catch (_) {
+        att = null;   // تعذُّر السجلّ لا يُبطل الكشف — يُطوى عمود الحضور وحده
+    }
+    const presentBy = {};
+    if (att) att.students.forEach(s => { presentBy[s.idNo] = s.present; });
+
+    const scheme = svHasScheme(c);
+    return {
+        title: c.courseName, className: c.className,
+        teacher: c.teacherName || null,
+        startDate: c.startDate, endDate: c.endDate,
+        totalDays: (att && att.days.length) ? att.days.length : null,
+        rows: crSheetRows(roster.detail.students, s => {
+            if (!scheme) return [s.smtrAvg, s.finalAvg];
+            const mid = crRecMark(svRecordOf(s.idNo, 'MID'));
+            const fin = crRecMark(svRecordOf(s.idNo, 'FINAL'));
+            return [mid != null ? mid : s.smtrAvg, fin != null ? fin : s.finalAvg];
+        }, svHasMid(c), (total, complete) => svTierOf(total, complete ? 'done' : 'partial'),
+           att ? presentBy : null),
+    };
+}
+
+// من كشف المختبِر (getCourse + ما رُصد أوفلاين) — بلا حضور: لا مصدر له هنا
+function buildExamSheet() {
+    const oc = _openCourse || {}, d = _courseDetail;
+    const classNo = oc.courseClassNo == null ? null : oc.courseClassNo;
+    const stages = classNo == null ? [] : stagesOfCourseClass(classNo);
+    const scheme = stages.length > 0;
+    const hasMid = classNo != null && classHasMidStage(classNo);
+    return {
+        title: oc.courseName || d.courseName, className: oc.className || null,
+        teacher: d.teacherIdNo ? 'هوية ' + d.teacherIdNo : null,
+        startDate: d.startDate || oc.startDate, endDate: d.endDate,
+        totalDays: null,
+        rows: crSheetRows(d.students, s => {
+            if (!scheme) return [s.smtrAvg, s.finalAvg];
+            const mid = crRecMark(recordOf(s.idNo, CourseStage.MID));
+            const fin = crRecMark(recordOf(s.idNo, CourseStage.FINAL));
+            return [mid != null ? mid : s.smtrAvg, fin != null ? fin : s.finalAvg];
+        }, hasMid, (total, complete) => {
+            if (!complete || !scheme) return null;
+            const t = courseClassTier(classNo, total);
+            return t ? t.tierLabelAr : null;
+        }, null),
+    };
+}
+
+async function openCourseSheet(source) {
+    let sheet = null;
+    try {
+        if (source === 'sv') {
+            if (!_svCourse || !_svRoster) return showToast('انتظر تحميل الكشف');
+            sheet = await buildSvSheet();
+        } else {
+            if (!_courseDetail) return showToast('انتظر تحميل الكشف');
+            sheet = buildExamSheet();
+        }
+    } catch (err) {
+        return showAlert({ title: 'تعذّر بناء الكشف', message: (err && err.message) || 'خطأ غير معروف', icon: '⚠️' });
+    }
+    if (!sheet.rows.length) return showAlert({ message: 'لا مسجّلين في هذه الدورة', icon: 'ℹ️' });
+
+    _sheet = sheet;
+    const sub = crEl('sheetSub');
+    if (sub) sub.textContent = sheet.title + ' · ' + sheet.rows.length + ' مسجّلاً';
+    const note = crEl('sheetNote');
+    if (note) {
+        const show = source === 'sv' && sheet.totalDays == null;
+        note.style.display = show ? 'block' : 'none';
+        note.textContent = show ? 'ℹ️ لا سجلّ حضور لهذه الدورة — عمود الحضور لن يظهر.' : '';
+    }
+    const modal = crEl('sheetModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeCourseSheet() {
+    const modal = crEl('sheetModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function crSheetHeaders(sheet, short) {
+    const h = ['م', 'رقم الهوية', 'اسم الطالب'];
+    if (sheet.totalDays != null) h.push(short ? 'الحضور' : 'أيام الحضور');
+    h.push('النصفي', 'النهائي', 'المجموع', 'التقدير');
+    return h;
+}
+
+function crSheetInfo(sheet) {
+    return {
+        line1: ['المعلّم: ' + (sheet.teacher || 'غير مُسنَد')]
+            .concat(sheet.className ? ['التصنيف: ' + sheet.className] : []),
+        line2: [(sheet.startDate ? 'من ' + crDispDate(sheet.startDate) : '') +
+                (sheet.endDate ? '  إلى ' + crDispDate(sheet.endDate) : ''),
+                'المسجّلون: ' + sheet.rows.length +
+                (sheet.totalDays != null ? '  ·  أيام الدورة: ' + sheet.totalDays : '')],
+    };
+}
+
+// HTML واحد للطباعة و PDF
+function courseSheetHtml(sheet) {
+    const info = crSheetInfo(sheet);
+    const num = v => (v == null ? '' : courseNum(v));
+    const withAtt = sheet.totalDays != null;
+    const rows = sheet.rows.map(r => `<tr>
+        <td>${r.seq}</td>
+        <td class="csheet-id">${escapeHtml(r.idNo)}</td>
+        <td class="csheet-name">${escapeHtml(r.name)}</td>
+        ${withAtt ? `<td>${r.present == null ? '—' : r.present + ' / ' + sheet.totalDays}</td>` : ''}
+        <td>${num(r.mid)}</td>
+        <td>${num(r.fin)}</td>
+        <td><b>${num(r.total)}</b></td>
+        <td class="csheet-tier">${escapeHtml(r.tier || '')}</td>
+    </tr>`).join('');
+
+    return `<div class="csheet" dir="rtl">
+        <div class="csheet-org">${escapeHtml(courseSheetHeaderName())}</div>
+        <div class="csheet-title">كشف ${escapeHtml(sheet.title)}</div>
+        <div class="csheet-info">
+            <div>${info.line1.map(t => '<span>' + escapeHtml(t) + '</span>').join('')}</div>
+            <div>${info.line2.filter(Boolean).map(t => '<span>' + escapeHtml(t) + '</span>').join('')}</div>
+        </div>
+        <table class="csheet-table">
+            <thead><tr>${crSheetHeaders(sheet, true).map(h => '<th>' + h + '</th>').join('')}</tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <div class="csheet-foot">طُبع في ${escapeHtml(crDispDate(crTodayStr()))}</div>
+    </div>`;
+}
+
+/* الطباعة: منطقةٌ مخفيّة على الشاشة تظهر وحدها في @media print (app.css) —
+   لا نافذةٌ جديدة: التطبيق المثبَّت على iPhone لا يفتح نوافذ منبثقة. */
+function printCourseSheet() {
+    if (!_sheet) return;
+    const box = crEl('printSheet');
+    if (!box) return;
+    box.innerHTML = courseSheetHtml(_sheet);
+    document.body.classList.add('printing-sheet');
+    const done = () => {
+        document.body.classList.remove('printing-sheet');
+        window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    closeCourseSheet();
+    // مهلةٌ قصيرة ليُرسم المحتوى قبل فتح حوار الطباعة
+    setTimeout(() => {
+        try { window.print(); }
+        catch (_) { showAlert({ message: 'الطباعة غير متاحة على هذا الجهاز — استعمل PDF.', icon: 'ℹ️' }); }
+    }, 60);
+}
+
+/* تسليم ملفّ: المشاركة أوّلًا (iPhone: حفظ في الملفات/واتساب/طباعة)، وإلّا تنزيل.
+   ⚠️ المشاركة بعد عملٍ غير متزامن قد تُرفض لانقضاء «لمسة المستخدم» — فيُنزَّل. */
+function crDeliverFile(blob, fileName, type) {
+    const download = () => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.parentNode.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+    try {
+        if (typeof File !== 'undefined' && navigator.canShare && navigator.share) {
+            const file = new File([blob], fileName, { type: type });
+            if (navigator.canShare({ files: [file] })) {
+                navigator.share({ title: fileName, files: [file] }).catch(err => {
+                    if (!err || err.name !== 'AbortError') download();
+                });
+                return;
+            }
+        }
+    } catch (_) { /* تنزيل */ }
+    download();
+}
+
+async function pdfCourseSheet() {
+    if (!_sheet) return;
+    if (!await ensurePdfLibrary()) return;
+    const fileName = crSafeFileName(_sheet.title) + '.pdf';
+    showToast('جارٍ إنشاء PDF…');
+    try {
+        const blob = await html2pdf().set({
+            margin: [0.8, 0.8, 1, 0.8],
+            filename: fileName,
+            image: { type: 'jpeg', quality: 0.92 },
+            html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+            jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' },
+            // لا يُشطر صفّ طالبٍ بين صفحتين
+            pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
+        }).from(courseSheetHtml(_sheet), 'string').outputPdf('blob');
+        closeCourseSheet();
+        crDeliverFile(blob, fileName, 'application/pdf');
+    } catch (err) {
+        console.error(err);
+        showAlert({ title: 'تعذّر إنشاء PDF', message: (err && err.message) || 'خطأ غير معروف', icon: '⚠️' });
+    }
+}
+
+async function excelCourseSheet() {
+    if (!_sheet) return;
+    try {
+        await loadScriptOnce('xlsx.full.min.js');
+    } catch (_) {
+        return showAlert({ message: 'تعذّر تحميل مكتبة إكسل — تأكّد من الاتصال ثم أعد المحاولة.', icon: '⚠️' });
+    }
+    const s = _sheet;
+    const info = crSheetInfo(s);
+    const headers = crSheetHeaders(s, false);
+    const withAtt = s.totalDays != null;
+    const blank = v => (v == null ? '' : v);
+
+    const aoa = [
+        [courseSheetHeaderName() + '  —  كشف ' + s.title],
+        [info.line1.join('   ·   ')],
+        [info.line2.filter(Boolean).join('   ·   ')],
+        headers,
+    ].concat(s.rows.map(r => {
+        // ⚠️ الهوية نصًّا (أصفارها البادئة)، والدرجات أرقاماً تبقى قابلة للجمع والفرز
+        const row = [r.seq, String(r.idNo), r.name];
+        if (withAtt) row.push(blank(r.present));
+        row.push(blank(r.mid), blank(r.fin), blank(r.total), r.tier || '');
+        return row;
+    }));
+
+    try {
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        const last = headers.length - 1;
+        ws['!merges'] = [0, 1, 2].map(r => ({ s: { r: r, c: 0 }, e: { r: r, c: last } }));
+        const widths = [5, 14, 32];
+        if (withAtt) widths.push(12);
+        widths.push(10, 10, 10, 14);
+        ws['!cols'] = widths.map(w => ({ wch: w }));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'كشف الدورة');
+        wb.Workbook = wb.Workbook || {};
+        wb.Workbook.Views = [{ RTL: true }];   // الورقة من اليمين
+
+        const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        closeCourseSheet();
+        crDeliverFile(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+                      crSafeFileName(s.title) + '.xlsx',
+                      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    } catch (err) {
+        console.error(err);
+        showAlert({ title: 'تعذّر إنشاء ملف Excel', message: (err && err.message) || 'خطأ غير معروف', icon: '⚠️' });
+    }
 }
