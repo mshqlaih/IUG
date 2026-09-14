@@ -458,7 +458,10 @@ window.QMC = (function () {
                       "شغّل docs/ords_course_admin.sql أولاً.");
     }
     if (res.status === 401 || res.status === 403) {
-      throw new Error("انتهت الجلسة أو لا صلاحية — أعد تسجيل الدخول");
+      // رسالة السيرفر أوّلًا إن وُجدت — الحزم الجديدة تقول الشرط بعينه
+      const m = (decoded && typeof decoded === "object" && !Array.isArray(decoded) && decoded.message)
+        ? String(decoded.message) : "";
+      throw new Error(m || "انتهت الجلسة أو لا صلاحية — أعد تسجيل الدخول");
     }
     if (res.status < 200 || res.status >= 300) {
       throw new Error(extractServerError(decoded, raw));
@@ -575,6 +578,144 @@ window.QMC = (function () {
     return { ok: false, rejected: true, error: extractServerError(decoded, raw) };
   }
 
+  /* ============ مسار معلّم الدورة + إشراف الدورات ============
+     المصادر: docs/ords_course_teacher.sql · docs/ords_course_supervision.sql
+              · docs/ords_course_results.sql
+     ⚠️ مسارات المعلّم Courses/my* حمولتها **بلا درجات** عمدًا — لا يُستبدل بها
+        getCourse ولا sv/ (فيهما الدرجات: نداءٌ واحد يوصلها إلى جهاز من مُنع
+        منها ولو لم تُعرض). والاستثناء الوحيد myResults بعد اعتماد المشرف. */
+
+  // GET يُرجع items — والخطأ «HTTP <رمز>» يترجمه المستدعي (404 و555 لهما معنى)
+  async function getItems(path, timeoutMs) {
+    const res = await apiFetch(path, { timeoutMs: timeoutMs || 20000 });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    if (!body || typeof body !== "object") throw new Error("استجابة غير مفهومة من السيرفر");
+    return Array.isArray(body.items) ? body.items : [];
+  }
+
+  function getMyCourses() { return getItems("Courses/myCourses"); }
+  function getMyRoster(courseNo) {
+    return getItems("Courses/myRoster/" + encodeURIComponent(courseNo));
+  }
+  // سجلّ الحضور كلّه للدورة — يُقرأ مرّةً ويُرشَّح باليوم محليًّا، فيُفتح اليوم
+  // بحالته بلا شبكة (بدونه يبدأ الكشف «الكلّ حاضر» فيمحو الحفظُ غياباتٍ مسجّلة)
+  function getMyAttendance(courseNo) {
+    return getItems("Courses/myAttendance/" + encodeURIComponent(courseNo), 25000);
+  }
+
+  // نتائج طلاب المعلّم — **بعد اعتماد المشرف وحده**، ولا تُخزَّن.
+  // 🔑 QMC_COURSE_PKG.my_results_json تردّ message مع رمز http حقيقي (403 غير
+  //    معتمدة أو ليست دورته) — ورسالتها أدقّ من أيّ ترجمة، فتُعرض كما هي.
+  async function getMyResults(courseNo) {
+    const res = await apiFetch("Courses/myResults/" + encodeURIComponent(courseNo));
+    const raw = await res.text().catch(() => "");
+    const d = safeDecode(raw);
+    const msg = (d && typeof d === "object" && !Array.isArray(d) && d.message)
+      ? String(d.message).trim() : "";
+    if (res.status !== 200) {
+      if (msg) throw new Error(msg);
+      if (res.status === 555) {
+        throw new Error("نتائج هذه الدورة غير متاحة — لم يعتمدها مشرف الدورات بعد، أو ليست من دوراتك.");
+      }
+      throw new Error("HTTP " + res.status);
+    }
+    if (!d || typeof d !== "object") throw new Error("استجابة غير مفهومة من السيرفر");
+    // معالجٌ لم يضبط رمز http يردّ 200 وفي الجسم status=error
+    if (d.status && String(d.status).toLowerCase() !== "success") {
+      throw new Error(msg || "نتائج هذه الدورة غير متاحة");
+    }
+    return Array.isArray(d.items) ? d.items : [];
+  }
+
+  // رصد حضور يومٍ **بكشفه كاملًا** — نقطةٌ واحدة للمعلّم والمشرف (حارسها يقبلهما).
+  // يُرجع عدد المحفوظ. القيد (مسجَّل × تاريخ) والحفظ MERGE ⇒ الإعادة تصحيحٌ لا تكرار.
+  async function saveCourseAttendance(courseNo, date, byIdNo) {
+    const students = Object.keys(byIdNo).map(id => ({
+      id_no: id, attendance_type: Number(byIdNo[id]),
+    }));
+    let res;
+    try {
+      res = await apiFetch("Courses/saveAttendance", {
+        method: "POST", timeoutMs: 30000,
+        body: { course_no: Number(courseNo), attendance_date: date, students: students },
+      });
+    } catch (_) {
+      throw new Error("تعذّر الاتصال بالسيرفر — تحقّق من الشبكة");
+    }
+    const raw = await res.text().catch(() => "");
+    const d = safeDecode(raw);
+    if (res.status === 404) {
+      throw new Error("نقطة «Courses/saveAttendance» غير مسجّلة — شغّل docs/ords_course_supervision.sql §6ج");
+    }
+    if (res.status !== 200) throw new Error("فشل الحفظ (رمز " + res.status + ")");
+    if (!d || typeof d !== "object" || String(d.status || "").toLowerCase() !== "success") {
+      throw new Error((d && d.message) ? String(d.message) : "تعذّر الحفظ");
+    }
+    return Number(d.saved || 0);
+  }
+
+  // اعتماد نتائج الدورة أو فكّه — لمشرف الدورات. يُرجع رسالة السيرفر.
+  // 🔑 علمٌ واحد بأثرين: يراها المعلّم، وتُقفل عن الرصد والإدخال المباشر.
+  async function approveCourseResults(courseNo, approved) {
+    let res;
+    try {
+      res = await apiFetch("Courses/approveCourseResults", {
+        method: "POST", timeoutMs: 25000,
+        body: { course_no: Number(courseNo), approved: approved ? "Y" : "N" },
+      });
+    } catch (_) {
+      throw new Error("تعذّر الاتصال بالسيرفر — تحقّق من الشبكة");
+    }
+    const raw = await res.text().catch(() => "");
+    const d = safeDecode(raw);
+    const msg = (d && typeof d === "object" && !Array.isArray(d) && d.message)
+      ? String(d.message).trim() : "";
+    if (res.status === 404) {
+      throw new Error("نقطة «Courses/approveCourseResults» غير مسجّلة — شغّل docs/ords_course_results.sql §5");
+    }
+    // 403 لا صلاحية · 400 حمولة · 409 كشفٌ بلا نتيجة — الرسالة أدقّ من الرمز
+    if (res.status !== 200) {
+      throw new Error(msg || ("فشل تغيير حالة الاعتماد (رمز " + res.status + ")"));
+    }
+    if (!d || String(d.status || "").toLowerCase() !== "success") {
+      throw new Error(msg || "تعذّر تغيير حالة الاعتماد");
+    }
+    return msg || "تمّ";
+  }
+
+  // تصنيف المسجَّل: 1 معتمد · 5 إضافي (عليه تقوم الزيارة الميدانية والكفالة)
+  function setCourseStudentStatus(courseNo, idNo, status) {
+    return coursesPost("setStudentStatus", {
+      course_no: Number(courseNo), id_no: String(idNo), student_status: Number(status),
+    });
+  }
+
+  // ── الإشراف (sv/) — قراءة ──
+  function getCourseCenters() { return getItems("sv/courseCenters"); }
+  // state: all · active · upcoming · ended
+  function getSvCourses(centerNo, state) {
+    return getItems("sv/courses/" + encodeURIComponent(centerNo) +
+                    "?state=" + encodeURIComponent(state || "all"));
+  }
+  // كشف الدورة بمفاتيح getCourse نفسها + criteria/stages/tiers (أسماء البنود من السيرفر)
+  async function getSvRoster(courseNo) {
+    const res = await apiFetch("sv/courseRoster/" + encodeURIComponent(courseNo));
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const body = await res.json().catch(() => null);
+    if (!body || typeof body !== "object") throw new Error("استجابة غير مفهومة من السيرفر");
+    return body;
+  }
+  // صفوف D (أيام) و S (مسجّلون) في نداء واحد
+  function getSvAttendance(courseNo) {
+    return getItems("sv/courseAttendance/" + encodeURIComponent(courseNo));
+  }
+  // حالة كل مسجَّل في يومٍ بعينه — صفوف E
+  function getSvDayMarks(courseNo, date) {
+    return getItems("sv/courseAttendance/" + encodeURIComponent(courseNo) +
+                    "?date=" + encodeURIComponent(date));
+  }
+
   // مخطّطات التقييم: الرؤوس والبنود والفئات في حمولة واحدة
   async function getGradingSchemes() {
     const res = await apiFetch("Grading/getGradingSchemes");
@@ -627,6 +768,18 @@ window.QMC = (function () {
     addCourseStudents,
     removeCourseStudent,
     saveCourseResult,
+    getMyCourses,
+    getMyRoster,
+    getMyAttendance,
+    getMyResults,
+    saveCourseAttendance,
+    approveCourseResults,
+    setCourseStudentStatus,
+    getCourseCenters,
+    getSvCourses,
+    getSvRoster,
+    getSvAttendance,
+    getSvDayMarks,
     getGradingSchemes,
     getGradingVersion,
     isOnline,

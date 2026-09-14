@@ -206,6 +206,8 @@
     </div>
 
     <div class="tabs-header">
+        <!-- «دوراتي» لمعلّم الدورة وحده (is_course_teacher) — يُظهره applyAccessToTabs -->
+        <button class="tab-btn" data-tab="myCoursesTab" style="display:none" onclick="openTab('myCoursesTab', this)"><i class="fas fa-chalkboard-user"></i><span>دوراتي</span></button>
         <button class="tab-btn active" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-calendar-check"></i><span>النشاط</span></button>
         <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلبة</span></button>
         <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
@@ -610,6 +612,14 @@
         <!-- شاشة الدورات: القائمة ← النموذج ← الكشف -->
         <div id="coursesTab" class="tab-content">
 
+            <!-- يظهر لمن يُشرف على الدورات وحده (canSuperviseCourses) — يضبطه showCoursesView -->
+            <div id="coursesModeBar" class="cr-mode-bar" style="display:none">
+                <button type="button" data-mode="exams" onclick="setCoursesMode('exams')">
+                    <i class="fas fa-list-check"></i> اختبارات الدورات</button>
+                <button type="button" data-mode="sv" onclick="setCoursesMode('sv')">
+                    <i class="fas fa-building-columns"></i> إشراف الدورات</button>
+            </div>
+
             <!-- (1) قائمة الدورات -->
             <div id="coursesListView">
                 <div class="section-title">اختبارات الدورات</div>
@@ -725,6 +735,125 @@
                 </div>
 
                 <div id="rosterList" class="students-cards"></div>
+            </div>
+
+            <!-- (4) إشراف الدورات: المواضع التي تُعقد فيها دورات -->
+            <div id="svCentersView" style="display:none">
+                <div class="section-title">إشراف الدورات</div>
+                <div class="section-note">المواضع التي تُعقد فيها الدورات — افتح موضعاً لترى دوراته وكشوفها وحضورها واعتماد نتائجها.</div>
+                <div class="students-toolbar">
+                    <div class="search-wrap">
+                        <i class="fas fa-magnifying-glass search-icon"></i>
+                        <input type="search" id="svCenterSearch" placeholder="بحث باسم الموضع" oninput="renderSvCenters()">
+                    </div>
+                    <button class="btn-new-student" onclick="loadSvCenters(true)">
+                        <i class="fas fa-rotate"></i> <span>تحديث</span>
+                    </button>
+                </div>
+                <div id="svCentersBanner"></div>
+                <div id="svCentersList" class="students-cards"></div>
+            </div>
+
+            <!-- (5) دورات الموضع -->
+            <div id="svCoursesView" style="display:none">
+                <button class="btn-back" onclick="showSvCenters()">
+                    <i class="fas fa-arrow-right"></i> رجوع للمواضع
+                </button>
+                <div class="section-title" id="svCoursesTitle">الدورات</div>
+                <div id="svStateChips" class="cr-chips"></div>
+                <div class="students-toolbar">
+                    <div class="search-wrap">
+                        <i class="fas fa-magnifying-glass search-icon"></i>
+                        <input type="search" id="svCourseSearch" placeholder="بحث بالدورة أو التصنيف أو المعلّم" oninput="renderSvCourses()">
+                    </div>
+                    <button class="btn-new-student" onclick="loadSvCourses(true)">
+                        <i class="fas fa-rotate"></i> <span>تحديث</span>
+                    </button>
+                </div>
+                <div id="svCoursesBanner"></div>
+                <div id="svCoursesPanels"></div>
+                <div id="svCoursesList" class="students-cards"></div>
+            </div>
+
+            <!-- (6) كشف المسجّلين — عرضاً واعتماداً لا رصداً -->
+            <div id="svRosterView" style="display:none">
+                <button class="btn-back" onclick="backToSvCourses()">
+                    <i class="fas fa-arrow-right"></i> رجوع للدورات
+                </button>
+                <div class="section-title" id="svRosterTitle">كشف المسجّلين</div>
+                <div id="svRosterHeader" class="roster-header"></div>
+                <div id="svRosterActions" class="cr-actions"></div>
+                <div id="svRosterChips" class="cr-chips"></div>
+                <div class="students-toolbar">
+                    <div class="search-wrap">
+                        <i class="fas fa-magnifying-glass search-icon"></i>
+                        <input type="search" id="svRosterSearch" placeholder="بحث بالاسم أو رقم الهوية" oninput="renderSvRoster()">
+                    </div>
+                </div>
+                <div id="svRosterList" class="students-cards"></div>
+            </div>
+
+            <!-- (7) سجلّ حضور الدورة -->
+            <div id="svAttView" style="display:none">
+                <button class="btn-back" onclick="backFromSvAtt()">
+                    <i class="fas fa-arrow-right"></i> رجوع
+                </button>
+                <div class="section-title" id="svAttTitle">سجلّ الحضور</div>
+                <div id="svAttHeader" class="roster-header"></div>
+                <div class="cr-actions">
+                    <button type="button" class="cr-action primary" onclick="openSvAttEntry()">
+                        <i class="fas fa-user-check"></i> رصد حضور يوم</button>
+                    <button type="button" class="cr-action" onclick="loadSvAtt(true)">
+                        <i class="fas fa-rotate"></i> تحديث</button>
+                </div>
+                <div id="svAttChips" class="cr-chips"></div>
+                <div id="svAttList" class="students-cards"></div>
+            </div>
+        </div>
+
+        <!-- «دوراتي» — مسار معلّم الدورة: رصد الحضور وإضافة الطلاب ونتائجهم بعد الاعتماد.
+             ⚠️ لا درجة هنا قبل اعتماد المشرف: مسارات Courses/my* بلا درجات أصلاً. -->
+        <div id="myCoursesTab" class="tab-content">
+            <div id="ctListView">
+                <div class="section-title">دوراتي</div>
+                <div class="section-note">رصد حضور طلاب دوراتك (يعمل دون اتصال ويُرفع لاحقاً)، وإضافة الطلاب، ونتائجهم بعد اعتماد المشرف.</div>
+                <div class="cr-actions" style="justify-content:flex-end">
+                    <button type="button" class="cr-action" onclick="loadMyCourses(true)">
+                        <i class="fas fa-rotate"></i> تحديث</button>
+                </div>
+                <div id="ctBanners"></div>
+                <div id="ctList" class="students-cards"></div>
+                <div id="ctEmpty" class="students-empty" style="display:none"></div>
+            </div>
+
+            <div id="ctResultsView" style="display:none">
+                <button class="btn-back" onclick="backToMyCourses()">
+                    <i class="fas fa-arrow-right"></i> رجوع لدوراتي
+                </button>
+                <div class="section-title" id="ctResultsTitle">نتائج طلابي</div>
+                <div id="ctResultsBody"></div>
+            </div>
+
+            <div id="ctStudentsView" style="display:none">
+                <button class="btn-back" onclick="backToMyCourses()">
+                    <i class="fas fa-arrow-right"></i> رجوع لدوراتي
+                </button>
+                <div class="section-title" id="ctStudentsTitle">إضافة طلاب</div>
+                <!-- يقول للمعلّم لماذا لا يجد زرّ حذف — قبل أن يبحث عنه -->
+                <div class="course-warn" style="margin:0 0 10px">
+                    <i class="fas fa-circle-exclamation"></i>
+                    حذفُ تسجيلٍ من صلاحية إدارة الدورات — راجِع دائرة التجويد.
+                </div>
+                <div class="students-toolbar">
+                    <div class="search-wrap">
+                        <i class="fas fa-magnifying-glass search-icon"></i>
+                        <input type="search" id="ctStudentsSearch" placeholder="بحث بالاسم أو رقم الهوية" oninput="renderCtStudents()">
+                    </div>
+                    <button class="btn-new-student" onclick="openCtAddStudents()">
+                        <i class="fas fa-user-plus"></i> <span>إضافة طلاب</span>
+                    </button>
+                </div>
+                <div id="ctStudentsList" class="students-cards"></div>
             </div>
         </div>
 
@@ -965,6 +1094,42 @@
         </div>
     </div>
 
+    <!-- رصد حضور يوم — مشتركٌ بين «دوراتي» (بطابورٍ أوفلاين) والإشراف (يفشل صراحةً).
+         🔑 الكشف كاملاً لا الحاضرون وحدهم: يبدأ الكلّ حاضراً ويُنقَر الغائب. -->
+    <div id="attEntryModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+        <div class="modal-box record-box">
+            <h4 class="modal-title">رصد الحضور</h4>
+            <div class="record-subtitle" id="attCourseName"></div>
+            <div id="attHead" class="att-head"></div>
+            <div class="att-toolbar">
+                <input type="date" id="attDate" onchange="attDateChanged()">
+                <button type="button" class="btn-cancel" onclick="attAllPresent()">
+                    <i class="fas fa-check-double"></i> الكلّ حاضر</button>
+            </div>
+            <div class="search-wrap" style="margin-bottom:8px">
+                <i class="fas fa-magnifying-glass search-icon"></i>
+                <input type="search" id="attSearch" placeholder="بحث بالاسم أو رقم الهوية" oninput="renderAttEntry()">
+            </div>
+            <div id="attList" class="att-list"></div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-cancel" onclick="closeAttEntry()">إلغاء</button>
+                <button type="button" class="modal-btn modal-confirm" id="attSaveBtn" onclick="saveAttEntry()">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- تفصيل نتيجة مسجَّل — للمشرف، قراءةً لا رصداً -->
+    <div id="svResultModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+        <div class="modal-box record-box">
+            <h4 class="modal-title" id="svResultTitle"></h4>
+            <div class="record-subtitle" id="svResultSub"></div>
+            <div id="svResultBody" class="record-body"></div>
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-cancel" onclick="closeSvResult()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
     <!-- نافذة تأكيد موحّدة (بديل confirm/alert المتصفح) -->
     <div id="appModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-box">
@@ -996,9 +1161,13 @@
             if (tabId === "requestsTab" && typeof loadExamRequests === "function") {
                 loadExamRequests();
             }
-            if (tabId === "coursesTab" && typeof loadCourses === "function") {
-                showCoursesView('coursesListView');
-                loadCourses();
+            if (tabId === "coursesTab") {
+                // «اختبارات الدورات» أو «إشراف الدورات» — بحسب آخر اختيار (course_roles.js)
+                if (typeof openCoursesHome === "function") openCoursesHome();
+                else if (typeof loadCourses === "function") { showCoursesView('coursesListView'); loadCourses(); }
+            }
+            if (tabId === "myCoursesTab" && typeof openMyCoursesHome === "function") {
+                openMyCoursesHome();
             }
         }
 
@@ -1013,6 +1182,8 @@
     <script src="app.js"></script>
     <!-- بعد app.js: يعتمد على db و showConfirm و escapeHtml وغيرها -->
     <script src="courses.js"></script>
+    <!-- بعد courses.js: مسارا معلّم الدورة ومشرف الدورات -->
+    <script src="course_roles.js"></script>
     
         <div id="toast" class="toast-hidden"></div>
 </body>

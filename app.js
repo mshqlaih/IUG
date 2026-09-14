@@ -286,13 +286,39 @@ function userRoleName() {
     return String((USER_ACCESS && USER_ACCESS.role_name) || '').toLowerCase();
 }
 
-// نفس قائمة الأدوار في canManageCourses بتطبيق Flutter — لا تتفرّع عنها
+// نفس قائمة الأدوار في canManageCourses بتطبيق Flutter — لا تتفرّع عنها.
+// ✅ وهي مرآة QMC_CAN_MANAGE_COURSES بعد تحويله إلى المسمّى الوظيفي
+//    (docs/ords_courses_guard.sql): tajw_supervisor و super_admin — ونصُّ
+//    tajw_supervisor لا يحتوي memo_supervisor، فبدونه تختفي الإدارة عن مشرف التجويد.
 function canManageCourses() {
     const r = userRoleName();
     return r.indexOf('contributor') !== -1 ||
            r.indexOf('administrator') !== -1 ||
            r.indexOf('programmer') !== -1 ||
-           r.indexOf('memo_supervisor') !== -1;
+           r.indexOf('memo_supervisor') !== -1 ||
+           r.indexOf('tajw_supervisor') !== -1 ||
+           r.indexOf('super_admin') !== -1;
+}
+
+/* هل هو **معلّم دورة** فيُعرض له تبويب «دوراتي»؟
+   🔑 ملكيّةٌ لا رتبة — بخلاف كل حارسٍ آخر: الشرط أن يكون TEACHER_ID_NO لدورةٍ
+   ما، ومعلّم الدورة قد لا يكون موظفًا مسجّلًا أصلًا. فيأتي جوابًا من السيرفر
+   (is_course_teacher في getUserAccess) لا اشتقاقًا هنا. وغيابُه = لا (كما في
+   Flutter): تبويبٌ يفتح على قائمةٍ فارغة أسوأ من تبويبٍ مؤجَّل. */
+function isCourseTeacher() {
+    const v = String((USER_ACCESS && USER_ACCESS.is_course_teacher) || '').trim().toUpperCase();
+    return v === 'Y' || v === '1' || v === 'TRUE';
+}
+
+/* هل يُعرض له «إشراف الدورات»؟
+   ⚠️ حارس واجهةٍ **أوسع من السيرفر عمدًا**: QMC_CAN_SUPERVISE_COURSES_N يشترط
+   مقعدًا في دائرة التجويد أو الإدارة العامة، والعميل لا يعرف تصنيف المقعد —
+   فتضييقُه هنا يحجب مشرفًا مأذونًا. ومن ليس مأذونًا يرى المدخل ويُردّ برسالة. */
+function canSuperviseCourses() {
+    if (allowedScreens().indexOf('courseSupervision') !== -1) return true;
+    const role = String((USER_ACCESS && USER_ACCESS.role_name) || '');
+    if (role.indexOf('مشرف') !== -1 || role.indexOf('مدير') !== -1) return true;
+    return canManageCourses();
 }
 
 // الشاشات المسموح بها من السيرفر — قائمة فارغة تعني «الكل» (كما في Flutter)
@@ -313,6 +339,7 @@ const TAB_SCREEN_CODES = {
     logsTab    : 'reports',
     requestsTab: 'requests',
     coursesTab : 'courses',
+    myCoursesTab: 'myCourses',
 };
 
 /* يُظهر/يُخفي التبويبات حسب الصلاحية — نفس منطق _applyAccess في Flutter:
@@ -331,11 +358,21 @@ function applyAccessToTabs() {
        والحارس على أزرار الإدارة وحدها. فوُحّد السلوك هنا.
        والصلاحية الحقيقية على السيرفر في الحالين: قائمة `getCourses` تُصفّى
        بعضوية اللجنة، فمن لا لجنة له يرى شاشةً فارغة لا بيانات غيره. */
-    const roleAllows = () => true;
+    // «دوراتي» وحدها مرهونةٌ — بالملكيّة (is_course_teacher) لا بالدور
+    const teacher = isCourseTeacher();
+    const roleAllows = (tabId) => (tabId === 'myCoursesTab') ? teacher : true;
 
     const screenAllows = (tabId) => {
         // الإعدادات دائماً ظاهرة: منها التشخيص والمزامنة وإعادة الضبط
         if (tabId === 'settingsTab') return true;
+
+        // «دوراتي» لا تُصفّى بقائمة الشاشات: إذنُها ملكيّة (roleAllows أعلاه)
+        if (tabId === 'myCoursesTab') return true;
+
+        /* Flutter (_applyAccess): قائمةٌ فارغة تعني «الكل» — **إلّا لمعلّم الدورة**:
+           فارغةٌ عنده تعني أنه بلا دورٍ وظيفيّ، فيرى «دوراتي» وحدها لا تبويباتِ
+           حلقاتٍ ولجانٍ ليست له. */
+        if (!screens.length && teacher) return false;
 
         /* ⚠️⚠️ **والدورات كذلك — ولا نظير لهذا الحارس في Flutter.**
            هناك مدخلُ «اختبارات الدورات» في الدرج، والدرج لا يُصفّى بقائمة

@@ -473,11 +473,17 @@ async function syncCourseResults() {
 
 /* ===================== شاشة قائمة الدورات ===================== */
 
+// الأربعة الأخيرة لإشراف الدورات (course_roles.js) — في التبويب نفسه
+const COURSES_VIEWS = ['coursesListView', 'courseFormView', 'courseRosterView',
+                       'svCentersView', 'svCoursesView', 'svRosterView', 'svAttView'];
+
 function showCoursesView(name) {
-    ['coursesListView', 'courseFormView', 'courseRosterView'].forEach(id => {
+    COURSES_VIEWS.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = (id === name) ? 'block' : 'none';
     });
+    // شريط «اختبارات الدورات | إشراف الدورات» — على رأس القائمتين وحدهما
+    if (typeof updateCoursesModeBar === 'function') updateCoursesModeBar(name);
     window.scrollTo(0, 0);
 }
 
@@ -1534,9 +1540,17 @@ async function saveCourseRecord() {
 
 /* ===================== تسجيل الطلبة ===================== */
 
-function openAddCourseStudents() {
+/* { courseNo, onDone } — تفتحه ثلاثة مواضع: كشف المختبِر، و«دوراتي» (المعلّم
+   يُضيف ولا يحذف)، وكشف الإشراف. والتسجيل نفسه — التحقّق والحفظ — واحدٌ في
+   الثلاثة: نموذجٌ واحد يعني قاعدةً واحدة للتحقّق. */
+let _addStudentsCtx = null;
+
+function openAddCourseStudents(courseNo, onDone) {
     const box = document.getElementById('addStudentsModal');
     if (!box) return;
+    const no = (courseNo != null) ? Number(courseNo)
+                                  : Number(_openCourse && _openCourse.courseNo);
+    _addStudentsCtx = { courseNo: no, onDone: onDone || (() => openCourseRoster(no)) };
     const ta = document.getElementById('courseStudentIds');
     if (ta) ta.value = '';
     const d = document.getElementById('courseRegisterDate');
@@ -1574,15 +1588,18 @@ async function submitCourseStudents() {
         return show("❌ تسجيل الطلبة يتطلّب اتصالاً بالإنترنت.", '#c0392b');
     }
 
+    const ctx = _addStudentsCtx;
+    if (!ctx || !ctx.courseNo) return show("❌ لا دورة مفتوحة", '#c0392b');
+
     show("🔄 جارٍ التسجيل…", '#3498db');
     try {
         // ⚠️ الدفعة ذرّية: تُقبل كلها أو تُرفض كلها
-        const res = await QMC.addCourseStudents(Number(_openCourse.courseNo), ids, date);
+        const res = await QMC.addCourseStudents(ctx.courseNo, ids, date);
         const added = Number(res.added || 0), skipped = Number(res.skipped || 0);
 
         closeAddCourseStudents();
         showToast(`أُضيف ${added}` + (skipped ? ` · ${skipped} مسجّل سلفاً` : ''));
-        await openCourseRoster(_openCourse.courseNo);
+        await ctx.onDone();
     } catch (err) {
         show("❌ " + (err.message || 'تعذّر التسجيل'), '#c0392b');
     }

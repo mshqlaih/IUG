@@ -812,6 +812,96 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .roster-card { cursor: pointer; }
 .roster-card:hover { background: #f7faff; }
 
+/* ===== مسارا معلّم الدورة ومشرف الدورات (course_roles.js) ===== */
+.cr-mode-bar { display: flex; gap: 6px; background: #eef3f8; padding: 4px; border-radius: 12px; margin-bottom: 12px; }
+.cr-mode-bar button { flex: 1; background: transparent; color: #5f6368; padding: 9px 6px; font-size: 13px; border-radius: 9px; }
+.cr-mode-bar button.active { background: #fff; color: #00796b; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+.cr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.cr-chip {
+    background: #fff; border: 1.5px solid #dfe3ea; color: #5f6368;
+    padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+}
+.cr-chip.active { border-color: #00897b; background: #e0f2f1; color: #00695c; }
+
+.cr-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cr-pill {
+    display: inline-block; font-size: 11.5px; font-weight: 700; padding: 3px 9px;
+    border-radius: 999px; background: #f1f3f4; color: #5f6368; white-space: nowrap;
+}
+.cr-pill.ok     { background: #e6f4ea; color: #137333; }
+.cr-pill.accent { background: #e0f2f1; color: #00695c; }
+.cr-pill.warn   { background: #fff4e5; color: #b26a00; }
+.cr-pill.crit   { background: #fce8e6; color: #c5221f; }
+.cr-pill.tap    { cursor: pointer; border: 1px solid #dfe3ea; }
+
+.cr-sub { font-size: 12px; color: #5f6368; margin-top: 4px; line-height: 1.7; }
+.cr-sub .warn { color: #b26a00; }
+.cr-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; color: #5f6368; }
+.cr-facts i { margin-left: 4px; }
+.cr-facts .warn { color: #b26a00; }
+
+.cr-note { border-radius: 8px; padding: 6px 9px; font-size: 12px; margin-top: 8px; background: #f8f9fa; color: #5f6368; line-height: 1.5; }
+.cr-note.warn { background: #fff8e1; color: #8a6d00; }
+.cr-note.crit { background: #fdecea; color: #b3261e; }
+
+.cr-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: #5f6368; margin-top: 8px; }
+.cr-progress { height: 5px; background: #e8eaed; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.cr-progress span { display: block; height: 100%; background: #00897b; }
+.cr-progress.done span { background: #34a853; }
+
+.cr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.cr-action {
+    background: #f5f7fa; color: #3c4043; border: 1px solid #dfe3ea;
+    padding: 7px 12px; border-radius: 999px; font-size: 12.5px;
+}
+.cr-action.primary { background: #00897b; border-color: #00897b; color: #fff; }
+.cr-action.ok   { color: #137333; border-color: #b7dfc3; background: #f1faf3; }
+.cr-action.warn { color: #b26a00; border-color: #ffd699; background: #fffaf0; }
+.cr-action.crit { color: #c5221f; border-color: #f5c2bd; background: #fff6f5; }
+.cr-action.muted { color: #80868b; }
+
+.cr-banner { display: flex; align-items: center; gap: 10px; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; font-size: 12.5px; }
+.cr-banner.warn { background: #fff8e1; border: 1px solid #ffe082; color: #8a6d00; }
+.cr-banner.info { background: #e8f5f2; border: 1px solid #cfe9e3; color: #0b5c4d; }
+.cr-banner-text { flex: 1; min-width: 0; line-height: 1.6; }
+.cr-banner button { flex-shrink: 0; padding: 8px 12px; font-size: 12.5px; background: #b26a00; color: #fff; }
+
+.cr-score { font-weight: 800; font-size: 16px; white-space: nowrap; }
+
+.cr-panel { background: #fff; border: 1px solid #e3e8ef; border-radius: 12px; margin-bottom: 8px; padding: 0 12px; }
+.cr-panel summary { cursor: pointer; padding: 10px 0; font-weight: 700; font-size: 13px; color: #0b5c4d; }
+.cr-panel-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12.5px; border-top: 1px dashed #eceff3; }
+.cr-panel-row .grow { flex: 1; min-width: 0; }
+.cr-panel-row small { color: #5f6368; }
+.cr-tally { text-align: center; min-width: 30px; font-size: 10px; color: #5f6368; }
+.cr-tally b { display: block; font-size: 13px; color: #137333; }
+.cr-tally b.zero { color: #dadce0; }
+
+/* رصد الحضور */
+.att-head { background: #e8f5f2; border-radius: 10px; padding: 8px 12px; font-size: 12.5px; line-height: 1.7; margin-bottom: 10px; }
+.att-head.queued { background: #fff8e1; }
+.att-state { font-size: 11.5px; color: #5f6368; }
+.att-state.warn { color: #b26a00; }
+.att-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.att-toolbar input { flex: 1; min-width: 0; margin: 0; padding: 10px; }
+.att-toolbar button { flex-shrink: 0; padding: 10px 12px; font-size: 13px; }
+.att-list { max-height: 45vh; overflow-y: auto; -webkit-overflow-scrolling: touch; margin-bottom: 12px; }
+.att-row { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-top: 1px solid #f1f3f4; }
+.att-row:first-child { border-top: none; }
+.att-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: #202124; }
+.att-name small { display: block; font-weight: 400; color: #5f6368; font-size: 11px; }
+.att-seg { display: flex; flex-shrink: 0; border: 1px solid #dadce0; border-radius: 9px; overflow: hidden; }
+.att-seg button { background: #fff; color: #5f6368; padding: 7px 11px; font-size: 12px; border-radius: 0; }
+.att-seg button.on-present { background: #e6f4ea; color: #137333; }
+.att-seg button.on-absent  { background: #fce8e6; color: #c5221f; }
+
+/* تفصيل النتيجة */
+.cr-stage { border: 1px solid #e3e8ef; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+.cr-stage-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 13px; color: #0b5c4d; margin-bottom: 4px; }
+.cr-crit { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 3px 0; border-top: 1px dashed #eceff3; }
+.cr-crit b { white-space: nowrap; }
+
 /* أيام الدورة */
 .day-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .day-chip {
