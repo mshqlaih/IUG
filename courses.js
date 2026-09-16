@@ -41,6 +41,56 @@ function coursesStoreDelete(store, key) {
     });
 }
 
+/* ⚠️⚠️ **مخزن الدورات مِلكُ حسابٍ لا جهاز.** كان يُعرض المخزَّن أوّلًا ولا
+   يُستبدل إلّا إن نجح الجلب — فمن دخل بحسابٍ آخر على الجهاز نفسه رأى دورات
+   من قبله (قوائمَ وكشوفًا بدرجاتها) كلّما تعذّر الجلب، بلا أيّ إشارة.
+   فيُنسب المخزن إلى مستخدمه ويُفرَّغ عند تغيّره — **إلّا الطابورين**: فيهما
+   عملٌ لم يُرفع (والخروج ينبّه إليه)، والسيرفر يحرسهما عند الرفع بهويّة الرافع.
+   ℹ️ مالكٌ غير مسجّل (أوّل تشغيلٍ بعد التحديث) يُتبنّى بلا تفريغ: لا يُعرف
+      صاحب المخزون، ومسحُه يُفقد المختبِر كشوفه إن كان في قاعةٍ بلا تغطية. */
+const COURSES_KEEP_ON_SWITCH = ['pending', 'ct_att_queue'];
+let _coursesOwnerOk = false;
+
+async function ensureCoursesOwner() {
+    if (_coursesOwnerOk) return;
+    const user = String((typeof getCurrentUser === 'function' && getCurrentUser()) || '');
+    if (!user || !db || !db.objectStoreNames.contains('courses')) return;   // يُعاد في النداء التالي
+
+    let owner = null;
+    try { owner = localStorage.getItem('courses_owner'); } catch (_) {}
+
+    if (owner !== null && owner !== user) {
+        await new Promise(resolve => {
+            try {
+                const tx = db.transaction('courses', 'readwrite');
+                const req = tx.objectStore('courses').openCursor();
+                req.onsuccess = () => {
+                    const cur = req.result;
+                    if (!cur) return;
+                    if (COURSES_KEEP_ON_SWITCH.indexOf(cur.key) === -1) cur.delete();
+                    cur.continue();
+                };
+                tx.oncomplete = resolve;
+                tx.onerror = resolve;
+                tx.onabort = resolve;
+            } catch (_) { resolve(); }
+        });
+        console.log('🧹 فُرِّغ مخزن الدورات: تغيّر المستخدم على هذا الجهاز');
+    }
+    try { localStorage.setItem('courses_owner', user); } catch (_) {}
+    _coursesOwnerOk = true;
+}
+
+// ملاحظةٌ فوق قائمة «اختبارات الدورات» — تقول إن المعروض مخزَّنٌ لا طازج
+function setCoursesBanner(text) {
+    const el = document.getElementById('coursesBanner');
+    if (!el) return;
+    el.innerHTML = text
+        ? `<div class="course-warn" style="margin:0 0 10px"><i class="fas fa-hard-drive"></i> ${
+              escapeHtml(text).replace(/\n/g, '<br>')}</div>`
+        : '';
+}
+
 /* ===================== ثوابت المخطّطات ===================== */
 
 const InputMode = { MARK: 'MARK', ERROR: 'ERROR', POOL: 'POOL', INFO: 'INFO', NOTE: 'NOTE' };
@@ -493,13 +543,17 @@ async function loadCourses() {
     const btnNew = document.getElementById('btnNewCourse');
     if (btnNew) btnNew.style.display = canManageCourses() ? '' : 'none';
 
-    // المخزون المحلي أولاً — يعمل دون اتصال
+    // المخزون المحلي أولاً — يعمل دون اتصال (وبعد التحقّق أنه لهذا المستخدم)
+    await ensureCoursesOwner();
     if (!GRADING.schemes.length) await loadGradingFromDb();
     _courses = (await coursesStoreGet('courses', 'courses') || []).map(normalizeCourseSummary);
     _courseMeta = await coursesStoreGet('courses', 'form_meta');
     renderCoursesList();
 
-    if (!navigator.onLine) return;
+    if (!navigator.onLine) {
+        setCoursesBanner(_courses.length ? 'دون اتصال — القائمة مخزَّنة على الجهاز.' : '');
+        return;
+    }
 
     // ارفع ما رُصد أوفلاين قبل السحب حتى لا تُدهس النتائج
     try {
@@ -516,9 +570,14 @@ async function loadCourses() {
         const list = await QMC.getCourses(getCurrentUser());
         await coursesStorePut('courses', 'courses', list);
         _courses = list.map(normalizeCourseSummary);
+        setCoursesBanner('');
         renderCoursesList();
     } catch (err) {
         console.warn("تعذّر جلب الدورات:", err);
+        // ⚠️ لا يُسكت عنه: المعروض عندئذٍ مخزَّنٌ وقد يكون قديمًا
+        setCoursesBanner(_courses.length
+            ? 'تعذّر تحديث قائمة الدورات — المعروض مخزَّن على الجهاز وقد يكون قديماً.\n' + ((err && err.message) || '')
+            : '');
     }
 
     try {

@@ -410,10 +410,15 @@ function applyAccessToTabs() {
 }
 
 async function loadUserAccess() {
-    // المخزون أولاً ليعمل دون اتصال
+    // المخزون أولاً ليعمل دون اتصال.
+    // ⚠️ وبشرط أن يكون **لهذا المستخدم**: كانت الصلاحيات المخزّنة تبقى بعد
+    //    الخروج، فيبدأ الحساب التالي على الجهاز بصلاحيات من قبله (تبويباتٍ
+    //    وأزرار إدارة) حتى يصل الجديد — وإلى الأبد إن دخل بلا اتصال.
+    USER_ACCESS = null;
     try {
         const raw = localStorage.getItem('user_access');
-        if (raw) USER_ACCESS = JSON.parse(raw);
+        const owner = localStorage.getItem('user_access_user');
+        if (raw && owner && owner === String(getCurrentUser())) USER_ACCESS = JSON.parse(raw);
     } catch (_) { USER_ACCESS = null; }
     applyAccessToTabs();
 
@@ -424,6 +429,7 @@ async function loadUserAccess() {
         if (cfg) {
             USER_ACCESS = cfg;
             localStorage.setItem('user_access', JSON.stringify(cfg));
+            localStorage.setItem('user_access_user', String(getCurrentUser()));
             console.log("✔ صلاحية المستخدم:", cfg.role_name);
         }
     } catch (err) {
@@ -4475,6 +4481,9 @@ async function handleLogout() {
         // ⚠️ وعلامةُ مزامنة الحلقات: الجلسة الجديدة تبدأ من «غير معروف»، فلا
         //    تُصفّى طلبةُ من دخل بلا اتصالٍ قبل أوّل مزامنة له.
         localStorage.removeItem("circles_synced_user");
+        // والصلاحيات: لا يرثها الحساب التالي على الجهاز
+        localStorage.removeItem("user_access");
+        localStorage.removeItem("user_access_user");
         // تفريغ مخزن الإعدادات كما طلب سابقاً
         const req = indexedDB.open("QuranProjectDB");
         req.onsuccess = (e) => {

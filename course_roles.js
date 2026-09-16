@@ -564,6 +564,7 @@ function backToMyCourses() {
 async function loadMyCourses(forceOnline) {
     if (_ctLoading) return;
     _ctLoading = true;
+    await ensureCoursesOwner();   // المخزون لهذا المستخدم لا لمن قبله على الجهاز
 
     // المخزون أوّلًا ليظهر شيءٌ فورًا
     if (!_ctCourses.length) {
@@ -980,6 +981,7 @@ function showSvCenters() {
 }
 
 async function loadSvCenters(forceOnline) {
+    await ensureCoursesOwner();   // المخزون لهذا المستخدم لا لمن قبله على الجهاز
     if (!_svCenters.length) {
         const cached = await coursesStoreGet('courses', 'cs_centers');
         if (Array.isArray(cached)) {
