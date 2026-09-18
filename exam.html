@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#2e7d32">
+<title>الاختبار الإلكتروني</title>
+<!--
+  🧪 صفحة الطالب للاختبار الإلكتروني عن بُعد — docs/online_exam_schema.md
+  ⚖️ المبدأ: ساعة الجهاز للعرض وحده، والسيرفر هو الحَكَم. الإجابة «في الوقت»
+     إذا **وصلت** السيرفر قبل الموعد + المهلة — لا غير.
+  ⚠️ بلا ?? ولا ?. — متصفّحات أندرويد القديمة ترفض الملف كلّه (كما في api.js).
+  💾 الورقة والإجابات في localStorage: بيانات صغيرة، وتنجو من إعادة التحميل
+     وانقطاع الشبكة. والإرسال طابورٌ يُعاد بتباعد 5 ثم 15 ثم 45 ثانية.
+-->
+<style>
+  :root { --g:#2e7d32; --r:#c62828; --o:#ef6c00; --b:#1565c0; --bg:#f6f7f5; --card:#fff; --ink:#1b1b1b; --mute:#666; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font-family: Tahoma, "Segoe UI", "Noto Naskh Arabic", Arial, sans-serif; }
+  header { background:var(--g); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:5; }
+  header h1 { font-size:17px; margin:0; flex:1; }
+  #clock { font-size:22px; font-weight:bold; font-variant-numeric: tabular-nums; }
+  #clock.warn { color:#ffeb3b; }
+  main { max-width:720px; margin:0 auto; padding:14px 16px 90px; }
+  .card { background:var(--card); border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .mute { color:var(--mute); font-size:13px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button { font-family:inherit; font-size:16px; border:0; border-radius:10px; padding:12px 16px; cursor:pointer; }
+  .btn { background:var(--g); color:#fff; }
+  .btn:disabled { background:#aaa; cursor:not-allowed; }
+  .btn2 { background:#e8f5e9; color:var(--g); }
+  .link { background:none; color:var(--b); padding:6px; font-size:14px; }
+  input[type=text], input[type=password], input[type=tel] { width:100%; font-size:17px; padding:12px; border:1px solid #bbb; border-radius:10px; font-family:inherit; }
+  label.pledge { display:flex; gap:10px; align-items:flex-start; font-size:15px; line-height:1.7; }
+  label.pledge input { width:22px; height:22px; margin-top:4px; }
+  .q { font-size:21px; line-height:1.9; margin:4px 0 14px; }
+  .q b.term { color:var(--g); font-size:24px; }
+  .opt { display:block; width:100%; text-align:right; background:#fff; border:2px solid #ddd; border-radius:12px; padding:14px; margin-bottom:10px; font-size:19px; line-height:1.7; color:var(--ink); }
+  .opt.on { border-color:var(--g); background:#e8f5e9; font-weight:bold; }
+  .opt:disabled { opacity:.75; }
+  .nav { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+  .nav button { width:42px; height:42px; padding:0; font-size:15px; background:#eee; color:#333; }
+  .nav button.done { background:#c8e6c9; }
+  .nav button.cur { outline:3px solid var(--g); }
+  .sync { font-size:13px; padding:8px 12px; border-radius:8px; margin-bottom:10px; }
+  .sync.ok { background:#e8f5e9; color:var(--g); }
+  .sync.wait { background:#fff3e0; color:var(--o); }
+  .banner { background:#ffebee; color:var(--r); padding:10px 12px; border-radius:8px; margin-bottom:10px; font-size:14px; }
+  .bar { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #ddd; padding:10px 16px; display:flex; gap:8px; justify-content:space-between; }
+  .err { color:var(--r); font-size:14px; margin-top:8px; }
+  .big { font-size:40px; text-align:center; margin:10px 0; }
+</style>
+</head>
+<body>
+<header><h1 id="title">الاختبار الإلكتروني</h1><span id="clock"></span></header>
+<main id="app"><div class="card mute">جارٍ التحميل…</div></main>
+<div id="bar" class="bar" style="display:none"></div>
+
+<script src="api.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var LS = window.localStorage;
+  var app = document.getElementById("app");
+  var bar = document.getElementById("bar");
+  var clockEl = document.getElementById("clock");
+  var titleEl = document.getElementById("title");
+
+  // معرّف هذا المتصفّح — لكشف «بدأ من جهازٍ آخر» (غير توكن الدخول)
+  var OX_DEV = LS.getItem("ox_device");
+  if (!OX_DEV) {
+    OX_DEV = "ox-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    LS.setItem("ox_device", OX_DEV);
+  }
+
+  // ── أدوات ─────────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s === null || s === undefined ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+  function fmt(ms) {
+    if (!ms) return "—";
+    var d = new Date(ms);
+    return d.getDate() + "/" + (d.getMonth() + 1) + " الساعة " + two(d.getHours()) + ":" + two(d.getMinutes());
+  }
+  function parseIso(s) { var t = Date.parse(s || ""); return isNaN(t) ? 0 : t; }
+
+  // المفردة بين القوسين تُبرَز — صيغة اللجنة: «(الموقوذة) في سورة المائدة معناها:»
+  function prompt(s) {
+    return esc(s).replace(/\(([^)]+)\)/, '<b class="term">($1)</b>');
+  }
+
+  // نداءٌ يقرأ JSON حتى مع رموز الخطأ (الحزمة تُرجع message و http)
+  async function call(path, method, body) {
+    var res = await QMC.apiFetch(path, { method: method || "GET", body: body || null, timeoutMs: 20000 });
+    var raw = await res.text().catch(function () { return ""; });
+    var d = null;
+    try { d = JSON.parse(raw); } catch (e) { d = null; }
+    return { status: res.status, data: d };
+  }
+  function msgOf(r, fallback) {
+    return (r.data && r.data.message) ? String(r.data.message) : (fallback || ("تعذّر الطلب (رمز " + r.status + ")"));
+  }
+
+  // ── حالة الاختبار المحفوظة (تنجو من إعادة التحميل والانقطاع) ───────────
+  function stKey(rid) { return "ox_state_" + QMC.getUserName() + "_" + rid; }
+  function loadSt(rid) { try { return JSON.parse(LS.getItem(stKey(rid)) || "null"); } catch (e) { return null; } }
+  function saveSt(st) { LS.setItem(stKey(st.rid), JSON.stringify(st)); }
+
+  // ⏱️ الساعة: وقت السيرفر = لحظة استلامه + الزمن الرتيب منذئذ (performance.now
+  //    لا يتأثّر بتغيير ساعة الجهاز). وبعد إعادة التحميل بلا شبكة: الفرق المحفوظ.
+  var perf0 = 0, server0 = 0;
+  function syncClock(serverIso) {
+    var t = parseIso(serverIso);
+    if (!t) return;
+    perf0 = performance.now(); server0 = t;
+    if (cur) { cur.offset = t - Date.now(); saveSt(cur); }
+  }
+  function serverNow() {
+    if (server0) return server0 + (performance.now() - perf0);
+    return Date.now() + (cur && cur.offset ? cur.offset : 0);
+  }
+
+  // ═════════════════════════════════════════════════════════ الدخول
+  function viewLogin(err) {
+    bar.style.display = "none"; clockEl.textContent = "";
+    titleEl.textContent = "الاختبار الإلكتروني";
+    app.innerHTML =
+      '<div class="card"><h3 style="margin-top:0">تسجيل الدخول</h3>' +
+      '<p class="mute">ادخل بحسابك (رقم الهوية وكلمة المرور).</p>' +
+      '<input id="u" type="tel" placeholder="رقم الهوية" autocomplete="username"><br><br>' +
+      '<input id="p" type="password" placeholder="كلمة المرور" autocomplete="current-password"><br><br>' +
+      '<button class="btn" id="go" style="width:100%">دخول</button>' +
+      (err ? '<div class="err">' + esc(err) + '</div>' : "") + "</div>";
+    document.getElementById("go").onclick = async function () {
+      var u = document.getElementById("u").value.trim();
+      var p = document.getElementById("p").value;
+      if (!u || !p) return viewLogin("اكتب رقم الهوية وكلمة المرور");
+      this.disabled = true; this.textContent = "جارٍ الدخول…";
+      try {
+        var r = await QMC.login(u, p);
+        if (!r.success || !r.deviceId) return viewLogin(r.message);
+        LS.setItem("device_id", r.deviceId);
+        LS.setItem("user_name", u);
+        viewList();
+      } catch (e) {
+        viewLogin("تعذّر الاتصال — تحقّق من الشبكة");
+      }
+    };
+  }
+
+  function logout() {
+    LS.removeItem("device_id");
+    viewLogin();
+  }
+
+  // ═════════════════════════════════════════════════════════ اختباراتك
+  var listTimer = null;
+  async function viewList() {
+    cur = null; server0 = 0;
+    bar.style.display = "none"; clockEl.textContent = "";
+    titleEl.textContent = "اختباراتك";
+    if (!QMC.getDeviceId()) return viewLogin();
+
+    var r;
+    try { r = await call("ox/myExams"); }
+    catch (e) {
+      app.innerHTML = '<div class="card err">تعذّر الاتصال — تحقّق من الشبكة ثم <button class="link" id="rt">أعد المحاولة</button></div>';
+      document.getElementById("rt").onclick = viewList;
+      return;
+    }
+    if (r.status === 401 || r.status === 403) return viewLogin("انتهت الجلسة — ادخل من جديد");
+    if (!r.data || r.data.status !== "success") {
+      app.innerHTML = '<div class="card err">' + esc(msgOf(r)) + "</div>";
+      return;
+    }
+    syncClock(r.data.server_now);
+    var exams = r.data.exams || [];
+
+    var html = "";
+    if (!exams.length) {
+      html = '<div class="card"><div class="big">📭</div><p style="text-align:center">لا اختبار محجوز لك الآن.</p></div>';
+    }
+    exams.forEach(function (x) {
+      var ws = parseIso(x.window_start), we = parseIso(x.window_end);
+      var action;
+      if (x.state === "CLOSED" || x.state === "LATE") action = '<span style="color:var(--g)">✓ سُلّم</span>';
+      else if (x.state === "VOID") action = '<span style="color:var(--r)">أُلغي الحجز</span>';
+      else if (x.can_start === "Y") action = '<button class="btn" data-rid="' + x.request_id + '">' + (x.state === "STARTED" ? "أكمل الاختبار" : "ادخل الاختبار") + "</button>";
+      else if (serverNow() < ws) action = '<span class="mute">يبدأ ' + fmt(ws) + "</span>";
+      else action = '<span class="mute">انتهى الموعد</span>';
+      html += '<div class="card"><b>' + esc(x.scope_label) + "</b>" +
+              '<div class="mute">من ' + fmt(ws) + " إلى " + fmt(we) + " · " + (x.question_count || "") + " أسئلة</div>" +
+              '<div style="margin-top:10px">' + action + "</div></div>";
+    });
+    html += '<div class="row" style="justify-content:space-between"><button class="link" id="rf">تحديث</button><button class="link" id="lo">خروج</button></div>';
+    app.innerHTML = html;
+
+    document.getElementById("rf").onclick = viewList;
+    document.getElementById("lo").onclick = logout;
+    Array.prototype.forEach.call(app.querySelectorAll("button[data-rid]"), function (b) {
+      b.onclick = function () {
+        var rid = Number(b.getAttribute("data-rid"));
+        var x = exams.filter(function (e) { return e.request_id === rid; })[0];
+        viewPledge(x);
+      };
+    });
+
+    // يتحدّث وحده كل 30 ثانية — فيظهر زرّ الدخول لحظة بدء الموعد
+    clearTimeout(listTimer);
+    listTimer = setTimeout(function () { if (!cur) viewList(); }, 30000);
+  }
+
+  // ═════════════════════════════════════════════════════════ التعهّد
+  function viewPledge(x) {
+    clearTimeout(listTimer);
+    var saved = loadSt(x.request_id);
+    // استئنافٌ لاختبارٍ بدأ: لا تعهّد ثانٍ
+    if (saved && saved.key && x.state === "STARTED") return startExam(x, true);
+
+    var we = parseIso(x.window_end);
+    var left = Math.max(0, Math.round((we - serverNow()) / 60000));
+    app.innerHTML =
+      '<div class="card"><h3 style="margin-top:0">' + esc(x.scope_label) + "</h3>" +
+      '<p>عدد الأسئلة: ' + (x.question_count || "") + " · ينتهي الاختبار " + fmt(we) +
+      " — <b>بقي لك " + left + " دقيقة</b>.</p>" +
+      '<p class="mute">إغلاق الصفحة لا يوقف الوقت. وإن انقطعت الشبكة تُحفظ إجاباتك على جهازك وتُرسل عند عودتها — ' +
+      "لكنّ ما يصل بعد انتهاء الموعد لا يُحتسب.</p>" +
+      '<label class="pledge"><input type="checkbox" id="pl"> ' +
+      "أتعهّد أنّي لم أستعن بأحدٍ ولا بمرجع، وأنّي لن أنشر الأسئلة.</label><br>" +
+      '<button class="btn" id="st" style="width:100%" disabled>ابدأ الاختبار</button>' +
+      '<div id="er"></div></div>' +
+      '<button class="link" id="bk">رجوع</button>';
+    var pl = document.getElementById("pl"), st = document.getElementById("st");
+    pl.onchange = function () { st.disabled = !pl.checked; };
+    st.onclick = function () { st.disabled = true; st.textContent = "جارٍ البدء…"; startExam(x, false); };
+    document.getElementById("bk").onclick = viewList;
+  }
+
+  // ═════════════════════════════════════════════════════════ الاختبار
+  var cur = null;          // حالة الاختبار الجاري
+  var idx = 0;             // البند المعروض
+  var tick = null;
+  var flushing = false, retryTimer = null, retryStep = 0;
+  var RETRY = [5, 15, 45]; // ثوانٍ — عليه يقوم هامش السيرفر (GRACE_SEC = 120)
+
+  async function startExam(x, resume) {
+    var r;
+    try {
+      r = await call("ox/start", "POST", { request_id: x.request_id, device_id: OX_DEV, pledge: "Y" });
+    } catch (e) {
+      // بلا شبكة: نكمل من المحفوظ إن كان الاختبار قد بدأ
+      var saved = loadSt(x.request_id);
+      if (saved && saved.key) { cur = saved; return runExam(); }
+      app.innerHTML = '<div class="card err">تعذّر الاتصال — البدء يلزمه شبكة.</div>';
+      return;
+    }
+    if (!r.data || r.data.status !== "success") {
+      app.innerHTML = '<div class="card err">' + esc(msgOf(r)) + '</div><button class="link" id="bk">رجوع</button>';
+      document.getElementById("bk").onclick = viewList;
+      return;
+    }
+    var d = r.data;
+    var old = loadSt(x.request_id) || {};
+    cur = {
+      rid: x.request_id,
+      title: x.scope_label,
+      key: d.attempt_key,
+      deadline: parseIso(d.deadline_at),
+      items: d.items || [],
+      answers: old.answers || {},
+      pending: old.pending || {},
+      blur: old.blur || 0,
+      clash: d.device_clash || 0,
+      done: false,
+      offset: 0
+    };
+    // ما وصل السيرفر أصلٌ، إلا ما على الجهاز ولم يُرسل بعد (أحدث منه)
+    cur.items.forEach(function (it) {
+      if (it.chosen_id && !cur.pending[it.item_no]) cur.answers[it.item_no] = it.chosen_id;
+    });
+    syncClock(d.server_now);
+    saveSt(cur);
+    idx = 0;
+    runExam();
+  }
+
+  function runExam() {
+    titleEl.textContent = cur.title;
+    render();
+    clearInterval(tick);
+    tick = setInterval(onTick, 1000);
+    onTick();
+    flush();
+  }
+
+  function pendingCount() { return Object.keys(cur.pending).length; }
+
+  function render() {
+    if (!cur) return;
+    if (cur.done) return viewDone();
+    var it = cur.items[idx];
+    var n = pendingCount();
+    var html = "";
+
+    if (cur.clash > 0) {
+      html += '<div class="banner">⚠️ بدأ هذا الاختبار من جهازٍ آخر أيضًا. إن لم تكن أنت، راجع اللجنة فورًا.</div>';
+    }
+    html += n
+      ? '<div class="sync wait">⏳ ' + n + " إجابة على جهازك لم تصل بعد — لا تغلق الصفحة</div>"
+      : '<div class="sync ok">✓ كلّ إجاباتك وصلت</div>';
+
+    html += '<div class="nav">';
+    cur.items.forEach(function (x, i) {
+      html += '<button data-i="' + i + '" class="' + (cur.answers[x.item_no] ? "done " : "") + (i === idx ? "cur" : "") + '">' + (i + 1) + "</button>";
+    });
+    html += "</div>";
+
+    if (it) {
+      html += '<div class="card"><div class="mute">السؤال ' + (idx + 1) + " من " + cur.items.length + "</div>" +
+              '<div class="q">' + prompt(it.prompt_ar) + "</div>";
+      (it.choices || []).forEach(function (c) {
+        var on = cur.answers[it.item_no] === c.choice_id;
+        html += '<button class="opt' + (on ? " on" : "") + '" data-c="' + c.choice_id + '"' + (cur.locked ? " disabled" : "") + ">" +
+                (on ? "● " : "○ ") + esc(c.text_ar) + "</button>";
+      });
+      html += "</div>";
+    }
+    app.innerHTML = html;
+
+    Array.prototype.forEach.call(app.querySelectorAll(".nav button"), function (b) {
+      b.onclick = function () { idx = Number(b.getAttribute("data-i")); render(); };
+    });
+    Array.prototype.forEach.call(app.querySelectorAll(".opt"), function (b) {
+      b.onclick = function () { choose(it.item_no, Number(b.getAttribute("data-c"))); };
+    });
+
+    bar.style.display = "flex";
+    bar.innerHTML =
+      '<button class="btn2" id="pv"' + (idx === 0 ? " disabled" : "") + ">السابق</button>" +
+      '<button class="btn" id="sb">تسليم</button>' +
+      '<button class="btn2" id="nx"' + (idx >= cur.items.length - 1 ? " disabled" : "") + ">التالي</button>";
+    document.getElementById("pv").onclick = function () { if (idx > 0) { idx--; render(); } };
+    document.getElementById("nx").onclick = function () { if (idx < cur.items.length - 1) { idx++; render(); } };
+    document.getElementById("sb").onclick = askSubmit;
+  }
+
+  function choose(itemNo, choiceId) {
+    if (!cur || cur.locked) return;
+    cur.answers[itemNo] = choiceId;                 // ١) على الجهاز أوّلًا
+    cur.pending[itemNo] = { choice_id: choiceId, client_ms: Math.round(performance.now()) };
+    saveSt(cur);
+    render();
+    retryStep = 0;
+    flush();                                         // ٢) ثم إلى السيرفر
+  }
+
+  // ── طابور الإرسال ──────────────────────────────────────────────────────
+  async function flush() {
+    if (!cur || flushing) return;
+    var keys = Object.keys(cur.pending);
+    if (!keys.length) return;
+    flushing = true;
+    clearTimeout(retryTimer);
+
+    var batch = keys.map(function (k) {
+      return { item_no: Number(k), choice_id: cur.pending[k].choice_id, client_ms: cur.pending[k].client_ms };
+    });
+    try {
+      // ⚠️ المصفوفة **نصًّا**: جسم الطلب في ORDS لا يربط المصفوفات
+      var r = await call("ox/answer", "POST", { attempt_key: cur.key, answers: JSON.stringify(batch), blur: cur.blur });
+      if (r.data && r.data.status === "success") {
+        // يُحذف من الطابور ما أُرسل **ولم يتغيّر بعده**
+        batch.forEach(function (b) {
+          var p = cur.pending[b.item_no];
+          if (p && p.choice_id === b.choice_id) delete cur.pending[b.item_no];
+        });
+        syncClock(r.data.server_now);
+        saveSt(cur);
+        retryStep = 0;
+      } else if (r.status === 409) {
+        // أُقفل على السيرفر (سُلّم آليًّا عند الموعد)
+        cur.done = true; saveSt(cur);
+      } else {
+        schedule();
+      }
+    } catch (e) {
+      schedule();                                    // شبكة — أعِد لاحقًا
+    }
+    flushing = false;
+    render();
+    if (cur && !cur.done && pendingCount()) schedule();
+  }
+
+  function schedule() {
+    clearTimeout(retryTimer);
+    var s = RETRY[Math.min(retryStep, RETRY.length - 1)];
+    retryStep++;
+    retryTimer = setTimeout(flush, s * 1000);
+  }
+
+  window.addEventListener("online", function () { retryStep = 0; flush(); });
+
+  // مغادرة الصفحة تُعدّ — مؤشّرٌ للّجنة لا حكم (المكالمة الواردة تُعدّ أيضًا)
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && cur && !cur.done && !cur.locked) { cur.blur++; saveSt(cur); }
+  });
+
+  // ── الساعة والإقفال ────────────────────────────────────────────────────
+  function onTick() {
+    if (!cur) return;
+    var left = cur.deadline - serverNow();
+    if (left <= 0) {
+      clockEl.textContent = "00:00";
+      if (!cur.locked) { cur.locked = true; saveSt(cur); render(); submit(true); }
+      return;
+    }
+    var s = Math.floor(left / 1000);
+    clockEl.textContent = two(Math.floor(s / 60)) + ":" + two(s % 60);
+    clockEl.className = s < 300 ? "warn" : "";
+  }
+
+  function askSubmit() {
+    var empty = [];
+    cur.items.forEach(function (x, i) { if (!cur.answers[x.item_no]) empty.push(i + 1); });
+    // ⚠️ لا يُمنع التسليم بسؤالٍ فارغ — يُنبَّه فقط (الإقفال عند الموعد يسلّم ما وُجد)
+    var msg = empty.length
+      ? "لم تُجب عن " + (empty.length === 1 ? "السؤال " : "الأسئلة ") + empty.join("، ") + " — تسليم على أيّ حال؟"
+      : "تسليم الاختبار؟ لا تعديل بعده.";
+    if (window.confirm(msg)) { cur.locked = true; saveSt(cur); render(); submit(false); }
+  }
+
+  async function submit(auto) {
+    clearInterval(tick);
+    await flush();                                   // ما في الطابور أوّلًا
+    try {
+      var r = await call("ox/submit", "POST", { attempt_key: cur.key });
+      if (r.data && (r.data.status === "success" || r.status === 200)) {
+        cur.done = true; saveSt(cur);
+      }
+    } catch (e) { /* السيرفر يُقفل آليًّا عند الموعد — التسليم إشارةٌ لا محتوى */ }
+    if (!cur.done && pendingCount()) {
+      app.insertAdjacentHTML("afterbegin",
+        '<div class="banner">انتهى الوقت وما زالت ' + pendingCount() +
+        " إجابة على جهازك. سنرسلها حين تعود الشبكة — ما يصل بعد الموعد تراجعه اللجنة.</div>");
+      schedule();
+      return;
+    }
+    cur.done = true; saveSt(cur);
+    viewDone(auto);
+  }
+
+  function viewDone(auto) {
+    clearInterval(tick);
+    bar.style.display = "none";
+    clockEl.textContent = "";
+    // 🚫 لا تُعرض الإجابات الصحيحة (قرار اللجنة) — والدرجة تُعلن بعد الاعتماد
+    app.innerHTML =
+      '<div class="card" style="text-align:center"><div class="big">✅</div>' +
+      "<h3>" + (auto ? "انتهى الوقت وسُلّم اختبارك" : "تمّ تسليم اختبارك") + "</h3>" +
+      '<p class="mute">تُعلَن النتيجة بعد اعتماد اللجنة.</p></div>' +
+      '<button class="link" id="bk">اختباراتك</button>';
+    document.getElementById("bk").onclick = viewList;
+  }
+
+  // ── الإقلاع ────────────────────────────────────────────────────────────
+  if (!QMC.getDeviceId()) viewLogin(); else viewList();
+})();
+</script>
+</body>
+</html>

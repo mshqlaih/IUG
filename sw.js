@@ -1,8 +1,10 @@
-const CACHE_NAME = 'quran-app-v1.88';
+const CACHE_NAME = 'quran-app-v1.89';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
-const SHELL_FILES = ['index.html', 'login.html', 'app.js', 'api.js', 'courses.js', 'course_roles.js', 'app.css'];
-const SHELL = ['./', './index.html', './login.html', './app.css', './app.js', './api.js', './courses.js',
+// ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
+//    البدء — وإلا ردّ cacheFallback بـindex.html فيضيع على الطالب اختبارُه.
+const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'app.js', 'api.js', 'courses.js', 'course_roles.js', 'app.css'];
+const SHELL = ['./', './index.html', './login.html', './exam.html', './app.css', './app.js', './api.js', './courses.js',
                './course_roles.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
