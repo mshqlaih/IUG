@@ -36,9 +36,37 @@
   label.pledge input { width:22px; height:22px; margin-top:4px; }
   .q { font-size:21px; line-height:1.9; margin:4px 0 14px; }
   .q b.term { color:var(--g); font-size:24px; }
-  .opt { display:block; width:100%; text-align:right; background:#fff; border:2px solid #ddd; border-radius:12px; padding:14px; margin-bottom:10px; font-size:19px; line-height:1.7; color:var(--ink); }
-  .opt.on { border-color:var(--g); background:#e8f5e9; font-weight:bold; }
-  .opt:disabled { opacity:.75; }
+  /* الخيار: بطاقةٌ بحرفٍ في دائرة يصير ✓ عند الاختيار */
+  .opt { display:flex; align-items:center; gap:14px; width:100%; text-align:right; background:#fff;
+         border:2px solid #e3e6e1; border-radius:14px; padding:14px 16px; margin-bottom:12px;
+         font-size:19px; line-height:1.7; color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.05);
+         transition:border-color .15s, background .15s, transform .1s; }
+  .opt:hover { border-color:#a5d6a7; }
+  .opt:active { transform:scale(.985); }
+  .opt .ltr { flex:0 0 40px; height:40px; border-radius:50%; background:#f1f3f0; color:#555;
+              display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:17px;
+              transition:background .15s, color .15s; }
+  .opt .txt { flex:1; }
+  .opt.on { border-color:var(--g); background:#f1f8f1; box-shadow:0 2px 8px rgba(46,125,50,.15); }
+  .opt.on .ltr { background:var(--g); color:#fff; }
+  .opt.on .txt { font-weight:bold; color:#1b5e20; }
+  .opt:disabled { opacity:.75; cursor:default; transform:none; }
+  .qhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .qnum { background:#e8f5e9; color:var(--g); font-weight:bold; border-radius:20px; padding:4px 12px; font-size:14px; }
+  .progress { height:6px; background:#e6e8e4; border-radius:3px; overflow:hidden; margin:0 0 12px; }
+  .progress > i { display:block; height:100%; background:var(--g); transition:width .3s; }
+  /* نافذة التسليم — داخل الصفحة لا نافذة المتصفّح (بلا inset: متصفّحات قديمة) */
+  .modal-bg { position:fixed; top:0; right:0; bottom:0; left:0; background:rgba(0,0,0,.45);
+              display:flex; align-items:center; justify-content:center; padding:16px; z-index:20; }
+  .modal { background:#fff; border-radius:18px; padding:22px; max-width:420px; width:100%;
+           box-shadow:0 12px 32px rgba(0,0,0,.25); }
+  .modal h3 { margin:0 0 8px; font-size:19px; }
+  .modal p { margin:6px 0; line-height:1.8; }
+  .modal .chips { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+  .modal .chips button { background:#fff3e0; color:var(--o); padding:6px 14px; font-size:14px; border-radius:20px; }
+  .modal .actions { display:flex; gap:8px; margin-top:16px; }
+  .modal .actions button { flex:1; }
+  .btn3 { background:#fff; color:var(--g); border:2px solid var(--g) !important; }
   .nav { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
   .nav button { width:42px; height:42px; padding:0; font-size:15px; background:#eee; color:#333; }
   .nav button.done { background:#c8e6c9; }
@@ -321,12 +349,19 @@
     html += "</div>";
 
     if (it) {
-      html += '<div class="card"><div class="mute">السؤال ' + (idx + 1) + " من " + cur.items.length + "</div>" +
+      var total = cur.items.length;
+      var answered = cur.items.filter(function (x) { return cur.answers[x.item_no]; }).length;
+      html += '<div class="card"><div class="qhead"><span class="qnum">السؤال ' + (idx + 1) + " من " + total + "</span>" +
+              '<span class="mute">أجبت عن ' + answered + " من " + total + "</span></div>" +
+              '<div class="progress"><i style="width:' + Math.round(answered * 100 / total) + '%"></i></div>' +
               '<div class="q">' + prompt(it.prompt_ar) + "</div>";
-      (it.choices || []).forEach(function (c) {
+      // الحروف لترتيب العرض لا للخيار نفسه: الخيارات تُخلط لكل طالب
+      var LETTERS = ["أ", "ب", "ج", "د", "هـ", "و"];
+      (it.choices || []).forEach(function (c, k) {
         var on = cur.answers[it.item_no] === c.choice_id;
         html += '<button class="opt' + (on ? " on" : "") + '" data-c="' + c.choice_id + '"' + (cur.locked ? " disabled" : "") + ">" +
-                (on ? "● " : "○ ") + esc(c.text_ar) + "</button>";
+                '<span class="ltr">' + (on ? "✓" : (LETTERS[k] || (k + 1))) + "</span>" +
+                '<span class="txt">' + esc(c.text_ar) + "</span></button>";
       });
       html += "</div>";
     }
@@ -339,11 +374,14 @@
       b.onclick = function () { choose(it.item_no, Number(b.getAttribute("data-c"))); };
     });
 
+    // «السابق» يختفي في الأوّل و«التالي» في الأخير — visibility لا حذف،
+    // فيبقى «تسليم» في الوسط ثابتًا لا يقفز بين الأسئلة
+    var first = idx === 0, last = idx >= cur.items.length - 1;
     bar.style.display = "flex";
     bar.innerHTML =
-      '<button class="btn2" id="pv"' + (idx === 0 ? " disabled" : "") + ">السابق</button>" +
+      '<button class="btn2" id="pv" style="visibility:' + (first ? "hidden" : "visible") + '">السابق</button>' +
       '<button class="btn" id="sb">تسليم</button>' +
-      '<button class="btn2" id="nx"' + (idx >= cur.items.length - 1 ? " disabled" : "") + ">التالي</button>";
+      '<button class="btn2" id="nx" style="visibility:' + (last ? "hidden" : "visible") + '">التالي</button>';
     document.getElementById("pv").onclick = function () { if (idx > 0) { idx--; render(); } };
     document.getElementById("nx").onclick = function () { if (idx < cur.items.length - 1) { idx++; render(); } };
     document.getElementById("sb").onclick = askSubmit;
@@ -416,7 +454,8 @@
     var left = cur.deadline - serverNow();
     if (left <= 0) {
       clockEl.textContent = "00:00";
-      if (!cur.locked) { cur.locked = true; saveSt(cur); render(); submit(true); }
+      // انتهى الوقت ونافذة التسليم مفتوحة؟ تُغلق — الإقفال لا ينتظر قرارًا
+      if (!cur.locked) { closeModal(); cur.locked = true; saveSt(cur); render(); submit(true); }
       return;
     }
     var s = Math.floor(left / 1000);
@@ -424,14 +463,48 @@
     clockEl.className = s < 300 ? "warn" : "";
   }
 
+  // نافذة تسليمٍ داخل الصفحة — لا window.confirm (عنوانها «يعرض موقع
+  // github.io» ولا يُتحكّم في شكلها ولا لغة أزرارها)
+  function closeModal() {
+    var m = document.getElementById("mbg");
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+  }
+
   function askSubmit() {
+    closeModal();
     var empty = [];
-    cur.items.forEach(function (x, i) { if (!cur.answers[x.item_no]) empty.push(i + 1); });
+    cur.items.forEach(function (x, i) { if (!cur.answers[x.item_no]) empty.push(i); });
+    var total = cur.items.length, pend = pendingCount();
+
     // ⚠️ لا يُمنع التسليم بسؤالٍ فارغ — يُنبَّه فقط (الإقفال عند الموعد يسلّم ما وُجد)
-    var msg = empty.length
-      ? "لم تُجب عن " + (empty.length === 1 ? "السؤال " : "الأسئلة ") + empty.join("، ") + " — تسليم على أيّ حال؟"
-      : "تسليم الاختبار؟ لا تعديل بعده.";
-    if (window.confirm(msg)) { cur.locked = true; saveSt(cur); render(); submit(false); }
+    var html = '<div class="modal-bg" id="mbg"><div class="modal" role="dialog">';
+    if (empty.length) {
+      html += "<h3>⚠️ لم تُجب عن كلّ الأسئلة</h3>" +
+              "<p>بقي <b>" + empty.length + "</b> من " + total + " بلا إجابة، والسؤال الفارغ يُحسب خطأً.</p>" +
+              '<div class="chips">' + empty.map(function (i) {
+                return '<button data-go="' + i + '">السؤال ' + (i + 1) + "</button>";
+              }).join("") + "</div>";
+    } else {
+      html += "<h3>✅ أجبت عن الأسئلة كلّها</h3>" +
+              "<p>راجع إجاباتك إن شئت — <b>فلا تعديل بعد التسليم</b>.</p>";
+    }
+    if (pend) html += '<p class="mute">' + pend + " إجابة على جهازك ستُرسل قبل التسليم.</p>";
+    html += '<div class="actions"><button class="btn" id="mok">تسليم الآن</button>' +
+            '<button class="btn3" id="mno">' + (empty.length ? "أكمل الإجابة" : "مراجعة") + "</button></div></div></div>";
+    document.body.insertAdjacentHTML("beforeend", html);
+
+    var bg = document.getElementById("mbg");
+    bg.onclick = function (e) { if (e.target === bg) closeModal(); };
+    document.getElementById("mno").onclick = function () {
+      closeModal();
+      if (empty.length) { idx = empty[0]; render(); }   // إلى أوّل سؤالٍ فارغ
+    };
+    Array.prototype.forEach.call(bg.querySelectorAll("[data-go]"), function (b) {
+      b.onclick = function () { idx = Number(b.getAttribute("data-go")); closeModal(); render(); };
+    });
+    document.getElementById("mok").onclick = function () {
+      closeModal(); cur.locked = true; saveSt(cur); render(); submit(false);
+    };
   }
 
   async function submit(auto) {
