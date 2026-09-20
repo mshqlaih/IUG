@@ -24,6 +24,23 @@
   .hbtn { background:rgba(255,255,255,.18); color:#fff; font-size:13px; padding:7px 12px; border-radius:8px; }
   .hello { background:#f1f8f1; border:1px solid #d7ead8; text-align:center; font-size:17px; }
   .hello b { color:var(--g); }
+  /* بطاقة الاختبار: عنوانٌ وحالة · ثمّ التفاصيل في أعمدة · ثمّ الإجراء بفاصل.
+     الشاشة واسعة، فلا داعٍ لرصّ السطور بعضها فوق بعض. */
+  .slot { padding:16px 16px 14px; }
+  .slot-head { display:flex; align-items:flex-start; gap:10px; margin-bottom:12px; }
+  .slot-title { flex:1; font-size:17px; line-height:1.6; }
+  .meta { display:flex; flex-wrap:wrap; gap:10px 26px; }
+  .meta div { min-width:74px; }
+  .meta .k { display:block; font-size:12px; color:#8a8a8a; margin-bottom:3px; }
+  .meta .v { font-size:15px; color:#333; }
+  .meta .v.num { direction:ltr; display:inline-block; font-variant-numeric: tabular-nums; }
+  .slot-act { margin-top:14px; padding-top:13px; border-top:1px solid #eef0ec; }
+  .slot-act .btn, .slot-act .btn2 { width:100%; }
+  .slot-note { color:var(--mute); font-size:14px; text-align:center; display:block; padding:4px 0; }
+  .slot-note.good { color:var(--g); }
+  .tag.wait { background:#fff3e0; color:var(--o); }
+  .tag.live { background:#e8f5e9; color:var(--g); }
+  .tag.gone { background:#f1f1f1; color:#777; }
   #clock.warn { color:#ffeb3b; }
   main { max-width:720px; margin:0 auto; padding:14px 16px 90px; }
   .card { background:var(--card); border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
@@ -147,6 +164,20 @@
   }
   function parseIso(s) { var t = Date.parse(s || ""); return isNaN(t) ? 0 : t; }
 
+  // اليوم والساعة منفصلين: «الخميس 18/9» و«19:55 ← 20:05» — أوضح من تكرار
+  // التاريخ مرّتين في سطرٍ واحد.
+  var DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+  function dayLabel(ms) {
+    if (!ms) return "—";
+    var d = new Date(ms);
+    return DAYS[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1);
+  }
+  function hm(ms) {
+    if (!ms) return "—";
+    var d = new Date(ms);
+    return two(d.getHours()) + ":" + two(d.getMinutes());
+  }
+
   // المفردة بين القوسين تُبرَز — صيغة اللجنة: «(الموقوذة) في سورة المائدة معناها:»
   function prompt(s) {
     return esc(s).replace(/\(([^)]+)\)/, '<b class="term">($1)</b>');
@@ -254,20 +285,44 @@
     }
     exams.forEach(function (x) {
       var ws = parseIso(x.window_start), we = parseIso(x.window_end);
-      var action;
+      var action, tag;
       if (x.state === "CLOSED" || x.state === "LATE") {
+        tag = '<span class="tag ok">سُلّم</span>';
         // النتيجة تُفتح بانتهاء **الموعد** لا بالتسليم (قرار اللجنة)
         action = x.can_review === "Y"
           ? '<button class="btn2" data-res="' + x.request_id + '">النتيجة والمراجعة</button>'
-          : '<span style="color:var(--g)">✓ سُلّم — تظهر نتيجتك بعد انتهاء الموعد</span>';
+          : '<span class="slot-note good">تظهر نتيجتك بعد انتهاء الموعد</span>';
       }
-      else if (x.state === "VOID") action = '<span style="color:var(--r)">أُلغي الحجز</span>';
-      else if (x.can_start === "Y") action = '<button class="btn" data-rid="' + x.request_id + '">' + (x.state === "STARTED" ? "أكمل الاختبار" : "ادخل الاختبار") + "</button>";
-      else if (serverNow() < ws) action = '<span class="mute">يبدأ ' + fmt(ws) + "</span>";
-      else action = '<span class="mute">انتهى الموعد</span>';
-      html += '<div class="card"><b>' + esc(x.scope_label) + "</b>" +
-              '<div class="mute">من ' + fmt(ws) + " إلى " + fmt(we) + " · " + (x.question_count || "") + " أسئلة</div>" +
-              '<div style="margin-top:10px">' + action + "</div></div>";
+      else if (x.state === "VOID") {
+        tag = '<span class="tag no">أُلغي</span>';
+        action = '<span class="slot-note">أُلغي الحجز — راجع اللجنة</span>';
+      }
+      else if (x.can_start === "Y") {
+        tag = '<span class="tag live">مفتوح الآن</span>';
+        action = '<button class="btn" data-rid="' + x.request_id + '">' +
+                 (x.state === "STARTED" ? "أكمل الاختبار" : "ادخل الاختبار") + "</button>";
+      }
+      else if (serverNow() < ws) {
+        tag = '<span class="tag wait">لم يبدأ</span>';
+        action = '<span class="slot-note">يفتح الاختبار ' + dayLabel(ws) +
+                 ' الساعة <span class="v num">' + hm(ws) + "</span></span>";
+      }
+      else {
+        tag = '<span class="tag gone">انتهى</span>';
+        action = '<span class="slot-note">انتهى الموعد ولم تدخل الاختبار</span>';
+      }
+
+      // اليوم · الوقت · عدد الأسئلة — ثلاثة حقولٍ متجاورة، لكلٍّ عنوانه
+      var meta = '<div><span class="k">اليوم</span><span class="v">' + dayLabel(ws) + "</span></div>" +
+                 '<div><span class="k">الوقت</span><span class="v num">' + hm(ws) + " ← " + hm(we) + "</span></div>";
+      if (x.question_count) {
+        meta += '<div><span class="k">الأسئلة</span><span class="v num">' + x.question_count + "</span></div>";
+      }
+
+      html += '<div class="card slot">' +
+              '<div class="slot-head"><b class="slot-title">' + esc(x.scope_label) + "</b>" + tag + "</div>" +
+              '<div class="meta">' + meta + "</div>" +
+              '<div class="slot-act">' + action + "</div></div>";
     });
     // «خروج» صار في الترويسة — مكانٌ ثابت لا يتغيّر بين الشاشات
     html += '<div class="row" style="justify-content:center">' +
@@ -304,15 +359,38 @@
     showLogout(true);
     app.innerHTML = '<div class="card mute">جارٍ التحميل…</div>';
 
+    // رسالةُ تعذّرٍ واحدة بزرّي «أعد المحاولة» و«اختباراتك» — والطالب لا يُترك
+    // في صفحةٍ فارغة لا مخرج منها.
+    function stuck(title, hint) {
+      app.innerHTML =
+        '<div class="card"><p style="margin:0 0 6px">' + esc(title) + "</p>" +
+        (hint ? '<p class="mute" style="margin:0">' + esc(hint) + "</p>" : "") +
+        '<div class="slot-act"><button class="btn2" id="rt" style="width:100%">أعد المحاولة</button></div></div>' +
+        '<div class="row" style="justify-content:center"><button class="link" id="bk">اختباراتك</button></div>';
+      document.getElementById("rt").onclick = function () { viewResult(rid); };
+      document.getElementById("bk").onclick = viewList;
+    }
+
     var r;
     try { r = await call("ox/result", "POST", { request_id: rid }); }
     catch (e) {
-      app.innerHTML = '<div class="card err">تعذّر الاتصال — تحقّق من الشبكة</div>';
+      // ⚠️ fetch يرفض الوعد في حالين لا حالٍ واحد: انقطاع الشبكة، **و**
+      //    استجابةٌ يمنع المتصفّح قراءتها (نقطةٌ غير منشأة ⇒ 404 بلا ترويسة
+      //    CORS). فلا تُقال «تحقّق من الشبكة» وحدها: قد تكون الشبكة سليمة.
+      stuck("تعذّر عرض النتيجة الآن.",
+            "تحقّق من اتصالك وأعد المحاولة. فإن تكرّر ذلك فأبلغ اللجنة — قد تكون خدمة عرض النتائج غير مفعّلة بعد.");
       return;
     }
+    if (r.status === 401 || r.status === 403) {
+      if (!r.data) return viewLogin("انتهت الجلسة — ادخل من جديد");
+    }
+    if (r.status === 404 && !r.data) {
+      return stuck("خدمة عرض النتائج غير مفعّلة بعد.", "أبلغ اللجنة بذلك.");
+    }
     if (!r.data || r.data.status !== "success") {
-      app.innerHTML = '<div class="card err">' + esc(msgOf(r)) + "</div>" +
-                      '<button class="link" id="bk">اختباراتك</button>';
+      app.innerHTML = '<div class="card">' + esc(msgOf(r)) + "</div>" +
+                      '<div class="row" style="justify-content:center">' +
+                      '<button class="link" id="bk">اختباراتك</button></div>';
       document.getElementById("bk").onclick = viewList;
       return;
     }
@@ -352,7 +430,8 @@
               "</div>";
     });
 
-    html += '<button class="link" id="bk">اختباراتك</button>';
+    html += '<div class="row" style="justify-content:center">' +
+            '<button class="link" id="bk">اختباراتك</button></div>';
     app.innerHTML = html;
     document.getElementById("bk").onclick = viewList;
   }
