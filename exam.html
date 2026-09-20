@@ -21,6 +21,9 @@
   header { background:var(--g); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:5; }
   header h1 { font-size:17px; margin:0; flex:1; }
   #clock { font-size:22px; font-weight:bold; font-variant-numeric: tabular-nums; }
+  .hbtn { background:rgba(255,255,255,.18); color:#fff; font-size:13px; padding:7px 12px; border-radius:8px; }
+  .hello { background:#f1f8f1; border:1px solid #d7ead8; text-align:center; font-size:17px; }
+  .hello b { color:var(--g); }
   #clock.warn { color:#ffeb3b; }
   main { max-width:720px; margin:0 auto; padding:14px 16px 90px; }
   .card { background:var(--card); border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
@@ -97,7 +100,12 @@
 </style>
 </head>
 <body>
-<header><h1 id="title">الاختبار الإلكتروني</h1><span id="clock"></span></header>
+<header>
+  <h1 id="title">الاختبار الإلكتروني</h1>
+  <span id="clock"></span>
+  <!-- في الترويسة أقصى اليسار: مكانٌ ثابت لا يتنقّل بين الشاشات -->
+  <button id="hx" class="hbtn" style="display:none">خروج</button>
+</header>
 <main id="app"><div class="card mute">جارٍ التحميل…</div></main>
 <div id="bar" class="bar" style="display:none"></div>
 
@@ -111,6 +119,12 @@
   var bar = document.getElementById("bar");
   var clockEl = document.getElementById("clock");
   var titleEl = document.getElementById("title");
+  var hxBtn = document.getElementById("hx");
+  hxBtn.onclick = function () { logout(); };
+
+  // يظهر في القائمة والنتيجة، ويُخفى في الدخول **وفي أثناء الاختبار**:
+  // ضغطةٌ بالخطأ وسط الاختبار تمسح التوكن، والوقت لا يتوقّف.
+  function showLogout(on) { hxBtn.style.display = on ? "inline-block" : "none"; }
 
   // معرّف هذا المتصفّح — لكشف «بدأ من جهازٍ آخر» (غير توكن الدخول)
   var OX_DEV = LS.getItem("ox_device");
@@ -172,6 +186,7 @@
   // ═════════════════════════════════════════════════════════ الدخول
   function viewLogin(err) {
     bar.style.display = "none"; clockEl.textContent = "";
+    showLogout(false);
     titleEl.textContent = "الاختبار الإلكتروني";
     app.innerHTML =
       '<div class="card"><h3 style="margin-top:0">تسجيل الدخول</h3>' +
@@ -208,6 +223,7 @@
     cur = null; server0 = 0;
     bar.style.display = "none"; clockEl.textContent = "";
     titleEl.textContent = "اختباراتك";
+    showLogout(true);
     if (!QMC.getDeviceId()) return viewLogin();
 
     var r;
@@ -225,7 +241,14 @@
     syncClock(r.data.server_now);
     var exams = r.data.exams || [];
 
-    var html = "";
+    // ترحيبٌ باسمه: ثلاث كلمات تكفي — والاسم الرباعيّ يطول على شاشة الجوّال
+    var full = (r.data.student_name === null || r.data.student_name === undefined)
+      ? "" : String(r.data.student_name).trim();
+    var short = full ? full.split(/\s+/).slice(0, 3).join(" ") : "";
+
+    var html = short
+      ? '<div class="card hello">أهلًا وسهلًا، <b>' + esc(short) + "</b></div>"
+      : "";
     if (!exams.length) {
       html = '<div class="card"><div class="big">📭</div><p style="text-align:center">لا اختبار محجوز لك الآن.</p></div>';
     }
@@ -246,11 +269,12 @@
               '<div class="mute">من ' + fmt(ws) + " إلى " + fmt(we) + " · " + (x.question_count || "") + " أسئلة</div>" +
               '<div style="margin-top:10px">' + action + "</div></div>";
     });
-    html += '<div class="row" style="justify-content:space-between"><button class="link" id="rf">تحديث</button><button class="link" id="lo">خروج</button></div>';
+    // «خروج» صار في الترويسة — مكانٌ ثابت لا يتغيّر بين الشاشات
+    html += '<div class="row" style="justify-content:center">' +
+            '<button class="link" id="rf">تحديث</button></div>';
     app.innerHTML = html;
 
     document.getElementById("rf").onclick = viewList;
-    document.getElementById("lo").onclick = logout;
     Array.prototype.forEach.call(app.querySelectorAll("button[data-rid]"), function (b) {
       b.onclick = function () {
         var rid = Number(b.getAttribute("data-rid"));
@@ -277,6 +301,7 @@
     titleEl.textContent = "نتيجتك";
     clockEl.textContent = "";
     bar.style.display = "none";
+    showLogout(true);
     app.innerHTML = '<div class="card mute">جارٍ التحميل…</div>';
 
     var r;
@@ -407,6 +432,7 @@
   }
 
   function runExam() {
+    showLogout(false);
     titleEl.textContent = cur.title;
     render();
     clearInterval(tick);
@@ -620,6 +646,7 @@
     clearInterval(tick);
     bar.style.display = "none";
     clockEl.textContent = "";
+    showLogout(true);
     // 🚫 لا تُعرض الإجابات الصحيحة (قرار اللجنة) — والدرجة تُعلن بعد الاعتماد
     app.innerHTML =
       '<div class="card" style="text-align:center"><div class="big">✅</div>' +
