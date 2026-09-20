@@ -51,6 +51,22 @@
   .opt.on .ltr { background:var(--g); color:#fff; }
   .opt.on .txt { font-weight:bold; color:#1b5e20; }
   .opt:disabled { opacity:.75; cursor:default; transform:none; }
+  /* المراجعة بعد انتهاء الموعد — صفحةٌ واحدة تُمرّر، بلا نقرٍ على الخيارات */
+  .tag { font-size:13px; border-radius:20px; padding:4px 12px; font-weight:bold; }
+  .tag.ok { background:#e8f5e9; color:var(--g); }
+  .tag.no { background:#fdecea; color:#b3261e; }
+  .opt.rev { cursor:default; }
+  .opt.rev .ltr { background:#f1f3f0; color:#8a8a8a; font-size:19px; }
+  .opt.rev.right { border-color:var(--g); background:#f1f8f1; }
+  .opt.rev.right .ltr { background:var(--g); color:#fff; }
+  .opt.rev.right .txt { font-weight:bold; color:#1b5e20; }
+  .opt.rev.wrong { border-color:#e0a0a0; background:#fdf4f3; }
+  .opt.rev.wrong .ltr { background:#b3261e; color:#fff; }
+  .opt.rev.wrong .txt { color:#8c1d18; }
+  .note { font-size:13px; color:#7a7a7a; font-style:normal; }
+  .res { text-align:center; }
+  .res.pass { background:#f1f8f1; border:1px solid #c8e6c9; }
+  .res.fail { background:#fffaf7; border:1px solid #ffd9c7; }
   .qhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .qnum { background:#e8f5e9; color:var(--g); font-weight:bold; border-radius:20px; padding:4px 12px; font-size:14px; }
   .progress { height:6px; background:#e6e8e4; border-radius:3px; overflow:hidden; margin:0 0 12px; }
@@ -216,7 +232,12 @@
     exams.forEach(function (x) {
       var ws = parseIso(x.window_start), we = parseIso(x.window_end);
       var action;
-      if (x.state === "CLOSED" || x.state === "LATE") action = '<span style="color:var(--g)">✓ سُلّم</span>';
+      if (x.state === "CLOSED" || x.state === "LATE") {
+        // النتيجة تُفتح بانتهاء **الموعد** لا بالتسليم (قرار اللجنة)
+        action = x.can_review === "Y"
+          ? '<button class="btn2" data-res="' + x.request_id + '">النتيجة والمراجعة</button>'
+          : '<span style="color:var(--g)">✓ سُلّم — تظهر نتيجتك بعد انتهاء الموعد</span>';
+      }
       else if (x.state === "VOID") action = '<span style="color:var(--r)">أُلغي الحجز</span>';
       else if (x.can_start === "Y") action = '<button class="btn" data-rid="' + x.request_id + '">' + (x.state === "STARTED" ? "أكمل الاختبار" : "ادخل الاختبار") + "</button>";
       else if (serverNow() < ws) action = '<span class="mute">يبدأ ' + fmt(ws) + "</span>";
@@ -237,10 +258,78 @@
         viewPledge(x);
       };
     });
+    Array.prototype.forEach.call(app.querySelectorAll("button[data-res]"), function (b) {
+      b.onclick = function () { viewResult(Number(b.getAttribute("data-res"))); };
+    });
 
     // يتحدّث وحده كل 30 ثانية — فيظهر زرّ الدخول لحظة بدء الموعد
     clearTimeout(listTimer);
     listTimer = setTimeout(function () { if (!cur) viewList(); }, 30000);
+  }
+
+  // ═════════════════════════════════════════════════════ النتيجة والمراجعة
+  //
+  // 📄 **صفحةٌ واحدة تُمرّر** لا سؤالًا في كل شاشة: غرضُها الموازنة والتعلّم
+  //    لا الإجابة، والطالب يقرأ ما أخطأ فيه ويقارنه بالصواب دفعةً واحدة.
+  async function viewResult(rid) {
+    clearTimeout(listTimer);
+    cur = null;
+    titleEl.textContent = "نتيجتك";
+    clockEl.textContent = "";
+    bar.style.display = "none";
+    app.innerHTML = '<div class="card mute">جارٍ التحميل…</div>';
+
+    var r;
+    try { r = await call("ox/result", "POST", { request_id: rid }); }
+    catch (e) {
+      app.innerHTML = '<div class="card err">تعذّر الاتصال — تحقّق من الشبكة</div>';
+      return;
+    }
+    if (!r.data || r.data.status !== "success") {
+      app.innerHTML = '<div class="card err">' + esc(msgOf(r)) + "</div>" +
+                      '<button class="link" id="bk">اختباراتك</button>';
+      document.getElementById("bk").onclick = viewList;
+      return;
+    }
+
+    var d = r.data;
+    var pass = d.status_ar === "مجاز";
+    var html =
+      '<div class="card res ' + (pass ? "pass" : "fail") + '">' +
+      '<div class="big">' + (pass ? "🎉" : "📘") + "</div>" +
+      "<h3 style=\"margin:4px 0\">" + esc(d.status_ar || "") + "</h3>" +
+      '<p style="font-size:20px;margin:0"><b>' + d.right + "</b> من " + d.items_count + " صحيحة" +
+      (d.mark === null || d.mark === undefined ? "" : " · الدرجة <b>" + d.mark + "</b>") +
+      '</p><p class="mute">' + esc(d.scope_label || "") + "</p></div>";
+
+    (d.items || []).forEach(function (it) {
+      var ok = it.is_correct === "Y";
+      var answered = false;
+      var body = "";
+      (it.choices || []).forEach(function (c) {
+        var right = c.is_correct === "Y", mine = c.chosen === "Y";
+        if (mine) answered = true;
+        var cls = right ? "opt rev right" : (mine ? "opt rev wrong" : "opt rev");
+        var mark = right ? "✓" : (mine ? "✗" : "•");
+        var note = right ? (mine ? "إجابتك — صحيحة" : "الإجابة الصحيحة")
+                         : (mine ? "إجابتك" : "");
+        body += '<div class="' + cls + '"><span class="ltr">' + mark + "</span>" +
+                '<span class="txt">' + esc(c.text_ar) +
+                (note ? ' <em class="note">(' + note + ")</em>" : "") + "</span></div>";
+      });
+      html += '<div class="card"><div class="qhead">' +
+              '<span class="qnum">السؤال ' + it.item_no + "</span>" +
+              '<span class="tag ' + (ok ? "ok" : "no") + '">' + (ok ? "✓ صحيحة" : "✗ خاطئة") + "</span>" +
+              "</div>" +
+              '<div class="q">' + prompt(it.prompt_ar) + "</div>" + body +
+              (answered ? "" : '<p class="mute">لم تُجب عن هذا السؤال.</p>') +
+              (it.is_late === "Y" ? '<p class="mute">وصلت إجابتك بعد انتهاء الموعد فلم تُحتسب.</p>' : "") +
+              "</div>";
+    });
+
+    html += '<button class="link" id="bk">اختباراتك</button>';
+    app.innerHTML = html;
+    document.getElementById("bk").onclick = viewList;
   }
 
   // ═════════════════════════════════════════════════════════ التعهّد
