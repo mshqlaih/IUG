@@ -20,6 +20,9 @@
          font-family: Tahoma, "Segoe UI", "Noto Naskh Arabic", Arial, sans-serif; }
   header { background:var(--g); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:5; }
   header h1 { font-size:17px; margin:0; flex:1; }
+  /* الشعار على قرصٍ أبيض: الشعارات الملوّنة تضيع على الأخضر، والشفّافة تختفي */
+  .brand { width:34px; height:34px; border-radius:50%; background:#fff;
+           object-fit:contain; padding:3px; flex:0 0 auto; }
   #clock { font-size:22px; font-weight:bold; font-variant-numeric: tabular-nums; }
   .hbtn { background:rgba(255,255,255,.18); color:#fff; font-size:13px; padding:7px 12px; border-radius:8px; }
   .hello { background:#f1f8f1; border:1px solid #d7ead8; text-align:center; font-size:17px; }
@@ -54,6 +57,12 @@
   input[type=text], input[type=password], input[type=tel] { width:100%; font-size:17px; padding:12px; border:1px solid #bbb; border-radius:10px; font-family:inherit; }
   label.pledge { display:flex; gap:10px; align-items:flex-start; font-size:15px; line-height:1.7; }
   label.pledge input { width:22px; height:22px; margin-top:4px; }
+  /* 📖 الآية: إطارٌ هادئ بخلفيةٍ كريميّة — تُقرأ ولا تُزاحم السؤال.
+     والعرض بخطوط النظام لا بخطّ مصحف (نصّ التشكيل لا العثمانيّ). */
+  .aya { background:#fbf8ef; border:1px solid #ece2c8; border-radius:12px;
+         padding:14px 16px; margin:6px 0 14px; font-size:20px; line-height:2.2;
+         color:#4a3f26; text-align:center; }
+  .aya-ref { display:block; margin-top:8px; font-size:13px; color:#96876a; }
   .q { font-size:21px; line-height:1.9; margin:4px 0 14px; }
   .q b.term { color:var(--g); font-size:24px; }
   /* الخيار: بطاقةٌ بحرفٍ في دائرة يصير ✓ عند الاختيار */
@@ -118,6 +127,8 @@
 </head>
 <body>
 <header>
+  <!-- 🏷 شعار المؤسسة — يُخفى حتى يصل، فلا يترك فراغًا إن لم يكن لها شعار -->
+  <img id="brand" class="brand" alt="" style="display:none">
   <h1 id="title">الاختبار الإلكتروني</h1>
   <span id="clock"></span>
   <!-- في الترويسة أقصى اليسار: مكانٌ ثابت لا يتنقّل بين الشاشات -->
@@ -142,6 +153,31 @@
   // يظهر في القائمة والنتيجة، ويُخفى في الدخول **وفي أثناء الاختبار**:
   // ضغطةٌ بالخطأ وسط الاختبار تمسح التوكن، والوقت لا يتوقّف.
   function showLogout(on) { hxBtn.style.display = on ? "inline-block" : "none"; }
+
+  // ── 🏷 شعار المؤسسة ───────────────────────────────────────────────────
+  //
+  // مصدران: **الرابط** `?org=<جذر>` الذي تشاركه اللجنة — فيظهر الشعار من
+  // أوّل فتحة **قبل الدخول** — ثم `org_root` من «اختباراتك» بعد الدخول،
+  // وهو الحَكَم: من فتح رابطًا بلا معامل أو من مؤسسةٍ أخرى يرى شعاره هو.
+  // ويُحفظ ليبقى في الفتحات التالية بلا معامل.
+  var brandEl = document.getElementById("brand");
+
+  function orgFromUrl() {
+    var m = /[?&#]org=(\d{1,12})/.exec(location.search + location.hash);
+    return m ? m[1] : "";
+  }
+  function showBrand(root) {
+    if (!root) return;
+    if (String(LS.getItem("ox_org") || "") !== String(root)) {
+      LS.setItem("ox_org", String(root));
+    }
+    var src = QMC.BASE + "/org/logo/" + root;
+    if (brandEl.getAttribute("src") === src) return;
+    brandEl.onerror = function () { brandEl.style.display = "none"; };
+    brandEl.onload = function () { brandEl.style.display = "inline-block"; };
+    brandEl.setAttribute("src", src);
+  }
+  showBrand(orgFromUrl() || LS.getItem("ox_org") || "");
 
   // معرّف هذا المتصفّح — لكشف «بدأ من جهازٍ آخر» (غير توكن الدخول)
   var OX_DEV = LS.getItem("ox_device");
@@ -181,6 +217,15 @@
   // المفردة بين القوسين تُبرَز — صيغة اللجنة: «(الموقوذة) في سورة المائدة معناها:»
   function prompt(s) {
     return esc(s).replace(/\(([^)]+)\)/, '<b class="term">($1)</b>');
+  }
+
+  // 📖 آية المِرساة فوق السؤال — سياقُ المفردة كما أرادته اللجنة.
+  //    سؤالٌ بلا مرساة يبقى كما هو بلا فراغٍ ولا إطار.
+  function ayaBox(it) {
+    if (!it || !it.aya_text) return "";
+    return '<div class="aya">' + esc(it.aya_text) +
+           (it.aya_ref ? '<span class="aya-ref">' + esc(it.aya_ref) + "</span>" : "") +
+           "</div>";
   }
 
   // نداءٌ يقرأ JSON حتى مع رموز الخطأ (الحزمة تُرجع message و http)
@@ -270,6 +315,7 @@
       return;
     }
     syncClock(r.data.server_now);
+    showBrand(r.data.org_root);        // 🏷 مؤسسته هي الحَكَم لا الرابط
     var exams = r.data.exams || [];
 
     // ترحيبٌ باسمه: ثلاث كلمات تكفي — والاسم الرباعيّ يطول على شاشة الجوّال
@@ -424,6 +470,7 @@
               '<span class="qnum">السؤال ' + it.item_no + "</span>" +
               '<span class="tag ' + (ok ? "ok" : "no") + '">' + (ok ? "✓ صحيحة" : "✗ خاطئة") + "</span>" +
               "</div>" +
+              ayaBox(it) +
               '<div class="q">' + prompt(it.prompt_ar) + "</div>" + body +
               (answered ? "" : '<p class="mute">لم تُجب عن هذا السؤال.</p>') +
               (it.is_late === "Y" ? '<p class="mute">وصلت إجابتك بعد انتهاء الموعد فلم تُحتسب.</p>' : "") +
@@ -548,6 +595,7 @@
       html += '<div class="card"><div class="qhead"><span class="qnum">السؤال ' + (idx + 1) + " من " + total + "</span>" +
               '<span class="mute">أجبت عن ' + answered + " من " + total + "</span></div>" +
               '<div class="progress"><i style="width:' + Math.round(answered * 100 / total) + '%"></i></div>' +
+              ayaBox(it) +
               '<div class="q">' + prompt(it.prompt_ar) + "</div>";
       // الحروف لترتيب العرض لا للخيار نفسه: الخيارات تُخلط لكل طالب
       var LETTERS = ["أ", "ب", "ج", "د", "هـ", "و"];
@@ -612,6 +660,11 @@
           if (p && p.choice_id === b.choice_id) delete cur.pending[b.item_no];
         });
         syncClock(r.data.server_now);
+        // ⏳ **مهلةٌ أطول تُعتمد**: قد تمدّد اللجنة الوقت والاختبار جارٍ،
+        //    والسيرفر يُرجع المهلة مع كل حفظ. ولا تُقبل مهلةٌ **أقصر**:
+        //    سرقةُ دقائق من طالبٍ يجيب لا تُعالَج بإقفالٍ مفاجئ عليه.
+        var dl = parseIso(r.data.deadline_at);
+        if (dl && dl > cur.deadline) cur.deadline = dl;
         saveSt(cur);
         retryStep = 0;
       } else if (r.status === 409) {
@@ -636,6 +689,26 @@
   }
 
   window.addEventListener("online", function () { retryStep = 0; flush(); });
+
+  // 💓 **نبضةٌ كل 45 ثانية** بإجاباتٍ فارغة — تعود بوقت السيرفر **والمهلة**.
+  //    ولولاها لما علم من توقّف عن الإجابة أنّ اللجنة مدّدت الوقت: الطابور
+  //    وحده يحمل المهلة، وهو لا يعمل إلا عند اختيارٍ جديد. فتُقفل صفحته
+  //    **وتُسلّم** عند المهلة القديمة والاختبار ما زال مفتوحًا.
+  //    وهي رخيصة: طلبٌ صغير لا يكتب شيئًا (MERGE بلا صفوف).
+  async function pulse() {
+    if (!cur || cur.done || cur.locked || flushing) return;
+    if (pendingCount()) return;          // الطابور قادم، وهو يحمل المهلة
+    try {
+      var r = await call("ox/answer", "POST",
+        { attempt_key: cur.key, answers: "[]", blur: cur.blur });
+      if (r.data && r.data.status === "success") {
+        syncClock(r.data.server_now);
+        var dl = parseIso(r.data.deadline_at);
+        if (dl && dl > cur.deadline) { cur.deadline = dl; saveSt(cur); render(); }
+      }
+    } catch (e) { /* شبكة — والنبضة التالية تكفي */ }
+  }
+  setInterval(pulse, 45000);
 
   // مغادرة الصفحة تُعدّ — مؤشّرٌ للّجنة لا حكم (المكالمة الواردة تُعدّ أيضًا)
   document.addEventListener("visibilitychange", function () {

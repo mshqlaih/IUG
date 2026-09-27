@@ -1,7 +1,7 @@
 {
   "name": "الصفوة",
   "short_name": "الصفوة",
-  "description": "تطبيق الصفوة لمتابعة الحلقات القرآنية",
+  "description": "برنامج الصفوة لمتابعة الحلقات القرآنية",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
