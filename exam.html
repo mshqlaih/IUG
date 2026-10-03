@@ -764,11 +764,14 @@
     cur.items.forEach(function (x, i) { if (!cur.answers[x.item_no]) empty.push(i); });
     var total = cur.items.length, pend = pendingCount();
 
-    // ⚠️ لا يُمنع التسليم بسؤالٍ فارغ — يُنبَّه فقط (الإقفال عند الموعد يسلّم ما وُجد)
+    // 🚫 **التسليم اليدويّ يشترط إجابة كل سؤال** (طلب اللجنة 2026-10-03: طالبٌ
+    //    سلّم بسؤالين من عشرة فأُعيد فتحه له). أمّا الإقفال عند الموعد فيسلّم
+    //    ما وُجد كما هو — onTick ⇒ submit(true) لا يمرّ من هنا.
     var html = '<div class="modal-bg" id="mbg"><div class="modal" role="dialog">';
     if (empty.length) {
-      html += "<h3>⚠️ لم تُجب عن كلّ الأسئلة</h3>" +
-              "<p>بقي <b>" + empty.length + "</b> من " + total + " بلا إجابة، والسؤال الفارغ يُحسب خطأً.</p>" +
+      html += "<h3>أكمل الإجابة أوّلًا</h3>" +
+              "<p>لا يُسلَّم الاختبار قبل الإجابة عن كل الأسئلة. بقي <b>" + empty.length + "</b> من " + total + " بلا إجابة.</p>" +
+              '<p class="mute">وإن انتهى الوقت سُلّم اختبارك تلقائيًّا بما أجبت، والسؤال الفارغ يُحسب خطأً.</p>' +
               '<div class="chips">' + empty.map(function (i) {
                 return '<button data-go="' + i + '">السؤال ' + (i + 1) + "</button>";
               }).join("") + "</div>";
@@ -777,8 +780,10 @@
               "<p>راجع إجاباتك إن شئت — <b>فلا تعديل بعد التسليم</b>.</p>";
     }
     if (pend) html += '<p class="mute">' + pend + " إجابة على جهازك ستُرسل قبل التسليم.</p>";
-    html += '<div class="actions"><button class="btn" id="mok">تسليم الآن</button>' +
-            '<button class="btn3" id="mno">' + (empty.length ? "أكمل الإجابة" : "مراجعة") + "</button></div></div></div>";
+    html += '<div class="actions">' +
+            (empty.length ? "" : '<button class="btn" id="mok">تسليم الآن</button>') +
+            '<button class="' + (empty.length ? "btn" : "btn3") + '" id="mno">' +
+            (empty.length ? "أكمل الإجابة" : "مراجعة") + "</button></div></div></div>";
     document.body.insertAdjacentHTML("beforeend", html);
 
     var bg = document.getElementById("mbg");
@@ -790,7 +795,8 @@
     Array.prototype.forEach.call(bg.querySelectorAll("[data-go]"), function (b) {
       b.onclick = function () { idx = Number(b.getAttribute("data-go")); closeModal(); render(); };
     });
-    document.getElementById("mok").onclick = function () {
+    var ok = document.getElementById("mok");
+    if (ok) ok.onclick = function () {
       closeModal(); cur.locked = true; saveSt(cur); render(); submit(false);
     };
   }
