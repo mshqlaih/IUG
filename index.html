@@ -746,6 +746,15 @@
             <div id="svCentersView" style="display:none">
                 <div class="section-title">إشراف الدورات</div>
                 <div class="section-note">المواضع التي تُعقد فيها الدورات — افتح موضعاً لترى دوراته وكشوفها وحضورها واعتماد نتائجها.</div>
+                <!-- أدوات المشرف — course_extras.js -->
+                <div class="cr-actions">
+                    <button type="button" class="cr-action" onclick="openCxStudentSearch()">
+                        <i class="fas fa-magnifying-glass"></i> البحث عن متدرّب</button>
+                    <button type="button" class="cr-action" onclick="openCxClassReport()">
+                        <i class="fas fa-chart-column"></i> الحاصلون على الدورات</button>
+                    <button type="button" class="cr-action" onclick="openCxTeachers()">
+                        <i class="fas fa-chalkboard-user"></i> معلّمو الدورات</button>
+                </div>
                 <div class="students-toolbar">
                     <div class="search-wrap">
                         <i class="fas fa-magnifying-glass search-icon"></i>
@@ -796,6 +805,16 @@
                     </div>
                 </div>
                 <div id="svRosterList" class="students-cards"></div>
+            </div>
+
+            <!-- (8) أدوات المشرف: البحث عن متدرّب · الحاصلون · المعلّمون — يرسمها course_extras.js -->
+            <div id="cxView" style="display:none">
+                <button class="btn-back" onclick="cxBack()">
+                    <i class="fas fa-arrow-right"></i> رجوع
+                </button>
+                <div class="section-title" id="cxTitle"></div>
+                <div class="section-note" id="cxSub" style="display:none"></div>
+                <div id="cxBody"></div>
             </div>
 
             <!-- (7) سجلّ حضور الدورة -->
@@ -1080,18 +1099,22 @@
         <div class="modal-box">
             <h4 class="modal-title">تسجيل طلبة في الدورة</h4>
             <div class="modal-message">
-                أدخل أرقام الهويات — كل رقم في سطر أو مفصولة بفواصل.
+                كل طالبٍ في سطر: رقم هويّته، ثم جواله إن شئت، ثم الواتس إن اختلف عن الجوال.
                 التسجيل ذرّي: يُقبل الكشف كاملاً أو يُرفض كاملاً.
             </div>
             <div class="field">
-                <label>أرقام الهويات</label>
-                <textarea id="courseStudentIds" rows="5" placeholder="412345678&#10;438110207"></textarea>
+                <label>الهويات (والجوال والواتس اختياريًّا)</label>
+                <textarea id="courseStudentIds" rows="5" dir="ltr"
+                          placeholder="412345678 0599123456&#10;438110207 0597000000 0568000000"></textarea>
             </div>
             <div class="field">
                 <label>تاريخ التسجيل</label>
                 <input type="date" id="courseRegisterDate">
             </div>
             <div id="addStudentsStatus" class="settings-status"></div>
+            <!-- أرقام المسجّلين سلفًا: تعديلٌ ونسخ أرقام الواتس — course_extras.js -->
+            <button type="button" class="cr-action" style="margin-top:6px" onclick="openAddStudentsContacts()">
+                <i class="fas fa-address-book"></i> أرقام المسجّلين</button>
             <div class="modal-actions">
                 <button type="button" class="modal-btn modal-cancel" onclick="closeAddCourseStudents()">إلغاء</button>
                 <button type="button" class="modal-btn modal-confirm" onclick="submitCourseStudents()">تسجيل</button>
@@ -1212,6 +1235,8 @@
     <script src="courses.js"></script>
     <!-- بعد courses.js: مسارا معلّم الدورة ومشرف الدورات -->
     <script src="course_roles.js"></script>
+    <!-- بعد course_roles.js: أرقام الطلاب · تسلسل الدورات · البحث · الحاصلون · المعلّمون -->
+    <script src="course_extras.js"></script>
     
         <div id="toast" class="toast-hidden"></div>
 </body>

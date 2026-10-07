@@ -9,10 +9,21 @@
   <!-- CSS -->
   <style>
     * { box-sizing: border-box; }
+    /* ⚠️ (2026-10-07) الصفحة كانت تُزاح لليمين أحيانًا على iPhone: الدائرة
+       الزخرفية العليا خارج الحافّة (right:-80px) تجعل الصفحة أعرض من الشاشة،
+       و overflow:hidden على body وحده لا يمنع Safari من التمرير الأفقيّ —
+       خاصّةً بعد فتح لوحة المفاتيح وإغلاقها. فالعرض محصورٌ في html و body،
+       والدائرتان fixed لا تمدّان الصفحة، ولا سحبَ أفقيًّا. */
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
     body {
       font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
       background: linear-gradient(135deg, #1976D2 0%, #0d47a1 100%);
       min-height: 100vh;
+      min-height: 100dvh;   /* شريط Safari المتغيّر — حيث يُدعم */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -20,13 +31,16 @@
       padding: 20px;
       position: relative;
       overflow: hidden;
+      touch-action: pan-y;
+      overscroll-behavior-x: none;
     }
     /* أشكال زخرفية خفيفة في الخلفية */
     body::before, body::after {
       content: "";
-      position: absolute;
+      position: fixed;
       border-radius: 50%;
       background: rgba(255,255,255,0.06);
+      pointer-events: none;
     }
     body::before { width: 320px; height: 320px; top: -120px; right: -80px; }
     body::after  { width: 240px; height: 240px; bottom: -100px; left: -60px; }

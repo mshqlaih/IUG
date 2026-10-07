@@ -142,11 +142,15 @@ window.QMC = (function () {
     // ترفض الملف كاملاً بخطأ نحوي فيتعطّل التطبيق حتى دون اتصال.
     const numOr0 = (v) => { const n = num(v); return n === null ? 0 : n; };
 
+    // 🔁 22 = المراجعة الثانية على الجهاز ⇐ على السيرفر النوع 2 ورقم المرّة '2'
+    const isSecond = (type === 22);
+
     return {
       action          : "SAVE",   // السيرفر يميّز الإضافة من التعديل عبر tagno
       user_name       : String(record.teacher || getUserName()),
       student_no      : String(record.student),
-      attendance_type : String(type),
+      attendance_type : String(isSecond ? 2 : type),
+      activity_type_kind: isSecond ? "2" : "1",
       activity_date   : String(record.date),
       from_aya_no     : String(numOr0(from)),
       to_aya_no       : String(numOr0(to)),
@@ -517,12 +521,20 @@ window.QMC = (function () {
   function updateCourse(payload) { return coursesPost("updateCourse", payload); }
   function deleteCourse(courseNo) { return coursesPost("deleteCourse", { course_no: courseNo }); }
 
-  // تسجيل دفعة طلاب — ذرّية: تُقبل كلها أو تُرفض كلها
-  function addCourseStudents(courseNo, idNos, registerDate) {
+  // تسجيل دفعة طلاب — ذرّية: تُقبل كلها أو تُرفض كلها.
+  // contacts (2026-10-06) اختياريّ: هويّة ← {mobile_no, whatsapp_no} مفحوصان. من لا
+  // رقم له لا يُرسَل له شيء، فيملؤه السيرفر من تسجيله السابق إن وُجد.
+  function addCourseStudents(courseNo, idNos, registerDate, contacts) {
+    const k = contacts || {};
     return coursesPost("addStudents", {
       course_no: courseNo,
       register_date: registerDate,
-      students: idNos.map(id => ({ id_no: id })),
+      students: idNos.map(id => {
+        const s = { id_no: id };
+        if (k[id] && k[id].mobile_no) s.mobile_no = k[id].mobile_no;
+        if (k[id] && k[id].whatsapp_no) s.whatsapp_no = k[id].whatsapp_no;
+        return s;
+      }),
     });
   }
 

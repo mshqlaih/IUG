@@ -807,8 +807,16 @@ const activityStyles = {
     "6":  { fa: "fa-trophy",           color: "#FF9800" }, // اختبار جزء
     "7":  { fa: "fa-book-open",        color: "#9C27B0" }, // سرد
     "8":  { fa: "fa-lightbulb",        color: "#E67E22" },
+    "22": { fa: "fa-repeat",           color: "#8BC34A" }, // مراجعة ثانية
     "99": { fa: "fa-minus",            color: "#BDC3C7" }
 };
+
+/* 🔁 المراجعة الثانية في اليوم (2026-10-07) — على الجهاز نوعٌ مستقلّ 22 فيبقى
+   الفهرس الفريد (الطالب، التاريخ، النوع) كما هو بلا ترحيل مخطّط. وعلى السيرفر:
+   النوع 2 و activity_type_kind '2' (buildSaveActivityBody)، وعند السحب يعود 22.
+   بلا تصنيف: التقارير تعدّها «مراجعة». يظهر زرّها متى سُجّلت الأولى. */
+const SECOND_REVIEW_TYPE = 22;
+const SECOND_REVIEW_NAME = "مراجعة ثانية";
 
 const DEFAULT_ACTIVITY_STYLE = { fa: "fa-circle-question", color: "#95A5A6" };
 
@@ -846,6 +854,43 @@ function drawIcons(select, container) {
 
         container.appendChild(item);
     });
+    bindSecondReviewWatchers();
+    refreshSecondReviewCard();
+}
+
+// زرّ «مراجعة ثانية»: ظاهرٌ متى كان للطالب مراجعةٌ أولى في التاريخ المختار
+// (أو كان هو النوع المختار — سجلٌّ يُعدَّل)، وإلا مخفيّ فلا يراه من لا يحتاجه
+function refreshSecondReviewCard() {
+    const card = document.querySelector(`#iconsContainer .icon-card[data-value="${SECOND_REVIEW_TYPE}"]`);
+    if (!card) return;
+    const sel = document.getElementById('activityType');
+    // بلا ?. — متصفحات أندرويد القديمة ترفض الملف كلّه
+    const sEl = document.getElementById('studentSelect');
+    const dEl = document.getElementById('activityDate');
+    const student = Number((sEl && sEl.value) || 0);
+    const date = (dEl && dEl.value) || '';
+    const show = (on) => { card.style.display = on ? '' : 'none'; };
+    if (sel && String(sel.value) === String(SECOND_REVIEW_TYPE)) return show(true);
+    if (!db || !student || !date) return show(false);
+    try {
+        const req = db.transaction("records", "readonly").objectStore("records")
+            .index("student_date_type").getKey([student, date, 2]);
+        req.onsuccess = () => show(req.result !== undefined);
+        req.onerror = () => show(false);
+    } catch (e) {
+        show(false);
+    }
+}
+
+let _secondReviewBound = false;
+function bindSecondReviewWatchers() {
+    if (_secondReviewBound) return;
+    const s = document.getElementById('studentSelect');
+    const d = document.getElementById('activityDate');
+    if (!s || !d) return;
+    s.addEventListener('change', refreshSecondReviewCard);
+    d.addEventListener('change', refreshSecondReviewCard);
+    _secondReviewBound = true;
 }
 
 // إلغاء تمييز نوع النشاط (بعد الحفظ السريع مثلاً)
@@ -1218,7 +1263,7 @@ async function saveActivity() {
         return showAlert("يجب اختيار الطالب ونوع النشاط");
     }
 
-    if ((type === 1 || type === 2) && (!fromRange || !toRange)) {
+    if ((type === 1 || type === 2 || type === SECOND_REVIEW_TYPE) && (!fromRange || !toRange)) {
         return showAlert("يجب اختيار آيات صحيحة من القائمة");
     }
 
@@ -1409,9 +1454,11 @@ async function getTeacherIdentity() {
 // سجل نشاط بالحقول الافتراضية؛ ما يُمرَّر في opts يطغى عليها
 function buildActivityRecord(opts) {
     const type = Number(opts.type);
+    // المراجعة الثانية تُرتَّب كالمراجعة (لا صفّ لها في الثوابت)
+    const lookupType = (type === SECOND_REVIEW_TYPE) ? 2 : type;
     const activityInfo = STATIC_LOOKUP.find(
         i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE"
-          && parseInt(i.LOOKUP_VALUE) === type
+          && parseInt(i.LOOKUP_VALUE) === lookupType
     );
 
     return Object.assign({
@@ -1442,18 +1489,49 @@ function persistRecord(record, onSaved) {
     const store = tx.objectStore("records");
     const check = store.index("student_date_type").get([record.student, record.date, record.type]);
 
-    check.onsuccess = () => {
+    check.onsuccess = async () => {
         if (check.result) {
+            // 🔁 مراجعةٌ أولى مسجّلة اليوم ⇒ هل هذه ثانية؟ (بدل «نشاط مكرر»)
+            if (Number(record.type) === 2) {
+                return offerSecondReview(record, check.result, onSaved);
+            }
             showAlert({ title: "نشاط مكرر", message: "هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.", icon: "⚠️" });
             return;
         }
         store.add(record).onsuccess = () => {
             refreshAll();
+            refreshSecondReviewCard();   // مراجعةٌ أولى حُفظت ⇒ يظهر زرّ الثانية
             showToast("تم حفظ النشاط بنجاح");
             if (typeof onSaved === "function") onSaved();
             requestSync();
         };
     };
+}
+
+// المراجعة الأولى موجودة ⇒ تُعرض «مراجعة ثانية»، وإن وُجدت الثانية أيضًا فلا ثالثة.
+// (المعاملة الأولى تُغلق مع الحوار، فالحفظ في معاملةٍ جديدة عبر persistRecord)
+async function offerSecondReview(record, first, onSaved) {
+    const second = await new Promise((resolve) => {
+        const req = db.transaction("records", "readonly").objectStore("records")
+            .index("student_date_type").getKey([record.student, record.date, SECOND_REVIEW_TYPE]);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(undefined);
+    });
+    if (second !== undefined) {
+        return showAlert({ title: "لا ثالثة", message: "سُجّلت للطالب مراجعتان في هذا اليوم.", icon: "⚠️" });
+    }
+    const range = (first.fromRange && first.toRange)
+        ? `\n${AYAH_REVERSE[first.fromRange] || ''} — ${AYAH_REVERSE[first.toRange] || ''}`
+        : '';
+    const ok = await showConfirm({
+        title: "مراجعة ثانية؟",
+        message: `للطالب مراجعةٌ مسجّلة في هذا اليوم${range}\n\nهل تحفظ هذه مراجعةً ثانية؟`,
+        confirmText: "حفظ مراجعةً ثانية",
+        icon: activityIconHtml(SECOND_REVIEW_TYPE),
+    });
+    if (!ok) return;
+    record.type = SECOND_REVIEW_TYPE;
+    persistRecord(record, onSaved);
 }
 
 /* =========================================================
@@ -1595,6 +1673,7 @@ const OPEN_ACTIVITY_TYPES  = [1, 2, 6, 7];
 const QUICK_ACTIVITY_TYPES = [3, 4, 5];
 
 function activityTypeName(type) {
+    if (Number(type) === SECOND_REVIEW_TYPE) return SECOND_REVIEW_NAME;
     const found = STATIC_LOOKUP.find(
         i => i.LOOKUP_MEANING_CODE === "RECITATION_ATTENDANCE_TYPE"
           && parseInt(i.LOOKUP_VALUE) === Number(type)
@@ -1879,6 +1958,11 @@ function translateLookup(code, value) {
     // إذا كانت القيمة نصية (ليست رقم) → أعرضها كما هي
     if (isNaN(Number(key))) {
         return key;
+    }
+
+    // المراجعة الثانية نوعٌ محلّيّ (22) لا صفّ له في الثوابت
+    if (code === "RECITATION_ATTENDANCE_TYPE" && Number(key) === SECOND_REVIEW_TYPE) {
+        return SECOND_REVIEW_NAME;
     }
 
     // إذا كانت رقمية → ابحث في الخريطة
@@ -2690,10 +2774,20 @@ function populateSelectFromLookups(selectId, meaningCode) {
         option.value = item.value;
         option.textContent = item.name;
         select.appendChild(option);
+        // 🔁 «مراجعة ثانية» بعد «مراجعة» مباشرةً (نوعٌ محلّيّ — refreshSecondReviewCard)
+        if (selectId === "activityType" && String(item.value) === "2") {
+            const second = document.createElement("option");
+            second.value = String(SECOND_REVIEW_TYPE);
+            second.textContent = SECOND_REVIEW_NAME;
+            select.appendChild(second);
+        }
     });
 
     // حافظ على الاختيار السابق إن بقي موجوداً
-    if (previous && items.some(i => i.value === String(previous))) select.value = previous;
+    if (previous && (items.some(i => i.value === String(previous))
+                     || (selectId === "activityType" && String(previous) === String(SECOND_REVIEW_TYPE)))) {
+        select.value = previous;
+    }
 }
 
 function syncRecordsFromPage() {
@@ -4570,6 +4664,28 @@ async function pullRecordsFromServer() {
         // --- حفظ السجلات ---
         let translatedByIdNo = 0;
 
+        // 🔁 المراجعة الثانية: على السيرفر النوع 2 مرّتين في اليوم، وعلى الجهاز
+        //    الثانية 22 (الفهرس الفريد). الحقل kind إن أرسله السيرفر هو الحَكَم؛
+        //    وإلا فالأصغر رقمًا (tagno) هي الأولى. بدونه كان السحب كلّه يسقط
+        //    على الفهرس الفريد متى سجّل أحدٌ مراجعتين من تطبيق أندرويد.
+        const secondReviewTags = {};
+        (function markSecondReviews() {
+            const byDay = {};
+            for (const r of remoteRecords) {
+                if (Number(r.type) !== 2) continue;
+                const tag = Number(r.tagno || r.tagNo || 0);
+                const kind = String(r.kind || r.activity_type_kind || '').trim();
+                if (kind === '2') { secondReviewTags[tag] = true; continue; }
+                if (kind === '1') continue;
+                const k = `${r.student_no || r.studentno || r.student}|${r.date}`;
+                (byDay[k] = byDay[k] || []).push(tag);
+            }
+            Object.keys(byDay).forEach(k => {
+                const tags = byDay[k].sort((a, b) => a - b);
+                for (let i = 1; i < tags.length; i++) secondReviewTags[tags[i]] = true;
+            });
+        })();
+
         for (const remote of remoteRecords) {
             // معرّف الطالب في النشاط يجب أن يكون student_no ليلتقي مع مخزن الطلبة.
             // إن أرسل السيرفر رقم هوية بدلاً منه نترجمه عبر خريطة الطلاب المسحوبين.
@@ -4592,7 +4708,9 @@ async function pullRecordsFromServer() {
             const recordToSave = {
                 student:     student,
                 date:        String(remote.date).replace(/[\\"]/g, '').trim(),
-                type:        Number(remote.type),
+                type:        (Number(remote.type) === 2
+                              && secondReviewTags[Number(remote.tagno || remote.tagNo || 0)])
+                                 ? SECOND_REVIEW_TYPE : Number(remote.type),
                 teacher:     String(remote.teacher).replace(/[\\"]/g, '').trim(),
                 teacherName: (remote.teachername || remote.teacherName || "").replace(/[\\"]/g, '').trim(),
                 fromRange:   Number(remote.fromrange || 0),
@@ -4852,7 +4970,8 @@ function getNextAyah(record) {
 
 async function fillNextAyahFields(studentId, activityType) {
     // 1. تحديد الأنواع المسموح لها بالتعبئة التلقائية
-    const allowedTypes = [1, 2, 6, 7];
+    // 22 = المراجعة الثانية: خطّها من آخر مراجعةٍ ثانية لا من الأولى
+    const allowedTypes = [1, 2, SECOND_REVIEW_TYPE, 6, 7];
     if (!allowedTypes.includes(Number(activityType))) return;
 
     try {

@@ -1,11 +1,12 @@
-const CACHE_NAME = 'quran-app-v1.96';
+const CACHE_NAME = 'quran-app-v1.97';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
 //    البدء — وإلا ردّ cacheFallback بـindex.html فيضيع على الطالب اختبارُه.
-const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'app.js', 'api.js', 'courses.js', 'course_roles.js', 'app.css'];
+const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'app.js', 'api.js', 'courses.js', 'course_roles.js',
+                     'course_extras.js', 'app.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './app.css', './app.js', './api.js', './courses.js',
-               './course_roles.js'];
+               './course_roles.js', './course_extras.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
@@ -153,11 +154,15 @@ function buildSaveActivityBody(record) {
   const num = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
   const numOr0 = (v) => { const n = num(v); return n === null ? 0 : n; };
 
+  // 🔁 22 = المراجعة الثانية على الجهاز ⇐ على السيرفر النوع 2 ورقم المرّة '2'
+  const isSecond = (type === 22);
+
   return {
     action          : "SAVE",
     user_name       : String(record.teacher || ""),
     student_no      : String(record.student),
-    attendance_type : String(type),
+    attendance_type : String(isSecond ? 2 : type),
+    activity_type_kind: isSecond ? "2" : "1",
     activity_date   : String(record.date),
     from_aya_no     : String(numOr0(from)),
     to_aya_no       : String(numOr0(to)),

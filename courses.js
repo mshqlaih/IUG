@@ -399,6 +399,11 @@ function normalizeCourseDetail(j) {
             smtrAvg   : s.smtr_avg    == null ? null : Number(s.smtr_avg),
             finalAvg  : s.final_avg   == null ? null : Number(s.final_avg),
             studentAvg: s.student_avg == null ? null : Number(s.student_avg),
+            // 📱 (2026-10-06) لكشف الدورة — sv/courseRoster يُرجعها، و getCourse (بلا
+            //    حارس) لا يُرجع الرقمين عمدًا: تبقى فارغة هناك
+            birthDate : s.birth_date  ? String(s.birth_date).split('T')[0] : null,
+            mobileNo  : s.mobile_no   ? String(s.mobile_no).trim() || null : null,
+            whatsappNo: s.whatsapp_no ? String(s.whatsapp_no).trim() || null : null,
         })),
         exams: (j.exams || []).map(e => ({
             idNo     : String(e.id_no),
@@ -525,7 +530,9 @@ async function syncCourseResults() {
 
 // الأربعة الأخيرة لإشراف الدورات (course_roles.js) — في التبويب نفسه
 const COURSES_VIEWS = ['coursesListView', 'courseFormView', 'courseRosterView',
-                       'svCentersView', 'svCoursesView', 'svRosterView', 'svAttView'];
+                       'svCentersView', 'svCoursesView', 'svRosterView', 'svAttView',
+                       // أدوات المشرف (course_extras.js): البحث · الحاصلون · المعلّمون
+                       'cxView'];
 
 function showCoursesView(name) {
     COURSES_VIEWS.forEach(id => {
@@ -1629,16 +1636,12 @@ async function submitCourseStudents() {
     const st = document.getElementById('addStudentsStatus');
     const show = (m, c) => { if (st) { st.textContent = m; st.style.color = c || ''; } };
 
-    const raw = String((ta && ta.value) || '');
-    // يقبل الفواصل والأسطر والمسافات
-    const ids = raw.split(/[\s,،;]+/).map(s => toAsciiDigits(s).replace(/\D+/g, '')).filter(Boolean);
+    // كل سطر: هويّة ثم (اختياريًّا) الجوال ثم الواتس — course_extras.js
+    const parsed = cxParseStudentLines((ta && ta.value) || '');
+    if (parsed.error) return show("❌ " + parsed.error, '#c0392b');
+    const ids = parsed.ids;
 
     if (!ids.length) return show("❌ أدخل رقم هوية واحداً على الأقل", '#c0392b');
-
-    const bad = ids.filter(id => checkIDNumber(id) !== "Y");
-    if (bad.length) {
-        return show("❌ هويات غير صحيحة: " + bad.join('، '), '#c0392b');
-    }
 
     const date = String((document.getElementById('courseRegisterDate') || {}).value || '');
     if (!date) return show("❌ اختر تاريخ التسجيل", '#c0392b');
@@ -1650,13 +1653,32 @@ async function submitCourseStudents() {
     const ctx = _addStudentsCtx;
     if (!ctx || !ctx.courseNo) return show("❌ لا دورة مفتوحة", '#c0392b');
 
+    show("🔄 جارٍ فحص تسلسل الدورات…", '#3498db');
+    // 🪜 الممنوعون بأسمائهم قبل الإرسال، والمشرف يستثني (السيرفر الحَكَم)
+    closeAddCourseStudents();
+    const send = await cxLadderGate(ctx.courseNo, ids);
+    const box = document.getElementById('addStudentsModal');
+    if (box) box.style.display = 'flex';
+    if (!send || !send.length) return show(send ? "لا أحد يُسجَّل" : "", '');
+
     show("🔄 جارٍ التسجيل…", '#3498db');
     try {
         // ⚠️ الدفعة ذرّية: تُقبل كلها أو تُرفض كلها
-        const res = await QMC.addCourseStudents(ctx.courseNo, ids, date);
+        const res = await QMC.addCourseStudents(ctx.courseNo, send, date, parsed.contacts);
         const added = Number(res.added || 0), skipped = Number(res.skipped || 0);
 
-        closeAddCourseStudents();
+        // الممنوعون يبقون في الحقل — يُعاد تسجيلهم بعد استثناء المشرف
+        const left = ids.filter(id => send.indexOf(id) === -1);
+        if (left.length) {
+            // بأرقامهم كما أُدخلت — لا يُعاد كتابتها بعد الاستثناء
+            if (ta) ta.value = left.map(id => {
+                const k = parsed.contacts[id] || {};
+                return [id, k.mobile_no || '', k.whatsapp_no || ''].join(' ').trim();
+            }).join('\n');
+            show(`✅ أُضيف ${added} · بقي ${left.length} خارج التسلسل`, '#137333');
+        } else {
+            closeAddCourseStudents();
+        }
         showToast(`أُضيف ${added}` + (skipped ? ` · ${skipped} مسجّل سلفاً` : ''));
         await ctx.onDone();
     } catch (err) {

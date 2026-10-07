@@ -689,6 +689,8 @@ function ctCardHtml(c, i) {
         <div class="cr-actions">
             <button type="button" class="cr-action" onclick="openCtStudents(${i})">
                 <i class="fas fa-user-plus"></i> إضافة طلاب</button>
+            <button type="button" class="cr-action" onclick="openCourseContacts(${c.courseNo}, _ctCourses[${i}].courseName)">
+                <i class="fas fa-address-book"></i> أرقام الطلاب</button>
             ${c.resultsApproved ? `<button type="button" class="cr-action ok" onclick="openCtResults(${i})">
                 <i class="fas fa-clipboard-check"></i> نتائج طلابي</button>` : ''}
             <button type="button" class="cr-action primary" onclick="openCtAttendance(${i})">
@@ -1483,6 +1485,9 @@ function renderSvRoster() {
                 <i class="fas fa-print"></i> طباعة الكشف</button>` +
             (canManageCourses() ? `<button type="button" class="cr-action" ${_svBusy ? 'disabled' : ''} onclick="svAddStudents()">
                 <i class="fas fa-user-plus"></i> تسجيل طلاب</button>` : '') +
+            // 📱 جوال الطلاب وواتسهم ونسخ أرقام الواتس (course_extras.js)
+            `<button type="button" class="cr-action" onclick="openCourseContacts(${c.courseNo}, _svCourse.courseName)">
+                <i class="fas fa-address-book"></i> أرقام الطلاب</button>` +
             `<button type="button" class="cr-action" ${_svBusy ? 'disabled' : ''} onclick="loadSvRoster(true)">
                 <i class="fas fa-rotate"></i> تحديث</button>`;
     }
@@ -1938,6 +1943,12 @@ function crSheetRows(students, markOf, hasMid, tierOf, presentBy) {
         const complete = (fin != null && (!hasMid || mid != null)) || (!any && s.studentAvg != null);
         return {
             seq: i + 1, idNo: s.idNo, name: s.name,
+            // 📱 (2026-10-06) الميلاد في الكشف كلّه، والجوال والواتس في Excel وحده
+            //    (الورقة العموديّة لا تتّسع، وهي للتوقيع لا للتواصل). والواتس الفعليّ:
+            //    الجوال نفسه إن لم يُسجَّل رقمٌ مختلف — فيُنسخ العمود وحده إلى المجموعة.
+            birthDate: s.birthDate || null,
+            mobile: s.mobileNo || null,
+            whatsapp: s.whatsappNo || s.mobileNo || null,
             present: presentBy ? (presentBy[s.idNo] != null ? presentBy[s.idNo] : null) : null,
             mid: mid, fin: fin, total: total,
             tier: total == null ? null : tierOf(total, complete),
@@ -1968,6 +1979,8 @@ async function buildSvSheet() {
     return {
         title: c.courseName, className: c.className,
         teacher: c.teacherName || null,
+        // جوال المعلّم — من sv/courses أوّلًا ثم رأس الكشف سقوطًا
+        teacherMobile: c.teacherMobile || roster.detail.teacherMobile || null,
         startDate: c.startDate, endDate: c.endDate,
         totalDays: (att && att.days.length) ? att.days.length : null,
         rows: crSheetRows(roster.detail.students, s => {
@@ -1990,6 +2003,7 @@ function buildExamSheet() {
     return {
         title: oc.courseName || d.courseName, className: oc.className || null,
         teacher: d.teacherIdNo ? 'هوية ' + d.teacherIdNo : null,
+        teacherMobile: d.teacherMobile || null,
         startDate: d.startDate || oc.startDate, endDate: d.endDate,
         totalDays: null,
         rows: crSheetRows(d.students, s => {
@@ -2038,8 +2052,10 @@ function closeCourseSheet() {
     if (modal) modal.style.display = 'none';
 }
 
+// short = الورقة المطبوعة (عموديّة) · وإلّا Excel: فيه الجوال والواتس أيضًا
 function crSheetHeaders(sheet, short) {
-    const h = ['م', 'رقم الهوية', 'اسم الطالب'];
+    const h = ['م', 'رقم الهوية', 'اسم الطالب', short ? 'الميلاد' : 'تاريخ الميلاد'];
+    if (!short) h.push('الجوال', 'واتس');
     if (sheet.totalDays != null) h.push(short ? 'الحضور' : 'أيام الحضور');
     h.push('النصفي', 'النهائي', 'المجموع', 'التقدير');
     return h;
@@ -2047,7 +2063,8 @@ function crSheetHeaders(sheet, short) {
 
 function crSheetInfo(sheet) {
     return {
-        line1: ['المعلّم: ' + (sheet.teacher || 'غير مُسنَد')]
+        line1: ['المعلّم: ' + (sheet.teacher || 'غير مُسنَد') +
+                (sheet.teacherMobile ? '  ·  جوال: ' + sheet.teacherMobile : '')]
             .concat(sheet.className ? ['التصنيف: ' + sheet.className] : []),
         line2: [(sheet.startDate ? 'من ' + crDispDate(sheet.startDate) : '') +
                 (sheet.endDate ? '  إلى ' + crDispDate(sheet.endDate) : ''),
@@ -2065,6 +2082,7 @@ function courseSheetHtml(sheet) {
         <td>${r.seq}</td>
         <td class="csheet-id">${escapeHtml(r.idNo)}</td>
         <td class="csheet-name">${escapeHtml(r.name)}</td>
+        <td class="csheet-id">${escapeHtml(crDispDate(r.birthDate))}</td>
         ${withAtt ? `<td>${r.present == null ? '—' : r.present + ' / ' + sheet.totalDays}</td>` : ''}
         <td>${num(r.mid)}</td>
         <td>${num(r.fin)}</td>
@@ -2178,7 +2196,9 @@ async function excelCourseSheet() {
         headers,
     ].concat(s.rows.map(r => {
         // ⚠️ الهوية نصًّا (أصفارها البادئة)، والدرجات أرقاماً تبقى قابلة للجمع والفرز
-        const row = [r.seq, String(r.idNo), r.name];
+        // ⚠️ الجوال نصًّا كالهويّة: الصفر الأوّل يُمحى لو كان رقمًا، و«+» يُقرأ معادلة
+        const row = [r.seq, String(r.idNo), r.name, crDispDate(r.birthDate),
+                     r.mobile ? String(r.mobile) : '', r.whatsapp ? String(r.whatsapp) : ''];
         if (withAtt) row.push(blank(r.present));
         row.push(blank(r.mid), blank(r.fin), blank(r.total), r.tier || '');
         return row;
@@ -2188,7 +2208,7 @@ async function excelCourseSheet() {
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         const last = headers.length - 1;
         ws['!merges'] = [0, 1, 2].map(r => ({ s: { r: r, c: 0 }, e: { r: r, c: last } }));
-        const widths = [5, 14, 32];
+        const widths = [5, 14, 32, 13, 14, 14];
         if (withAtt) widths.push(12);
         widths.push(10, 10, 10, 14);
         ws['!cols'] = widths.map(w => ({ wch: w }));
