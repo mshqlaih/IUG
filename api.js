@@ -385,11 +385,21 @@ window.QMC = (function () {
 
   // كل الثوابت من السيرفر (EXAM_TYPE، EXAM_PRAYER_TIME_CODE… غير موجودة في
   // STATIC_LOOKUP.json المحلي)
+  // ⚠️ (2026-10-07) getLookup معالجٌ json/collection — ORDS يقسمه صفحاتٍ (25 صفًّا
+  //    افتراضيًّا) مع hasMore. كانت الصفحة الأولى وحدها تُقرأ فيضيع ما بعدها
+  //    («مقبول» غاب من التقييم)، وبلا ORDER BY يتبدّل الضائع بين نداءٍ وآخر.
+  //    فتُتبَع الصفحات بـ offset حتى ينتهي hasMore (وسقفٌ يمنع حلقةً لا تنتهي).
   async function getLookups() {
-    const res = await apiFetch("getLookup");
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const body = await res.json().catch(() => null);
-    return (body && body.items) || [];
+    const all = [];
+    for (let page = 0; page < 40; page++) {
+      const res = await apiFetch("getLookup" + (all.length ? "?offset=" + all.length : ""));
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const body = await res.json().catch(() => null);
+      const items = (body && body.items) || [];
+      Array.prototype.push.apply(all, items);
+      if (!body || !body.hasMore || !items.length) break;
+    }
+    return all;
   }
 
   // إعدادات جلسة الاختبار الفعّالة للمستخدم:

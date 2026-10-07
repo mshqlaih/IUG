@@ -2769,7 +2769,12 @@ function populateSelectFromLookups(selectId, meaningCode) {
     const previous = select.value;
     select.innerHTML = "";
 
+    // «نشاط غير مدخل» (99) لا يُختار — يحسبه السيرفر لليوم الفارغ ويُعرض اسمه في
+    // التقارير وحدها (والثوابت تبقى كاملة لـ translateLookup). Flutter يستثنيه كذلك.
+    const hidden = (selectId === "activityType") ? ["99"] : [];
+
     items.forEach(item => {
+        if (hidden.indexOf(String(item.value)) !== -1) return;
         const option = document.createElement("option");
         option.value = item.value;
         option.textContent = item.name;
