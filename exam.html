@@ -146,6 +146,8 @@
 <div id="bar" class="bar" style="display:none"></div>
 
 <script src="api.js"></script>
+<!-- قبل الصفحة: يعرّف window.CQ، ويقرأ window.OXK عند الاستدعاء لا عند التحميل -->
+<script src="exam_cq.js"></script>
 <script>
 (function () {
   "use strict";
@@ -348,7 +350,8 @@
       ? '<div class="card hello">أهلًا وسهلًا، <b>' + esc(short) + "</b></div>"
       : "";
     if (!exams.length) {
-      html = '<div class="card"><div class="big">📭</div><p style="text-align:center">لا اختبار محجوز لك الآن.</p></div>';
+      // id: تُخفيه exam_cq.js إن كانت للطالبة دورات — «لا اختبار» يضلّلها
+      html = '<div class="card" id="oxEmpty"><div class="big">📭</div><p style="text-align:center">لا اختبار محجوز لك الآن.</p></div>';
     }
     exams.forEach(function (x) {
       var ws = parseIso(x.window_start), we = parseIso(x.window_end);
@@ -391,10 +394,13 @@
               '<div class="meta">' + meta + "</div>" +
               '<div class="slot-act">' + action + "</div></div>";
     });
+    // 🎓 دورات التجويد: دروسٌ للتدريب ومواعيد النصفي والنهائي — exam_cq.js
+    html += '<div id="cqbox"></div>';
     // «خروج» صار في الترويسة — مكانٌ ثابت لا يتغيّر بين الشاشات
     html += '<div class="row" style="justify-content:center">' +
             '<button class="link" id="rf">تحديث</button></div>';
     app.innerHTML = html;
+    if (window.CQ) window.CQ.mount(document.getElementById("cqbox"));
 
     document.getElementById("rf").onclick = viewList;
     Array.prototype.forEach.call(app.querySelectorAll("button[data-rid]"), function (b) {
@@ -834,6 +840,17 @@
       '<button class="link" id="bk">اختباراتك</button>';
     document.getElementById("bk").onclick = viewList;
   }
+
+  // 🎓 أدواتٌ مشتركة لـexam_cq.js (دورات التجويد) — هي تبني شاشاتها بنفسها،
+  //    وهذا الملفّ (اختبار المفردات الحيّ) لا يمسّه شيءٌ منها.
+  window.OXK = {
+    app: app, bar: bar, titleEl: titleEl, clockEl: clockEl,
+    esc: esc, two: two, call: call, msgOf: msgOf, parseIso: parseIso,
+    dayLabel: dayLabel, hm: hm, showLogout: showLogout,
+    viewList: viewList, viewLogin: viewLogin,
+    stopList: function () { clearTimeout(listTimer); },
+    device: OX_DEV
+  };
 
   // ── الإقلاع ────────────────────────────────────────────────────────────
   if (!QMC.getDeviceId()) viewLogin(); else viewList();

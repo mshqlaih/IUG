@@ -1,12 +1,13 @@
-const CACHE_NAME = 'quran-app-v1.97';
+const CACHE_NAME = 'quran-app-v1.98';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
 //    البدء — وإلا ردّ cacheFallback بـindex.html فيضيع على الطالب اختبارُه.
-const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'app.js', 'api.js', 'courses.js', 'course_roles.js',
-                     'course_extras.js', 'app.css'];
-const SHELL = ['./', './index.html', './login.html', './exam.html', './app.css', './app.js', './api.js', './courses.js',
-               './course_roles.js', './course_extras.js'];
+// ✅ exam_cq.js (2026-10-08): دروس الدورات واختبارها داخل exam.html — مخزَّنٌ معها
+const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
+                     'course_roles.js', 'course_extras.js', 'app.css'];
+const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './app.js', './api.js',
+               './courses.js', './course_roles.js', './course_extras.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.

@@ -590,7 +590,9 @@ function cxRenderHistory(ctx) {
         const pct = (c.total != null && c.max) ? Math.round(c.total * 100 / c.max) : null;
         const passed = (!c.approved || c.total == null || c.passMark == null) ? null : c.total >= c.passMark;
         const pills = [];
-        if (!c.approved) pills.push('<span class="cr-pill">لم تُعتمد النتائج بعد</span>');
+        // المنقطع لا يُحكم عليه باجتيازٍ ولا رسوب — ترك الدورة (2026-10-08)
+        if (c.studentStatus === CR_DROPPED) pills.push('<span class="cr-pill crit">منقطع</span>');
+        else if (!c.approved) pills.push('<span class="cr-pill">لم تُعتمد النتائج بعد</span>');
         else if (passed === true) pills.push('<span class="cr-pill ok">✓ مجتاز</span>');
         else if (passed === false) pills.push('<span class="cr-pill crit">لم يجتز</span>');
         else pills.push('<span class="cr-pill ok">✓ نتيجة معتمدة</span>');

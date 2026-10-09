@@ -38,6 +38,19 @@ function crTodayStr() {
     return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate());
 }
 
+/* تصنيف المسجَّل — QMC_COURSE_STUDENTS.STUDENT_STATUS بترميز التحفيظ
+   (1 معتمد · 3 منقطع · 5 إضافي). نظيرُه في Flutter
+   lib/utils/course_student_status.dart — يُحدَّثان معًا.
+   🔑 المنقطع (2026-10-08) خارج تقييم الدورة كلّه: الحضور والزيارة والكفالة
+   والنِّسب، ويبقى في الكشف بشارته. */
+const CR_APPROVED = 1, CR_DROPPED = 3, CR_EXTRA = 5;
+function crStatusLabel(st) {
+    return st === CR_DROPPED ? 'منقطع' : (st === CR_EXTRA ? 'إضافي' : 'معتمد');
+}
+function crStatusPillCls(st) {
+    return st === CR_DROPPED ? 'crit' : (st === CR_EXTRA ? '' : 'accent');
+}
+
 // لون النسبة — للانتظام والنتيجة
 function crPctCls(p) {
     if (p == null) return '';
@@ -146,7 +159,13 @@ async function openAttendanceEntry(opts) {
     await attLoadDay();
 }
 
+// 🔑 المنقطع (3) خارج رصد الحضور (2026-10-08، كالتطبيق): لو بقي لسُجّل
+//    غائبًا كلَّ يوم فهبط انتظام الدورة بمن ليس فيها.
 async function attLoadStudents(a) {
+    return (await attLoadRoster(a)).filter(s => s.status !== CR_DROPPED);
+}
+
+async function attLoadRoster(a) {
     if (a.mode === 'teacher') {
         // أسماءٌ بلا درجات — Courses/myRoster
         const r = await crCached('ct_roster_' + a.courseNo, () => QMC.getMyRoster(a.courseNo), false);
@@ -238,7 +257,7 @@ function attRowHtml(s, i) {
     const v = _att.marks[s.idNo] || 1;
     return `<div class="att-row" id="attRow_${i}">
         <div class="att-name">${escapeHtml(s.name)}<small>🪪 ${escapeHtml(s.idNo)}${
-            s.status === 5 ? ' · إضافي' : ''}</small></div>
+            s.status === 1 ? '' : ' · ' + crStatusLabel(s.status)}</small></div>
         <div class="att-seg">
             <button type="button" class="${v === 1 ? 'on-present' : ''}" onclick="setAttMark(${i}, 1)">حاضر</button>
             <button type="button" class="${v === 2 ? 'on-absent' : ''}" onclick="setAttMark(${i}, 2)">غائب</button>
@@ -389,7 +408,7 @@ function normalizeCtStudent(j) {
     return {
         idNo        : String(j.id_no),
         name        : crS(j.name) || ('هوية ' + j.id_no),
-        status      : Number(j.student_status || 1),    // 1 معتمد · 5 إضافي
+        status      : Number(j.student_status || 1),    // 1 معتمد · 3 منقطع · 5 إضافي
         registerDate: crDate(j.register_date),
     };
 }
@@ -771,7 +790,7 @@ function ctResultsHtml(rows) {
                     r.total != null ? courseNum(r.total) : '—'}${pct != null ? ' · ' + pct + '٪' : ''}</span></span>
             </div>
             <div class="cr-sub">النصفي ${courseNum(r.mid)} · النهائي ${courseNum(r.fin)}${
-                r.status === 5 ? ' · إضافي' : ''}</div>
+                r.status === CR_APPROVED ? '' : ' · ' + crStatusLabel(r.status)}</div>
         </div>`;
     }).join('');
 
@@ -831,7 +850,7 @@ function renderCtStudents() {
         <div class="student-card">
             <div class="student-card-head">
                 <span class="student-name">${escapeHtml(s.name)}</span>
-                <span class="cr-pill ${s.status === 5 ? '' : 'accent'}">${s.status === 5 ? 'إضافي' : 'معتمد'}</span>
+                <span class="cr-pill ${crStatusPillCls(s.status)}">${crStatusLabel(s.status)}</span>
             </div>
             <div class="cr-sub">🪪 ${escapeHtml(s.idNo)}${
                 s.registerDate ? ' · سُجّل ' + escapeHtml(s.registerDate) : ''}</div>
@@ -1338,7 +1357,7 @@ async function loadSvRoster(forceOnline) {
 function normalizeSvRoster(raw) {
     const r = raw || {};
     const detail = normalizeCourseDetail(r);
-    // تصنيف المسجَّل (1 معتمد · 5 إضافي) لا تقرؤه normalizeCourseDetail — يلزم هنا وحده
+    // تصنيف المسجَّل (1 معتمد · 3 منقطع · 5 إضافي) لا تقرؤه normalizeCourseDetail — يلزم هنا وحده
     const statusById = {};
     (r.students || []).forEach(s => { statusById[String(s.id_no)] = Number(s.student_status || 1); });
     detail.students.forEach(s => { s.studentStatus = statusById[s.idNo] || 1; });
@@ -1440,11 +1459,21 @@ function svTierOf(total, status) {
     }
 }
 
+function svIsDropped(s) { return (s.studentStatus || 1) === CR_DROPPED; }
+
+/* 'all' = المسجّلون **القائمون** (بلا المنقطعين) — وهو عدد الدورة.
+   🔑 المنقطع خارج «لم يُرصد/ناقص/مكتمل»: لا نتيجةَ تُنتظر له، وعدُّه
+      «لم يُرصد» يُبقي الكشف ناقصًا أبدًا. */
 function svCountOf(status) {
-    const all = _svRoster ? _svRoster.detail.students : [];
+    const src = _svRoster ? _svRoster.detail.students : [];
+    if (status === 'dropped') return src.filter(svIsDropped).length;
+    const all = src.filter(s => !svIsDropped(s));
     if (status === 'all') return all.length;
     return all.filter(s => svStatusOf(s) === status).length;
 }
+
+// صفّ المسجَّل المفتوح فيه منتقي التصنيف (-1 = لا شيء)
+let _svStatusPick = -1;
 
 function setSvRosterFilter(f) {
     _svRosterFilter = f;
@@ -1465,7 +1494,8 @@ function renderSvRoster() {
             (c.className ? `<div class="roster-class">🎓 ${escapeHtml(c.className)}</div>` : '') +
             (total != null ? `<div class="roster-total">مجموع الدورة: ${courseNum(total)}${
                 svHasMid(c) ? ' (نصفي + نهائي)' : ''}</div>` : '') +
-            `<div class="roster-count">المسجّلون: ${svCountOf('all')} · مكتمل: ${svCountOf('done')} · لم يُرصد: ${svCountOf('none')}</div>` +
+            `<div class="roster-count">المسجّلون: ${svCountOf('all')} · مكتمل: ${svCountOf('done')} · لم يُرصد: ${svCountOf('none')}${
+                svCountOf('dropped') > 0 ? ' · منقطع: ' + svCountOf('dropped') : ''}</div>` +
             // 🏅 الحالة مكتوبةً لا أيقونةً وحدها
             (approved ? '<div style="color:#137333;font-weight:700"><i class="fas fa-circle-check"></i> النتائج معتمدة — مقفلة عن الرصد، ويراها المعلّم</div>' : '') +
             (_svRosterFromCache && _svRoster ? '<div class="roster-count"><i class="fas fa-hard-drive"></i> مخزَّن على الجهاز</div>' : '');
@@ -1494,7 +1524,9 @@ function renderSvRoster() {
 
     const chips = crEl('svRosterChips');
     if (chips) {
-        chips.innerHTML = [['all', 'الكل'], ['none', 'لم يُرصد'], ['partial', 'ناقص'], ['done', 'مكتمل']]
+        const fs = [['all', 'الكل'], ['none', 'لم يُرصد'], ['partial', 'ناقص'], ['done', 'مكتمل']];
+        if (svCountOf('dropped') > 0) fs.push(['dropped', 'منقطع']);
+        chips.innerHTML = fs
             .map(f => `<button type="button" class="cr-chip ${f[0] === _svRosterFilter ? 'active' : ''}"
                 onclick="setSvRosterFilter('${f[0]}')">${f[1]} ${svCountOf(f[0])}</button>`).join('');
     }
@@ -1507,9 +1539,15 @@ function renderSvRoster() {
 
     const students = _svRoster.detail.students;
     const q = normalizeAr((crEl('svRosterSearch') || {}).value || '').toLowerCase();
-    const html = students.map((s, i) => {
+    // المنقطعون في آخر الكشف — والفهرس i يبقى فهرس المصفوفة الأصليّة
+    const order = students.map((s, i) => i)
+        .sort((a, b) => (svIsDropped(students[a]) ? 1 : 0) - (svIsDropped(students[b]) ? 1 : 0) || a - b);
+    const html = order.map(i => {
+        const s = students[i];
         const status = svStatusOf(s);
-        if (_svRosterFilter !== 'all' && status !== _svRosterFilter) return '';
+        const dropped = svIsDropped(s);
+        if (_svRosterFilter === 'dropped' ? !dropped
+            : (_svRosterFilter !== 'all' && (dropped || status !== _svRosterFilter))) return '';
         if (q && normalizeAr(s.name).toLowerCase().indexOf(q) === -1 && s.idNo.indexOf(q) === -1) return '';
 
         const m = svMarksOf(s);
@@ -1520,21 +1558,28 @@ function renderSvRoster() {
         const marksLine = legacy ? 'مجموعٌ محفوظ بلا تفصيل المرحلتين'
             : ((svHasMid(c) || !svHasScheme(c)) ? 'النصفي: ' + courseNum(m[0]) + ' · ' : '') +
               'النهائي: ' + courseNum(m[1]);
-        const isApproved = (s.studentStatus || 1) === 1;
+        const st = s.studentStatus || 1;
+        // 🔑 منتقٍ لا تبديل (2026-10-08): القلب الدوريّ بين ثلاث حالات كان
+        //    يمرّ بـ«منقطع» دون قصد
+        const pill = _svStatusPick === i
+            ? [CR_APPROVED, CR_EXTRA, CR_DROPPED].map(v => `<span class="cr-pill tap ${
+                  v === st ? crStatusPillCls(v) || 'accent' : ''}"
+                  onclick="event.stopPropagation(); svSetStatus(${i}, ${v})">${crStatusLabel(v)}</span>`).join(' ')
+            : `<span class="cr-pill tap ${crStatusPillCls(st)}" title="لمسُه يغيّر التصنيف"
+                  onclick="event.stopPropagation(); svPickStatus(${i})">${crStatusLabel(st)}</span>`;
 
         return `
-        <div class="student-card roster-card" onclick="openSvResult(${i})">
+        <div class="student-card roster-card" onclick="openSvResult(${i})"${dropped ? ' style="opacity:.6"' : ''}>
             <div class="student-card-head">
-                <span class="student-name">${escapeHtml(s.name)}</span>
+                <span class="student-name"${dropped ? ' style="text-decoration:line-through"' : ''}>${escapeHtml(s.name)}</span>
                 <span class="req-badge ${badgeCls}"><bdi>${tot != null
                     ? courseNum(tot) + (max != null ? ' / ' + courseNum(max) : '') : '—'}</bdi></span>
             </div>
             <div class="req-body">
                 <div class="req-row"><i class="fas fa-id-card" style="color:#5f6368"></i><span>${escapeHtml(s.idNo)}</span>
-                    <span class="cr-pill tap ${isApproved ? 'accent' : ''}" title="لمسُه يبدّل التصنيف"
-                          onclick="event.stopPropagation(); svToggleStatus(${i})">${isApproved ? 'معتمد' : 'إضافي'}</span></div>
+                    ${pill}</div>
                 <div class="req-row"><i class="fas fa-list-ol" style="color:#1967d2"></i><span>${escapeHtml(marksLine)}</span></div>
-                <div class="req-row"><i class="fas fa-award" style="color:#e8710a"></i><span>${escapeHtml(tier ||
+                <div class="req-row"><i class="fas fa-award" style="color:#e8710a"></i><span>${escapeHtml(dropped ? 'منقطع' : tier ||
                     (status === 'done' ? 'مكتمل' : status === 'partial' ? 'غير مكتمل' : 'لم يُرصد'))}</span></div>
             </div>
         </div>`;
@@ -1544,18 +1589,26 @@ function renderSvRoster() {
         students.length ? 'لا نتائج' : 'لا مسجّلين في هذه الدورة'}</div>`;
 }
 
+// يفتح المنتقي في صفّه (أو يطويه إن كان مفتوحًا)
+function svPickStatus(i) {
+    _svStatusPick = _svStatusPick === i ? -1 : i;
+    renderSvRoster();
+}
+
 /* 🔑 تصنيف المسجَّل ليس زينة: عليه يقوم من يُقيَّم في الزيارة الميدانية، ومتى
-   تُعدّ الدورة معتمدة (12 معتمداً)، وأهليّتها للكفالة.
-   ⚠️ يُحدَّث محليًّا قبل النداء ويُرجَع عند الفشل — يُبدَّل لعشراتٍ تباعًا. */
-async function svToggleStatus(i) {
+   تُعدّ الدورة معتمدة (12 معتمداً)، وأهليّتها للكفالة. والمنقطع خارجها كلّها.
+   ⚠️ يُحدَّث محليًّا قبل النداء ويُرجَع عند الفشل — يُغيَّر لعشراتٍ تباعًا. */
+async function svSetStatus(i, next) {
     const c = _svCourse;
     const s = _svRoster && _svRoster.detail.students[i];
-    if (!c || !s || _svBusy) return;
+    _svStatusPick = -1;
+    if (!c || !s || _svBusy) return renderSvRoster();
+    const prev = s.studentStatus || 1;
+    if (next === prev) return renderSvRoster();
     if (!navigator.onLine) {
+        renderSvRoster();
         return showAlert({ title: 'لا يوجد اتصال', message: 'تغيير التصنيف يتطلّب اتصالاً.', icon: '📡' });
     }
-    const prev = s.studentStatus || 1;
-    const next = prev === 1 ? 5 : 1;
     s.studentStatus = next;
     renderSvRoster();
     try {
@@ -1581,7 +1634,8 @@ async function svToggleApproval() {
     const c = _svCourse;
     if (!c || !_svRoster || _svBusy) return;
     const toApprove = c.resultsApproved !== true;
-    const students = _svRoster.detail.students;
+    // المنقطع لا تُنتظر له نتيجة — فلا يُعدّ «ناقصًا» ولا في المجموع
+    const students = _svRoster.detail.students.filter(s => !svIsDropped(s));
     const missing = students.filter(s => s.finalAvg == null && s.studentAvg == null).length;
 
     const message = toApprove
@@ -1649,7 +1703,7 @@ function openSvResult(i) {
     const t = crEl('svResultTitle');
     if (t) t.textContent = s.name;
     const sub = crEl('svResultSub');
-    if (sub) sub.textContent = '🪪 ' + s.idNo + ' · ' + ((s.studentStatus || 1) === 1 ? 'معتمد' : 'إضافي');
+    if (sub) sub.textContent = '🪪 ' + s.idNo + ' · ' + crStatusLabel(s.studentStatus || 1);
 
     const status = svStatusOf(s);
     const tot = svTotalOf(s);
@@ -1932,8 +1986,11 @@ function crDispDate(iso) {
 }
 
 // صفوفٌ مرتّبة بالاسم. markOf(s) ⇒ [mid, fin]، وtierOf(total, complete) ⇒ نصّ
+// والمنقطعون (2026-10-08، studentStatus من كشف الإشراف) في آخره، تقديرُهم «منقطع»
 function crSheetRows(students, markOf, hasMid, tierOf, presentBy) {
-    const sorted = students.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar'));
+    const drop = s => (s.studentStatus === CR_DROPPED ? 1 : 0);
+    const sorted = students.slice().sort((a, b) =>
+        drop(a) - drop(b) || String(a.name).localeCompare(String(b.name), 'ar'));
     return sorted.map((s, i) => {
         const m = markOf(s);
         const mid = m[0], fin = m[1];
@@ -1951,7 +2008,7 @@ function crSheetRows(students, markOf, hasMid, tierOf, presentBy) {
             whatsapp: s.whatsappNo || s.mobileNo || null,
             present: presentBy ? (presentBy[s.idNo] != null ? presentBy[s.idNo] : null) : null,
             mid: mid, fin: fin, total: total,
-            tier: total == null ? null : tierOf(total, complete),
+            tier: drop(s) ? 'منقطع' : (total == null ? null : tierOf(total, complete)),
         };
     });
 }
