@@ -1,18 +1,20 @@
-const CACHE_NAME = 'quran-app-v1.99';
+const CACHE_NAME = 'quran-app-v2.00';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
 //    البدء — وإلا ردّ cacheFallback بـindex.html فيضيع على الطالب اختبارُه.
 // ✅ exam_cq.js (2026-10-08): دروس الدورات واختبارها داخل exam.html — مخزَّنٌ معها
+// ✅ mushaf.js (2026-10-20): المصحف في شاشة النشاط — نصّه في IndexedDB (QmcMushaf)
+//    وخطّه mushaf/QuranFont.ttf في ASSETS
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
-                     'course_roles.js', 'course_extras.js', 'app.css'];
+                     'course_roles.js', 'course_extras.js', 'mushaf.js', 'app.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './app.js', './api.js',
-               './courses.js', './course_roles.js', './course_extras.js'];
+               './courses.js', './course_roles.js', './course_extras.js', './mushaf.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
 const ASSETS = ['./quran_data.js', './STATIC_LOOKUP.json', './manifest.json',
-                './icon.png', './icon-192.png', './icon-512.png',
+                './icon.png', './icon-192.png', './icon-512.png', './mushaf/QuranFont.ttf', './mushaf/hafs_lines.json',
                 './vendor/fontawesome/css/all.min.css',
                 './vendor/fontawesome/webfonts/fa-solid-900.woff2'];
 

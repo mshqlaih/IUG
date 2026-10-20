@@ -267,7 +267,10 @@
             </div>
 
             <div class="field">
-                <label>الآية من</label>
+                <label>الآية من
+                    <!-- 📖 mushaf.js: ضغطةٌ للبداية وثانيةٌ للنهاية فيُملأ الحقلان -->
+                    <button type="button" class="mushaf-open-btn" onclick="openMushafPicker()" title="تحديد الآيات من المصحف"><i class="fas fa-book-quran"></i> من المصحف</button>
+                </label>
                 <div class="input-with-clear">
                     <input list="ayatList" id="rangeFromText" placeholder="مثلاً: بقرة 155" onfocus="handleSmartSearch(this)" oninput="handleSmartSearch(this); syncAyahID(this, 'rangeFrom')">
                     <span class="clear-btn" onclick="document.getElementById('rangeFromText').value='';document.getElementById('rangeFrom').value='';handleSmartSearch(document.getElementById('rangeFromText'))">✖</span>
@@ -1237,7 +1240,9 @@
     <script src="course_roles.js"></script>
     <!-- بعد course_roles.js: أرقام الطلاب · تسلسل الدورات · البحث · الحاصلون · المعلّمون -->
     <script src="course_extras.js"></script>
-    
+    <!-- 📖 المصحف لتحديد آيات النشاط (بعد app.js: buildSurahIndex و AYAH_REVERSE و showToast) -->
+    <script src="mushaf.js"></script>
+
         <div id="toast" class="toast-hidden"></div>
 </body>
 </html>

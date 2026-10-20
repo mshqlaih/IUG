@@ -4609,6 +4609,9 @@ async function pullRecordsFromServer() {
         syncContainer.innerHTML = `<span id="pullStatus" style="margin-inline-end:10px; color:#3498db; font-weight:bold;">🔄 جاري تحديث بيانات الحلقة والطلاب...</span>`;
     }
 
+    // 🩺 الخطوة الجارية تُذكر في رسالة الفشل — «فشل التحديث» وحدها لا تفرّق
+    //    بين شبكةٍ منقطعة وسيرفرٍ رافض وقاعدةِ جهازٍ معطوبة
+    let step = "فتح قاعدة بيانات الجهاز";
     try {
         const db = await new Promise((resolve, reject) => {
             const req = indexedDB.open("QuranProjectDB");
@@ -4617,15 +4620,21 @@ async function pullRecordsFromServer() {
         });
 
         // 1. جلب البيانات من السيرفر بالتوازي (موحّد عبر QMC مع X-Device-Id)
+        const tagged = (p, label) => p.catch(e => {
+            step = label;
+            throw e;
+        });
+        step = "جلب الأنشطة والطلاب من السيرفر";
         const [recordsData, studentsData] = await Promise.all([
-            QMC.pullCircleActivity(puserName),
-            QMC.pullStudents(puserName)
+            tagged(QMC.pullCircleActivity(puserName), "جلب أنشطة الحلقة (circleActivity)"),
+            tagged(QMC.pullStudents(puserName), "جلب الطلاب (getStudentByUser)")
         ]);
 
         const remoteRecords = recordsData.items || [];
         const remoteStudents = studentsData.items || [];
 
         // 2. فتح معاملة واحدة لكل من السجلات والطلاب
+        step = "حفظ الطلاب والأنشطة على الجهاز";
         const tx = db.transaction(["records", "students"], "readwrite");
         const storeRec = tx.objectStore("records");
         const storeStu = tx.objectStore("students");
@@ -4769,7 +4778,11 @@ async function pullRecordsFromServer() {
         console.error("❌ خطأ أثناء المزامنة:", err);
         if (syncContainer) {
             const statusEl = document.getElementById("pullStatus");
-            if (statusEl) statusEl.innerHTML = `❌ فشل التحديث.`;
+            // AbortError = مهلة الـ20 ثانية في apiFetch؛ TypeError = لا شبكة/حُجب الطلب
+            const why = (err && err.name === "AbortError") ? "انتهت مهلة الاتصال"
+                      : (err && (err.message || err.name)) || String(err);
+            if (statusEl) statusEl.innerHTML = `❌ فشل التحديث عند: ${escapeHtml(step)}` +
+                `<br><small style="font-weight:normal">${escapeHtml(why)}</small>`;
         }
     }
 }
