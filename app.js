@@ -4065,7 +4065,9 @@ function examRequestPayload(rec) {
         part_from            : rec.partFrom,
         part_to              : rec.partTo,
         status               : rec.status || "P",
-        session_id           : rec.sessionId || null,
+        // الترشيح الجديد بلا لجنة كأندرويد: السيرفر يختار لجنة الطالب لنوعه ومركز
+        // حلقته. فاللجنة المحلّية لجنةُ المستخدم الرئيسة، وقد لا تكون لجنته.
+        session_id           : rec.requestId ? (rec.sessionId || null) : null,
         exam_date            : rec.examDate || null,
         exam_prayer_time_code: rec.prayerCode || null,
         place_no             : rec.placeNo || null,
