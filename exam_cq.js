@@ -23,7 +23,8 @@ window.CQ = (function () {
 
   var LS = window.localStorage;
   var LETTERS = ["أ", "ب", "ج", "د", "هـ", "و"];
-  var STAGE = { MID: "الاختبار النصفي", FINAL: "الاختبار النهائي" };
+  var STAGE = { MID: "الاختبار النصفي", FINAL: "الاختبار النهائي",
+                QZ1: "الاختبار القصير الأول", QZ2: "الاختبار القصير الثاني" };
   var RETRY = [5, 15, 45];
 
   function K() { return window.OXK; }
@@ -142,14 +143,14 @@ window.CQ = (function () {
         return da < db ? -1 : da > db ? 1 : a.i - b.i;
       });
       if (lessons.length) {
-        html += '<div class="cq-sec">دروس للتدريب — متى شئتِ</div>';
+        html += '<div class="cq-sec">دروس للتدريب — في أيّ وقت</div>';
         lessons.forEach(function (o) {
           var l = o.l, li = o.i;
           var sub = l.question_count + " أسئلة";
           var pg = pages(l.page_from, l.page_to);
           if (pg) sub = pg + " · " + sub;
           if (l.attempts > 0) {
-            sub += " · تدرّبتِ " + l.attempts + (l.attempts === 1 ? " مرّة" : " مرّات") +
+            sub += " · التدريب " + l.attempts + (l.attempts === 1 ? " مرّة" : " مرّات") +
                    " · آخر نتيجة " + pct(l.last_pct) + " · أفضلها " + pct(l.best_pct);
           }
           // التدريب مفتوحٌ قبل اللقاء (قرار المستخدم 2026-10-09) — تنبيهٌ لا منع
@@ -159,7 +160,7 @@ window.CQ = (function () {
           html += '<button class="cq-lesson" data-cq-l="' + ci + ":" + li + '">' +
                   '<span class="n">' + esc(l.lesson_no) + "</span>" +
                   '<span class="t">' + esc(l.title_ar) + "<small>" + sub + "</small></span>" +
-                  '<span class="go">تدرّبي ›</span></button>';
+                  '<span class="go">تدريب ›</span></button>';
         });
       } else if (!(c.exams || []).length) {
         html += '<p class="mute">لا دروس للتدريب في هذه الدورة بعد.</p>';
@@ -195,11 +196,11 @@ window.CQ = (function () {
         : '<span class="slot-note good">تظهر نتيجتك بعد انتهاء الموعد</span>';
     } else if (x.done_other === "Y") {
       tag = '<span class="tag gone">اختُبر</span>';
-      action = '<span class="slot-note">اختبرتِ هذه المرحلة في موعدٍ سابق</span>';
+      action = '<span class="slot-note">اختُبرت هذه المرحلة في موعدٍ سابق</span>';
     } else if (t >= ws && t < we) {
       tag = '<span class="tag live">مفتوح الآن</span>';
       action = '<button class="btn" data-cq-x="' + ci + ":" + xi + '">' +
-               (x.state === "STARTED" ? "أكملي الاختبار" : "ادخلي الاختبار") + "</button>";
+               (x.state === "STARTED" ? "إكمال الاختبار" : "دخول الاختبار") + "</button>";
     } else if (t < ws) {
       tag = '<span class="tag wait">لم يبدأ</span>';
       action = '<span class="slot-note">يفتح ' + k.dayLabel(ws) +
@@ -207,7 +208,7 @@ window.CQ = (function () {
     } else {
       tag = '<span class="tag gone">انتهى</span>';
       action = '<span class="slot-note">' +
-               (x.state === "STARTED" ? "انتهى الموعد وسُلّم ما أجبتِ" : "انتهى الموعد ولم تدخلي الاختبار") +
+               (x.state === "STARTED" ? "انتهى الموعد وسُلّمت الإجابات" : "انتهى الموعد دون دخول الاختبار") +
                "</span>";
     }
     return '<div class="cq-exam"><div class="slot-head" style="margin-bottom:6px">' +
@@ -253,13 +254,13 @@ window.CQ = (function () {
             "</div>" +
             '<div class="q">' + esc(it.prompt_ar) + "</div>";
     if (it.kind === "MATCH") {
-      h += '<p class="mute" style="margin-top:-6px">اختاري لكلّ عنصرٍ ما يناسبه.</p>';
+      h += '<p class="mute" style="margin-top:-6px">لكلّ عنصرٍ ما يناسبه من القائمة.</p>';
       (it.choices || []).forEach(function (c) {
         var v = a ? (a[c.choice_id] || 0) : 0;
         h += '<div class="cq-pair"><span class="cq-left">' + esc(c.text_ar) + "</span>" +
              '<select data-i="' + it.item_no + '" data-l="' + c.choice_id + '"' +
              (v ? ' class="on"' : "") + (locked ? " disabled" : "") + ">" +
-             '<option value="0">— اختاري —</option>';
+             '<option value="0">— اختيار —</option>';
         (it.rights || []).forEach(function (r) {
           h += '<option value="' + r.pos + '"' + (r.pos === v ? " selected" : "") + ">" +
                esc(r.text_ar) + "</option>";
@@ -357,7 +358,7 @@ window.CQ = (function () {
     var k = K();
     var items = pr.items;
     var html = '<div class="card hello" style="font-size:15px">تدريب: <b>' + esc(pr.title) +
-               "</b><br><span class=\"mute\">أجيبي ثم اضغطي «صحّحي» — يظهر الصواب والشرح في الآخر.</span></div>" +
+               "</b><br><span class=\"mute\">بعد الإجابة زرّ «تصحيح» — يظهر الصواب والشرح في الآخر.</span></div>" +
                '<div id="cqwarn"></div>';
     items.forEach(function (it, i) {
       html += itemHtml(it, i + 1, items.length, pr.answers[it.item_no], false);
@@ -369,7 +370,7 @@ window.CQ = (function () {
     k.bar.style.display = "flex";
     k.bar.innerHTML = '<button class="btn2" id="cqx">رجوع</button>' +
                       '<span class="mute" id="cqcount"></span>' +
-                      '<button class="btn" id="cqok">صحّحي</button>';
+                      '<button class="btn" id="cqok">تصحيح</button>';
     el("cqx").onclick = function () { pr = null; k.viewList(); };
     el("cqok").onclick = submitPractice;
     practiceCount();
@@ -397,7 +398,7 @@ window.CQ = (function () {
     if (left > 0 && !pr.warned) {
       pr.warned = true;
       el("cqwarn").innerHTML = '<div class="banner">بقي ' + left +
-        " بلا إجابة (أو توصيلٌ ناقص). اضغطي «صحّحي» مرّةً أخرى للتصحيح على حالها.</div>";
+        " بلا إجابة (أو توصيلٌ ناقص). الضغط على «تصحيح» مرّةً أخرى يصحّحها على حالها.</div>";
       window.scrollTo(0, 0);
       return;
     }
@@ -411,8 +412,8 @@ window.CQ = (function () {
       // ⚠️ المصفوفة **نصًّا**: جسم الطلب في ORDS لا يربط المصفوفات
       r = await post("practice_submit", { attempt_key: pr.key, answers: JSON.stringify(answers) });
     } catch (e) {
-      if (ok) { ok.disabled = false; ok.textContent = "صحّحي"; }
-      el("cqwarn").innerHTML = '<div class="banner">تعذّر الاتصال — إجاباتك باقية، أعيدي المحاولة.</div>';
+      if (ok) { ok.disabled = false; ok.textContent = "تصحيح"; }
+      el("cqwarn").innerHTML = '<div class="banner">تعذّر الاتصال — إجاباتك باقية، ويمكن المحاولة من جديد.</div>';
       return;
     }
     if (!r.data || r.data.status !== "success") return back(k.msgOf(r));
@@ -444,7 +445,7 @@ window.CQ = (function () {
           html += '<div class="cq-pair"><span class="cq-left">' + esc(c.text_ar) + "</span>" +
                   '<span class="cq-rev ' + (right ? "ok" : "no") + '">' +
                   (right ? "✓ " + esc(rights[mine])
-                         : (mine ? "✗ " + esc(rights[mine]) + "<br>" : "لم تختاري<br>") +
+                         : (mine ? "✗ " + esc(rights[mine]) + "<br>" : "بلا اختيار<br>") +
                            "الصواب: <b>" + esc(rights[c.right_pos]) + "</b>") +
                   "</span></div>";
         });
@@ -457,7 +458,7 @@ window.CQ = (function () {
                   '</span><span class="txt">' + esc(c.text_ar) +
                   (note ? ' <em class="note">(' + note + ")</em>" : "") + "</span></div>";
         });
-        if (a === undefined) html += '<p class="mute">لم تُجيبي عن هذا السؤال.</p>';
+        if (a === undefined) html += '<p class="mute">لا إجابة عن هذا السؤال.</p>';
       }
       if (it.explain_ar) html += '<div class="cq-explain">💡 ' + esc(it.explain_ar) + "</div>";
       html += "</div>";
@@ -466,7 +467,7 @@ window.CQ = (function () {
     window.scrollTo(0, 0);
     k.bar.style.display = "flex";
     k.bar.innerHTML = '<button class="btn2" id="cqx">دوراتي</button>' +
-                      '<button class="btn" id="cqagain">تدرّبي مرّةً أخرى</button>';
+                      '<button class="btn" id="cqagain">تدريبٌ آخر</button>';
     var c = pr.course, l = pr.lesson;
     el("cqx").onclick = function () { pr = null; k.viewList(); };
     el("cqagain").onclick = function () { startPractice(c, l); };
@@ -547,7 +548,7 @@ window.CQ = (function () {
     if (ex.done) return viewDone(false);
     var html = "";
     if (ex.clash > 0) {
-      html += '<div class="banner">⚠️ بدأ هذا الاختبار من جهازٍ آخر أيضًا. إن لم تكوني أنتِ، راجعي المشرفة فورًا.</div>';
+      html += '<div class="banner">⚠️ بدأ هذا الاختبار من جهازٍ آخر أيضًا. إن لم يكن ذلك منك، فيُرجى مراجعة مشرف الدورة فورًا.</div>';
     }
     html += '<div id="cqsync"></div>';
     ex.items.forEach(function (it, i) {
@@ -568,13 +569,13 @@ window.CQ = (function () {
     if (!s) return;
     var n = pendingCount();
     s.innerHTML = n
-      ? '<div class="sync wait">⏳ ' + n + " إجابة على جهازك لم تصل بعد — لا تغلقي الصفحة</div>"
+      ? '<div class="sync wait">⏳ ' + n + " إجابة على جهازك لم تصل بعد — يُرجى عدم إغلاق الصفحة</div>"
       : '<div class="sync ok">✓ كلّ إجاباتك وصلت</div>';
   }
 
   function examCount() {
     var c = el("cqcount");
-    if (c && ex) c.textContent = "أجبتِ " + answeredCount(ex.items, ex.answers) + " من " + ex.items.length;
+    if (c && ex) c.textContent = "الإجابات: " + answeredCount(ex.items, ex.answers) + " من " + ex.items.length;
   }
 
   function onExamPick(no, choiceId, left, pos) {
@@ -689,19 +690,19 @@ window.CQ = (function () {
     ex.items.forEach(function (it, i) { if (!complete(it, ex.answers[it.item_no])) empty.push(i); });
     var html = '<div class="modal-bg" id="cqmbg"><div class="modal" role="dialog">';
     if (empty.length) {
-      html += "<h3>أكملي الإجابة أوّلًا</h3><p>بقي <b>" + empty.length + "</b> من " + ex.items.length +
+      html += "<h3>الإجابة لم تكتمل بعد</h3><p>بقي <b>" + empty.length + "</b> من " + ex.items.length +
               " بلا إجابةٍ كاملة.</p>" +
-              '<p class="mute">وإن انتهى الوقت سُلّم اختبارك بما أجبتِ، والفارغ يُحسب خطأً.</p>' +
+              '<p class="mute">وإن انتهى الوقت سُلّم اختبارك بما فيه من إجابات، والفارغ يُحسب خطأً.</p>' +
               '<div class="chips">' + empty.map(function (i) {
                 return '<button data-go="' + ex.items[i].item_no + '">السؤال ' + (i + 1) + "</button>";
               }).join("") + "</div>";
     } else {
-      html += "<h3>✅ أجبتِ عن الأسئلة كلّها</h3><p>راجعي إجاباتك إن شئتِ — <b>فلا تعديل بعد التسليم</b>.</p>";
+      html += "<h3>✅ الأسئلة كلّها مُجابة</h3><p>يمكن مراجعة الإجابات الآن — <b>فلا تعديل بعد التسليم</b>.</p>";
     }
     if (pendingCount()) html += '<p class="mute">' + pendingCount() + " إجابة على جهازك ستُرسل قبل التسليم.</p>";
     html += '<div class="actions">' + (empty.length ? "" : '<button class="btn" id="cqmok">تسليم الآن</button>') +
             '<button class="' + (empty.length ? "btn" : "btn3") + '" id="cqmno">' +
-            (empty.length ? "أكملي الإجابة" : "مراجعة") + "</button></div></div></div>";
+            (empty.length ? "إكمال الإجابة" : "مراجعة") + "</button></div></div></div>";
     document.body.insertAdjacentHTML("beforeend", html);
     var bg = el("cqmbg");
     bg.onclick = function (e) { if (e.target === bg) closeModal(); };
