@@ -321,6 +321,42 @@ function canSuperviseCourses() {
     return canManageCourses();
 }
 
+/* هل يُعرض له تبويب الدورات؟ سببٌ واحد يكفي: إدارة الدورات أو إشرافها
+   (والتبويب يحمل «إشراف الدورات» أيضًا)، أو قائمة شاشاتٍ تذكر `courses`،
+   أو أنه **عضو لجنةٍ أعطته دورات** — والأخير لا تعرفه الصلاحيات، بل جوابُ
+   getCourses: يُحفظ في `courses_any` باسم صاحبه (probeCoursesAny / loadCourses).
+   ⚠️ عضوٌ جديد لم يُجلب له شيء بعد يراه بعد أوّل probe متّصل.
+   والبيانات محميّة على السيرفر لا هنا: getCourses تُصفّى بعضوية اللجنة. */
+function hasCoursesReason(screens) {
+    if (canManageCourses() || canSuperviseCourses()) return true;
+    if (screens.indexOf('courses') !== -1) return true;
+    try { return localStorage.getItem('courses_any') === String(getCurrentUser()); }
+    catch (_) { return false; }
+}
+
+// يحفظ «له دوراتٌ أم لا» من قائمة getCourses — ويعيد رسم التبويبات إن تغيّر
+function setCoursesAny(list) {
+    const user = String(getCurrentUser());
+    let before = null;
+    try { before = localStorage.getItem('courses_any'); } catch (_) {}
+    const has = Array.isArray(list) && list.length > 0;
+    try {
+        if (has) localStorage.setItem('courses_any', user);
+        else localStorage.removeItem('courses_any');
+    } catch (_) {}
+    if ((before === user) !== has) applyAccessToTabs();
+}
+
+// سؤالٌ في الخلفية بعد الصلاحيات — لمن لا سبب آخر له يُظهر التبويب
+async function probeCoursesAny() {
+    if (!navigator.onLine) return;
+    if (canManageCourses() || canSuperviseCourses()) return;
+    try {
+        const list = await QMC.getCourses(getCurrentUser());
+        setCoursesAny(list);
+    } catch (err) { console.warn("تعذّر فحص الدورات:", err); }
+}
+
 // الشاشات المسموح بها من السيرفر — قائمة فارغة تعني «الكل» (كما في Flutter)
 function allowedScreens() {
     const s = USER_ACCESS && USER_ACCESS.screens;
@@ -349,18 +385,17 @@ function applyAccessToTabs() {
     const screens = allowedScreens();
     const buttons = Array.from(document.querySelectorAll('.tab-btn[data-tab]'));
 
-    /* ⚠️⚠️ **تبويب الدورات لم يعد محجوباً بالدور — وكان حجبه خطأً.**
-       `canManageCourses` تخصّ **إنشاء** الدورة وتعديلها وحذفها، لا رؤيتَها.
-       ومن يرصد نتائجها هو عضو لجنتها (`QMC_CAN_RECORD_COURSE_N` على
-       السيرفر)، وهو غالباً ليس contributor ولا administrator — فكان
-       التبويب يختفي عمّن وُجدت الشاشة من أجله أصلاً.
-       وتطبيق Flutter لا يحجبه: مدخل «اختبارات الدورات» في الدرج بلا حارس،
-       والحارس على أزرار الإدارة وحدها. فوُحّد السلوك هنا.
-       والصلاحية الحقيقية على السيرفر في الحالين: قائمة `getCourses` تُصفّى
-       بعضوية اللجنة، فمن لا لجنة له يرى شاشةً فارغة لا بيانات غيره. */
-    // «دوراتي» وحدها مرهونةٌ — بالملكيّة (is_course_teacher) لا بالدور
+    /* ⚠️⚠️ **تبويب الدورات مرهونٌ بسببٍ لرؤيته** (hasCoursesReason) — لا
+       بالدور وحده ولا مفتوحًا للجميع. كان مفتوحًا للجميع (2026-09) لأن
+       حجبه بـ`canManageCourses` أخفاه عن عضو اللجنة الذي يرصد، فصار المحفّظ
+       بلا دوراتٍ يرى تبويبًا فارغًا في الشريط (2026-10-24). */
+    // «دوراتي» مرهونةٌ بالملكيّة (is_course_teacher) لا بالدور
     const teacher = isCourseTeacher();
-    const roleAllows = (tabId) => (tabId === 'myCoursesTab') ? teacher : true;
+    const roleAllows = (tabId) => {
+        if (tabId === 'myCoursesTab') return teacher;
+        if (tabId === 'coursesTab') return hasCoursesReason(screens);
+        return true;
+    };
 
     const screenAllows = (tabId) => {
         // الإعدادات دائماً ظاهرة: منها التشخيص والمزامنة وإعادة الضبط
@@ -374,15 +409,10 @@ function applyAccessToTabs() {
            حلقاتٍ ولجانٍ ليست له. */
         if (!screens.length && teacher) return false;
 
-        /* ⚠️⚠️ **والدورات كذلك — ولا نظير لهذا الحارس في Flutter.**
-           هناك مدخلُ «اختبارات الدورات» في الدرج، والدرج لا يُصفّى بقائمة
-           `screens` أصلاً؛ تلك القائمة تحكم **تبويبات الأسفل** وحدها
-           (نشاط · طلبة · تقارير · طلبات). فلمّا صارت الدورات تبويباً هنا
-           ورثت حارساً لم يُقصد لها: قائمةٌ لا تذكر `courses` — وهي حال كل
-           مستخدمٍ لم تُحدَّث صلاحياته بعد إضافة الميزة — تُخفي التبويب
-           تماماً، فلا يراه حتى `Memo_SuperVisor`.
-           والبيانات محميّة على السيرفر لا هنا: `getCourses` تُصفّى بعضوية
-           اللجنة، فمن لا لجنة له يفتح تبويباً فارغاً لا بيانات غيره. */
+        /* ⚠️⚠️ **والدورات لا تُصفّى بقائمة الشاشات وحدها.** قائمةٌ لا تذكر
+           `courses` — وهي حال كل مستخدمٍ لم تُحدَّث صلاحياته بعد إضافة
+           الميزة — كانت تُخفي التبويب حتى عن `Memo_SuperVisor`.
+           فحارسُها `hasCoursesReason` في roleAllows أعلاه. */
         if (tabId === 'coursesTab') return true;
 
         const code = TAB_SCREEN_CODES[tabId];
@@ -437,6 +467,7 @@ async function loadUserAccess() {
     }
     applyAccessToTabs();
     refreshSettingsInfo();
+    probeCoursesAny();
 }
 
 /* تحميل مكتبة عند الطلب.

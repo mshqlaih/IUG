@@ -576,6 +576,7 @@ async function loadCourses() {
     try {
         const list = await QMC.getCourses(getCurrentUser());
         await coursesStorePut('courses', 'courses', list);
+        if (typeof setCoursesAny === 'function') setCoursesAny(list);
         _courses = list.map(normalizeCourseSummary);
         setCoursesBanner('');
         renderCoursesList();

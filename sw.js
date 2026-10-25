@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.01';
+const CACHE_NAME = 'quran-app-v2.02';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -6,10 +6,11 @@ const CACHE_NAME = 'quran-app-v2.01';
 // ✅ exam_cq.js (2026-10-08): دروس الدورات واختبارها داخل exam.html — مخزَّنٌ معها
 // ✅ mushaf.js (2026-10-20): المصحف في شاشة النشاط — نصّه في IndexedDB (QmcMushaf)
 //    وخطّه mushaf/QuranFont.ttf في ASSETS
+// ✅ inbox.js (2026-10-25): صندوق الرسائل (Inbox/getMessages) + إشعارات الجوال (push/*)
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
-                     'course_roles.js', 'course_extras.js', 'mushaf.js', 'app.css'];
+                     'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'app.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './app.js', './api.js',
-               './courses.js', './course_roles.js', './course_extras.js', './mushaf.js'];
+               './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.

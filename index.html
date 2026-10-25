@@ -167,6 +167,10 @@
         <span class="app-title"><i class="fas fa-mosque" style="margin-left: 8px;"></i>برنامج الصفوة لمتابعة الحلقات القرآنية</span>
         <div class="header-actions">
             <button id="installBtn" class="install-btn" style="display:none;"><i class="fas fa-download"></i> <span class="btn-text">تثبيت</span></button>
+            <!-- 🔔 الرسائل والإشعارات (inbox.js) — الشارة = ما لم يُقرأ + التنبيهات -->
+            <button class="inbox-btn" onclick="openInbox()" title="الرسائل والإشعارات">
+                <i class="fas fa-bell"></i> <span class="btn-text">الرسائل</span><span id="inboxBadge" class="inbox-badge"></span>
+            </button>
             <button class="settings-btn" onclick="openSettings()" title="بيانات المستخدم والإعدادات">
                 <i class="fas fa-circle-user"></i> <span class="btn-text">حسابي</span>
             </button>
@@ -205,6 +209,9 @@
         <span id="statusChipNote">التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.</span>
     </div>
 
+    <!-- رسائل درجتها BANNER (inbox.js) -->
+    <div id="inboxBanners"></div>
+
     <div class="tabs-header">
         <!-- «دوراتي» لمعلّم الدورة وحده (is_course_teacher) — يُظهره applyAccessToTabs -->
         <button class="tab-btn" data-tab="myCoursesTab" style="display:none" onclick="openTab('myCoursesTab', this)"><i class="fas fa-chalkboard-user"></i><span>دوراتي</span></button>
@@ -219,16 +226,7 @@
     <div class="container">
         <!-- شاشة النشاط -->
         <div id="activityTab" class="tab-content active">
-            <!-- شريط المسمّع: اضغط لعرض بياناتك وبيانات الحلقة في شاشة الإعدادات -->
-            <button type="button" class="emp-chip" onclick="openSettings()" title="عرض بيانات المسمّع والحلقة">
-                <i class="fas fa-circle-user emp-chip-icon"></i>
-                <span class="emp-chip-text">
-                    <span class="emp-chip-name" id="empChipName">جارٍ تحميل بياناتك…</span>
-                    <span class="emp-chip-sub" id="empChipSub">اضغط لعرض بيانات المركز والحلقة</span>
-                </span>
-                <i class="fas fa-chevron-left emp-chip-arrow"></i>
-            </button>
-
+            <!-- شريط المسمّع أُزيل (2026-10-24): الاسم والحلقة في الإعدادات، و«حسابي» في الترويسة -->
       <div class="card">
         <div class="section-title" style="grid-column: 1 / -1">تفاصيل النشاط</div>
         <div class="section-note" style="grid-column: 1 / -1">اختر الطالب، حدد الآيات، ثم أكمل التقييم قبل حفظ السجل.</div>
@@ -1242,6 +1240,8 @@
     <script src="course_extras.js"></script>
     <!-- 📖 المصحف لتحديد آيات النشاط (بعد app.js: buildSurahIndex و AYAH_REVERSE و showToast) -->
     <script src="mushaf.js"></script>
+    <!-- 🔔 صندوق الرسائل + إشعارات الجوال (بعد app.js: showConfirm و showToast) -->
+    <script src="inbox.js"></script>
 
         <div id="toast" class="toast-hidden"></div>
 </body>
