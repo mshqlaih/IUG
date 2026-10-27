@@ -461,6 +461,11 @@ async function loadUserAccess() {
             localStorage.setItem('user_access', JSON.stringify(cfg));
             localStorage.setItem('user_access_user', String(getCurrentUser()));
             console.log("✔ صلاحية المستخدم:", cfg.role_name);
+            // 🎨 مظهر الحساب يصل مع الصلاحيات (appearance.js) — بلا طلبٍ زائد
+            if (window.QmcAppearance) {
+                QmcAppearance.fromServer(String(getCurrentUser()),
+                    Object.prototype.hasOwnProperty.call(cfg, 'appearance'), cfg.appearance);
+            }
         }
     } catch (err) {
         console.warn("تعذّر جلب صلاحيات المستخدم:", err);
@@ -830,7 +835,7 @@ function scrollElementIntoView(el) {
 // أيقونات وألوان الأنشطة — مطابقة لـ StudentsScreen في تطبيق Flutter
 // (record_voice_over / refresh / person / mail / close / emoji_events / menu_book)
 const activityStyles = {
-    "1":  { fa: "fa-microphone-lines", color: "#2196F3" }, // تسميع
+    "1":  { fa: "fa-microphone-lines", color: "var(--primary)" }, // تسميع
     "2":  { fa: "fa-arrows-rotate",    color: "#4CAF50" }, // مراجعة
     "3":  { fa: "fa-user",             color: "#009688" }, // حضور بدون تسميع
     "4":  { fa: "fa-envelope",         color: "#3F51B5" }, // غياب بعذر
@@ -2412,7 +2417,7 @@ async function onStudentIdBlur() {
         return setStudentStatus('⚠️ لا يوجد اتصال — أكمل البيانات يدوياً.', '#e67e22');
     }
 
-    setStudentStatus('🔄 جارٍ الجلب من السجل المدني…', '#3498db');
+    setStudentStatus('🔄 جارٍ الجلب من السجل المدني…', 'var(--primary)');
 
     try {
         const data = await QMC.lookupCivilRecord(id);
@@ -2630,7 +2635,7 @@ async function addNewStudentOnline() {
 
     const btn = document.getElementById('submitStudentBtn');
     if (btn) btn.disabled = true;
-    setStudentStatus('🔄 جارٍ إضافة الطالب على السيرفر…', '#3498db');
+    setStudentStatus('🔄 جارٍ إضافة الطالب على السيرفر…', 'var(--primary)');
 
     try {
         // الحلقة المختارة من القائمة؛ وإن غابت القائمة نرجع لحلقة المسمّع من empdata
@@ -3437,7 +3442,7 @@ function refreshEmpData() {
     if (!user) return show("❌ لا يوجد مستخدم مسجَّل. أعد تسجيل الدخول.", "#c0392b");
     if (!navigator.onLine) return show("⚠️ لا يوجد اتصال بالإنترنت حالياً.", "#e67e22");
 
-    show("🔄 جارٍ التحديث من السيرفر…", "#3498db");
+    show("🔄 جارٍ التحديث من السيرفر…", "var(--primary)");
 
     Promise.all([fetchDataFromServer(user), fetchAndStoreCircles()])
         .then(([emp, circles]) => {
@@ -3561,7 +3566,7 @@ async function resetLocalData() {
     if (!confirmed) return;
 
     if (btn) btn.disabled = true;
-    show("🔄 جارٍ حذف البيانات المحلية…", "#3498db");
+    show("🔄 جارٍ حذف البيانات المحلية…", "var(--primary)");
 
     try {
         await new Promise((resolve, reject) => {
@@ -3574,7 +3579,7 @@ async function resetLocalData() {
             tx.onerror = () => reject(tx.error || new Error("فشل حذف المخازن"));
         });
 
-        show("🔄 تم الحذف، جارٍ السحب من السيرفر…", "#3498db");
+        show("🔄 تم الحذف، جارٍ السحب من السيرفر…", "var(--primary)");
         await pullRecordsFromServer();
 
         refreshAll();
@@ -4174,7 +4179,7 @@ function examRequestCardHtml(r) {
 
     line('fa-clipboard-check', '#FF9800',
          [examLookupName('EXAM_TYPE', r.examType), parts].filter(Boolean).join(' • '));
-    line('fa-users', '#1967d2', r.circleName);
+    line('fa-users', 'var(--primary)', r.circleName);
     line('fa-landmark', '#5f6368', r.sessionName);
 
     const dateText = r.examDate ? String(r.examDate).split('T')[0] : '';
@@ -4194,7 +4199,7 @@ function examRequestCardHtml(r) {
     const key = escapeHtml(String(r.key));
     const actions = editable ? `
         <div class="student-actions">
-            <button class="act-btn" title="تعديل الترشيح" onclick="editExamRequest('${key}')"><i class="fas fa-pen" style="color:#1967d2"></i></button>
+            <button class="act-btn" title="تعديل الترشيح" onclick="editExamRequest('${key}')"><i class="fas fa-pen" style="color:var(--primary)"></i></button>
             <button class="act-btn" title="حذف الترشيح" onclick="removeExamRequest('${key}')"><i class="fas fa-trash" style="color:#c5221f"></i></button>
         </div>` : '';
 
@@ -4637,7 +4642,7 @@ async function pullRecordsFromServer() {
     }
 
     if (syncContainer) {
-        syncContainer.innerHTML = `<span id="pullStatus" style="margin-inline-end:10px; color:#3498db; font-weight:bold;">🔄 جاري تحديث بيانات الحلقة والطلاب...</span>`;
+        syncContainer.innerHTML = `<span id="pullStatus" style="margin-inline-end:10px; color:var(--primary); font-weight:bold;">🔄 جاري تحديث بيانات الحلقة والطلاب...</span>`;
     }
 
     // 🩺 الخطوة الجارية تُذكر في رسالة الفشل — «فشل التحديث» وحدها لا تفرّق

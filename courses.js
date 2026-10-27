@@ -622,7 +622,7 @@ function courseCardHtml(c) {
         ${warn}
         <div class="student-actions">
             <button class="act-btn" title="كشف الطلبة والرصد" onclick="openCourseRoster(${c.courseNo})">
-                <i class="fas fa-list-check" style="color:#1967d2"></i></button>
+                <i class="fas fa-list-check" style="color:var(--primary)"></i></button>
             ${canManageCourses() ? `
             <button class="act-btn" title="تعديل الدورة" onclick="openCourseForm(${c.courseNo})">
                 <i class="fas fa-pen" style="color:#e8710a"></i></button>
@@ -791,7 +791,7 @@ async function openCourseForm(courseNo) {
     if (!isEdit) return;
 
     // وضع التعديل: لا يُفتح النموذج ناقصاً — نموذجٌ نصفُ فارغ يُحفظ فيمحو ما لم يصل
-    courseFormStatus('🔄 جارٍ جلب بيانات الدورة…', '#3498db');
+    courseFormStatus('🔄 جارٍ جلب بيانات الدورة…', 'var(--primary)');
     try {
         const raw = await QMC.getCourseDetail(courseNo);
         const d = normalizeCourseDetail(raw);
@@ -861,7 +861,7 @@ async function submitCourseForm() {
 
     const btn = document.getElementById('courseSaveBtn');
     if (btn) btn.disabled = true;
-    courseFormStatus("🔄 جارٍ الحفظ…", '#3498db');
+    courseFormStatus("🔄 جارٍ الحفظ…", 'var(--primary)');
 
     try {
         if (editNo) {
@@ -1237,7 +1237,7 @@ function renderCourseRoster() {
             </div>
             <div class="req-body">
                 <div class="req-row"><i class="fas fa-id-card" style="color:#5f6368"></i><span>${escapeHtml(s.idNo)}</span></div>
-                <div class="req-row"><i class="fas fa-list-ol" style="color:#1967d2"></i><span>${escapeHtml(marksLine)}</span></div>
+                <div class="req-row"><i class="fas fa-list-ol" style="color:var(--primary)"></i><span>${escapeHtml(marksLine)}</span></div>
                 <div class="req-row"><i class="fas fa-award" style="color:#e8710a"></i><span>${escapeHtml(tier)}</span></div>
             </div>
         </div>`;
@@ -1654,7 +1654,7 @@ async function submitCourseStudents() {
     const ctx = _addStudentsCtx;
     if (!ctx || !ctx.courseNo) return show("❌ لا دورة مفتوحة", '#c0392b');
 
-    show("🔄 جارٍ فحص تسلسل الدورات…", '#3498db');
+    show("🔄 جارٍ فحص تسلسل الدورات…", 'var(--primary)');
     // 🪜 الممنوعون بأسمائهم قبل الإرسال، والمشرف يستثني (السيرفر الحَكَم)
     closeAddCourseStudents();
     const send = await cxLadderGate(ctx.courseNo, ids);
@@ -1662,7 +1662,7 @@ async function submitCourseStudents() {
     if (box) box.style.display = 'flex';
     if (!send || !send.length) return show(send ? "لا أحد يُسجَّل" : "", '');
 
-    show("🔄 جارٍ التسجيل…", '#3498db');
+    show("🔄 جارٍ التسجيل…", 'var(--primary)');
     try {
         // ⚠️ الدفعة ذرّية: تُقبل كلها أو تُرفض كلها
         const res = await QMC.addCourseStudents(ctx.courseNo, send, date, parsed.contacts);

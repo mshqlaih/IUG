@@ -302,7 +302,7 @@ async function cxExcSave() {
     }
     const btn = document.getElementById('cxExcSave');
     if (btn) btn.disabled = true;
-    show('🔄 جارٍ الحفظ…', '#3498db');
+    show('🔄 جارٍ الحفظ…', 'var(--primary)');
     try {
         const r = await cxCall('Courses/grantLevelException', {
             id_no: Number(o.idNo), class_no: Number(o.classNo), reason: o.reason, notes: notes,
@@ -446,7 +446,7 @@ async function cxSaveContact() {
     const wa = (w.value && w.value !== m.value) ? w.value : null;
     const btn = document.getElementById('cxContactSave');
     if (btn) btn.disabled = true;
-    show('🔄 جارٍ الحفظ…', '#3498db');
+    show('🔄 جارٍ الحفظ…', 'var(--primary)');
     try {
         const r = await cxCall('Courses/studentContact', {
             course_no: c.courseNo, id_no: Number(x.idNo), mobile_no: m.value || '', whatsapp_no: wa || '',

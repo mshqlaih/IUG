@@ -1,6 +1,10 @@
 :root {
   /* ألوان عصرية واحترافية */
   --primary: #1a73e8;    /* أزرق جوجل الرسمي */
+  /* 🎨 (2026-10-27) مشتقّاته — يغيّرها appearance.js بحسب الثيم المختار */
+  --primary-dark: #0d47a1;
+  --primary-wash: #e8f0fe;
+  --primary-line: #c6dafc;
   --secondary: #34a853;  /* أخضر هادئ */
   --bg: #f8f9fa;         /* خلفية فاتحة جداً */
   --text-main: #3c4043;
@@ -323,13 +327,13 @@ th {
     gap: 6px;
     padding: 6px 12px;
     border-radius: 999px;
-    background: #e8f0fe;
-    color: #1967d2;
+    background: var(--primary-wash);
+    color: var(--primary);
     font-weight: 700;
 }
 
 .section-title {
-    color: #1a73e8;
+    color: var(--primary);
     font-size: 1rem;
     font-weight: 700;
     margin: 0 0 8px;
@@ -618,17 +622,17 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     max-width: 1000px;
     margin: 10px auto 0;
     padding: 10px 14px;
-    background: #e8f0fe;
-    border: 1px solid #c6dafc;
+    background: var(--primary-wash);
+    border: 1px solid var(--primary-line);
     border-radius: 12px;
-    color: #1967d2;
+    color: var(--primary);
     font-size: 13px;
     line-height: 1.5;
 }
 .ios-install-text { display: flex; align-items: center; gap: 8px; }
 .ios-install-close {
     background: transparent;
-    color: #1967d2;
+    color: var(--primary);
     padding: 4px 10px;
     font-size: 16px;
     flex-shrink: 0;
@@ -636,7 +640,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .ios-install-close:hover { background: rgba(25,103,210,0.08); }
 
 /* ===== أيقونة الحساب في الترويسة ===== */
-.settings-btn { background: #0d47a1; color: #fff; padding: 8px 14px; }
+.settings-btn { background: var(--primary-dark); color: #fff; padding: 8px 14px; }
 .settings-btn:hover { background: #0b3c8a; }
 
 /* ===== شريط المسمّع في شاشة النشاط ===== */
@@ -656,7 +660,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     cursor: pointer;
 }
 .emp-chip:hover { background: #f7faff; }
-.emp-chip-icon { font-size: 26px; color: var(--primary, #1976D2); flex-shrink: 0; }
+.emp-chip-icon { font-size: 26px; color: var(--primary); flex-shrink: 0; }
 .emp-chip-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .emp-chip-name {
     font-weight: 700;
@@ -743,7 +747,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     flex-shrink: 0;
 }
 .role-M { background: #e6f4ea; color: #137333; }
-.role-A { background: #e8f0fe; color: #1967d2; }
+.role-A { background: var(--primary-wash); color: var(--primary); }
 .role-Q { background: #f1f3f4; color: #5f6368; }
 .circles-empty {
     font-size: 12.5px;
@@ -972,8 +976,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     box-sizing: border-box;
     font-size: 0;
 }
-.day-chip.checked { border-color: #1967d2; background: #e8f0fe; color: #1967d2; }
-.day-chip.checked input { border-color: #1967d2; background: #1967d2; }
+.day-chip.checked { border-color: var(--primary); background: var(--primary-wash); color: var(--primary); }
+.day-chip.checked input { border-color: var(--primary); background: var(--primary); }
 
 /* اختيار المرحلة */
 .stage-pick-body { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
@@ -1004,7 +1008,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     font-size: 15px;
     text-align: center;
 }
-.direct-mark-row input:focus { outline: 2px solid #1a73e8; outline-offset: 0; border-color: transparent; }
+.direct-mark-row input:focus { outline: 2px solid var(--primary); outline-offset: 0; border-color: transparent; }
 .direct-mark-hint { font-size: 11px; color: #5f6368; margin-bottom: 4px; }
 .direct-mark-error { font-size: 12px; color: #d93025; min-height: 16px; margin-bottom: 6px; }
 .record-summary {
@@ -1012,12 +1016,12 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     align-items: baseline;
     justify-content: space-between;
     gap: 10px;
-    background: #e8f0fe;
+    background: var(--primary-wash);
     border-radius: 12px;
     padding: 10px 14px;
     margin-bottom: 12px;
 }
-.record-total { font-size: 20px; font-weight: 800; color: #1967d2; }
+.record-total { font-size: 20px; font-weight: 800; color: var(--primary); }
 .record-tier { font-size: 12.5px; color: #3c4043; font-weight: 600; }
 .record-body { max-height: 45vh; overflow-y: auto; }
 .record-section {
@@ -1079,8 +1083,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .id-with-search { display: flex; gap: 6px; align-items: stretch; }
 .id-with-search input { flex: 1; min-width: 0; }
 .btn-civil-search {
-    background: #e8f0fe;
-    color: #1967d2;
+    background: var(--primary-wash);
+    color: var(--primary);
     padding: 0 14px;
     border-radius: 8px;
     width: auto;
@@ -1116,7 +1120,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     text-align: right;
     font-size: 13px;
 }
-.civil-row:hover { background: #f7faff; border-color: #c6dafc; }
+.civil-row:hover { background: #f7faff; border-color: var(--primary-line); }
 .civil-main { display: flex; flex-direction: column; flex: 1; min-width: 0; align-items: flex-start; }
 .civil-name {
     font-weight: 700;
@@ -1213,14 +1217,14 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     margin: 0;
 }
 .btn-new-student {
-    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 100%);
     color: #fff;
     padding: 12px 16px;
     border-radius: 12px;
     white-space: nowrap;
     flex-shrink: 0;
 }
-.btn-new-student:hover { background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%); }
+.btn-new-student:hover { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); }
 
 /* ===== نموذج إضافة طالب ===== */
 .add-student-note {
@@ -1325,7 +1329,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .req-other   { background: #f1f3f4; color: #5f6368; }
 .req-rejected { background: #fce8e6; color: #c5221f; }
 .req-repeat   { background: #fff0e6; color: #d84315; }
-.req-wait    { background: #e8f0fe; color: #1967d2; }
+.req-wait    { background: var(--primary-wash); color: var(--primary); }
 .req-err     { background: #fce8e6; color: #c5221f; cursor: pointer; }
 .req-badges  { display: inline-flex; gap: 6px; align-items: center; flex-shrink: 0; }
 
@@ -1402,7 +1406,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .modal-btn { flex: 1; padding: 12px; border-radius: 12px; font-weight: 700; font-size: 14px; }
 .modal-cancel { background: #eef1f5; color: #3c4043; }
 .modal-cancel:hover { background: #e2e6eb; }
-.modal-confirm { background: #1a73e8; color: #fff; }
+.modal-confirm { background: var(--primary); color: #fff; }
 .modal-confirm:hover { background: #1557b0; }
 .modal-box.danger .modal-confirm { background: #c0392b; }
 .modal-box.danger .modal-confirm:hover { background: #a5301f; }
@@ -1524,7 +1528,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     align-items: center;
     justify-content: center;
 }
-.row-edit { background: #e8f0fe; color: #1967d2; }
+.row-edit { background: var(--primary-wash); color: var(--primary); }
 .row-edit:hover { background: #d2e3fc; }
 .row-del { background: #fce8e6; color: #c5221f; }
 .row-del:hover { background: #fad2cf; }
@@ -1539,13 +1543,13 @@ input, select {
   transition: border-color .2s, background .2s, box-shadow .2s;
 }
 input:focus, select:focus {
-  border-color: #1976D2;
+  border-color: var(--primary);
   background: #fff;
   box-shadow: 0 0 0 4px rgba(25,118,210,0.12);
 }
 
 /* الأزرار الأساسية: تدرّج + رفعة عند المرور */
-.btn-save, .btn-sync { background: linear-gradient(135deg, #1976D2, #0d47a1); }
+.btn-save, .btn-sync { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
 .btn-add, .btn-pull  { background: linear-gradient(135deg, #34a853, #1e7e34); }
 .btn-save:hover, .btn-add:hover, .btn-sync:hover, .btn-pull:hover {
   transform: translateY(-1px);
@@ -1554,4 +1558,4 @@ input:focus, select:focus {
 
 /* الترويسة بلمسة متدرّجة خفيفة */
 .app-header { background: linear-gradient(135deg, #ffffff, #f3f8ff); }
-.app-title  { color: #0d47a1; }
+.app-title  { color: var(--primary-dark); }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.02';
+const CACHE_NAME = 'quran-app-v2.03';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -7,21 +7,25 @@ const CACHE_NAME = 'quran-app-v2.02';
 // ✅ mushaf.js (2026-10-20): المصحف في شاشة النشاط — نصّه في IndexedDB (QmcMushaf)
 //    وخطّه mushaf/QuranFont.ttf في ASSETS
 // ✅ inbox.js (2026-10-25): صندوق الرسائل (Inbox/getMessages) + إشعارات الجوال (push/*)
+// ✅ appearance.js (2026-10-27): المظهر — الثيم والليليّ والخطّ، ويتبع الحساب
+//    وخطّاه fonts/*.ttf: تجوّل في ASSETS (صغير)، وأميري في OPTIONAL (420 ك.ب)
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
-                     'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'app.css'];
+                     'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'app.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './app.js', './api.js',
-               './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js'];
+               './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js',
+               './appearance.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
 const ASSETS = ['./quran_data.js', './STATIC_LOOKUP.json', './manifest.json',
                 './icon.png', './icon-192.png', './icon-512.png', './mushaf/QuranFont.ttf', './mushaf/hafs_lines.json',
+                './fonts/Tajawal-Regular.ttf',
                 './vendor/fontawesome/css/all.min.css',
                 './vendor/fontawesome/webfonts/fa-solid-900.woff2'];
 
 // ثقيل — يُخزَّن في الخلفية ولا يُفشّل التثبيت.
 // لم تعد تُحمَّل مع الصفحة، بل عند أول تصدير — لكن تخزينها يُبقي التصدير يعمل offline.
-const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js',
+const OPTIONAL = ['./xlsx.full.min.js', './html2pdf.bundle.min.js', './fonts/Amiri-Regular.ttf',
                   './vendor/eruda/eruda.min.js'];
 
 // تجاوز كاش المتصفح عند التخزين.

@@ -1578,7 +1578,7 @@ function renderSvRoster() {
             <div class="req-body">
                 <div class="req-row"><i class="fas fa-id-card" style="color:#5f6368"></i><span>${escapeHtml(s.idNo)}</span>
                     ${pill}</div>
-                <div class="req-row"><i class="fas fa-list-ol" style="color:#1967d2"></i><span>${escapeHtml(marksLine)}</span></div>
+                <div class="req-row"><i class="fas fa-list-ol" style="color:var(--primary)"></i><span>${escapeHtml(marksLine)}</span></div>
                 <div class="req-row"><i class="fas fa-award" style="color:#e8710a"></i><span>${escapeHtml(dropped ? 'منقطع' : tier ||
                     (status === 'done' ? 'مكتمل' : status === 'partial' ? 'غير مكتمل' : 'لم يُرصد'))}</span></div>
             </div>

@@ -13,6 +13,8 @@
      <link rel="manifest" href="manifest.json">
      <!-- Font Awesome محلياً: من CDN كانت الأيقونات تختفي تماماً دون اتصال -->
      <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
+     <!-- 🎨 المظهر (2026-10-27): في الرأس قبل الرسم — بلا وميضٍ بالشكل الأصليّ -->
+     <script src="appearance.js"></script>
     <style>
         .logout-btn {
     background-color: #e74c3c;
@@ -59,12 +61,12 @@
     gap: 6px;
     padding: 6px 12px;
     border-radius: 999px;
-    background: #e8f0fe;
-    color: #1967d2;
+    background: var(--primary-wash);
+    color: var(--primary);
     font-weight: 700;
 }
 .section-title {
-    color: #1a73e8;
+    color: var(--primary);
     font-size: 1rem;
     font-weight: 700;
     margin: 0 0 8px;
@@ -911,6 +913,12 @@
                 <button onclick="refreshEmpData()" class="btn-save" style="margin-top:10px">
                     <i class="fas fa-rotate"></i> تحديث بياناتي من السيرفر
                 </button>
+            </div>
+
+            <!-- 🎨 المظهر (appearance.js يملأ اللوحة) -->
+            <div class="card" id="appearanceCard">
+                <h3><i class="fas fa-palette"></i> المظهر</h3>
+                <div id="appearanceBody"></div>
             </div>
 
             <!-- معلومات التطبيق -->
