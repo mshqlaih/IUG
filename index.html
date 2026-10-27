@@ -166,7 +166,14 @@
 
 <body>
     <header class="app-header">
-        <span class="app-title"><i class="fas fa-mosque" style="margin-left: 8px;"></i>برنامج الصفوة لمتابعة الحلقات القرآنية</span>
+        <!-- الاسم الكامل والإصدار في الإعدادات؛ هنا القصير وحالة الاتصال (2026-10-27):
+             كان شريط «متّصل» سطرًا كاملًا تحت الترويسة في كل شاشة -->
+        <div class="app-brand">
+            <span class="app-title"><i class="fas fa-mosque" style="margin-left: 8px;"></i>تطبيق الصفوة</span>
+            <button type="button" id="netChip" class="net-chip" onclick="showNetInfo()" title="حالة الاتصال" aria-label="حالة الاتصال">
+                <i class="fas fa-circle"></i><span id="netChipText"></span>
+            </button>
+        </div>
         <div class="header-actions">
             <button id="installBtn" class="install-btn" style="display:none;"><i class="fas fa-download"></i> <span class="btn-text">تثبيت</span></button>
             <!-- 🔔 الرسائل والإشعارات (inbox.js) — الشارة = ما لم يُقرأ + التنبيهات -->
@@ -204,11 +211,6 @@
             <span>لتثبيت التطبيق على iPhone: اضغط <i class="fas fa-arrow-up-from-bracket"></i> ثم «إضافة إلى الشاشة الرئيسية».</span>
         </span>
         <button class="ios-install-close" onclick="dismissIosBanner()" aria-label="إغلاق">✕</button>
-    </div>
-
-    <div class="status-banner">
-        <span id="statusChip" class="status-chip"><i class="fas fa-circle" style="color: #34a853; font-size: 10px;"></i> <span id="statusChipText">جاهز للعمل offline</span></span>
-        <span id="statusChipNote">التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.</span>
     </div>
 
     <!-- رسائل درجتها BANNER (inbox.js) -->
@@ -906,16 +908,35 @@
                 <button type="button" class="help-btn" data-help="settings" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
             </div>
 
+            <!-- الترتيب (2026-10-27): التطبيق ← حسابي ← المزامنة ← المظهر ← «أدوات متقدّمة» مطويّة.
+                 الصيانة والتشخيص والنسخ الاحتياطي لا يحتاجها المستخدم إلا عند عطل. -->
+
+            <!-- التطبيق: الاسم الكامل والإصدار -->
+            <div class="card app-about">
+                <div class="app-about-head">
+                    <img src="icon.png" alt="" class="app-about-icon">
+                    <div>
+                        <div class="app-about-name">تطبيق الصفوة لمتابعة الحلقات القرآنية</div>
+                        <div class="app-about-meta">
+                            <span class="app-version-chip">الإصدار <span id="appVersion">-</span></span>
+                            <span class="app-about-update">آخر تحديث للملفات: <span id="settingsLastUpdate">-</span></span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="location.reload()" class="btn-pull" style="margin-top:12px; width:100%">
+                    <i class="fas fa-arrows-rotate"></i> إعادة تحميل التطبيق
+                </button>
+            </div>
+
             <!-- بيانات المسمّع -->
             <div class="card">
-                <h3><i class="fas fa-id-card"></i> بيانات المسمّع والحلقة</h3>
+                <h3><i class="fas fa-id-card"></i> حسابي وحلقاتي</h3>
                 <div class="table-wrap responsive">
                     <table class="info-table">
                         <tr><th>اسم المستخدم</th><td id="settingsUserName">-</td></tr>
                         <tr><th>اسم الموظف</th><td id="empName">-</td></tr>
                         <tr><th>الصلاحية</th><td id="settingsRole">-</td></tr>
                         <tr><th>المركز</th><td id="centerInfo">-</td></tr>
-                        <tr><th>معرّف الجهاز</th><td id="settingsDeviceId">-</td></tr>
                     </table>
                 </div>
 
@@ -932,38 +953,33 @@
                 </button>
             </div>
 
-            <!-- 🎨 المظهر (appearance.js يملأ اللوحة) -->
-            <div class="card" id="appearanceCard">
-                <h3><i class="fas fa-palette"></i> المظهر</h3>
-                <div id="appearanceBody"></div>
-            </div>
-
-            <!-- معلومات التطبيق -->
-            <div class="card">
-                <h3><i class="fas fa-circle-info"></i> التطبيق</h3>
-                <div class="table-wrap responsive">
-                    <table class="info-table">
-                        <tr><th>النسخة الحالية</th><td id="appVersion">-</td></tr>
-                        <tr><th>آخر تحديث للملفات</th><td id="settingsLastUpdate">-</td></tr>
-                        <tr><th>حالة الاتصال</th><td id="settingsOnline">-</td></tr>
-                        <tr><th>سجلات بانتظار الرفع</th><td id="settingsPending">-</td></tr>
-                    </table>
-                </div>
-                <button onclick="location.reload()" class="btn-pull" style="margin-top:10px">
-                    <i class="fas fa-arrows-rotate"></i> إعادة تحميل التطبيق
-                </button>
-            </div>
-
             <!-- المزامنة -->
             <div class="card">
                 <h3><i class="fas fa-cloud"></i> مزامنة البيانات</h3>
                 <p class="section-note" style="margin:0 0 10px">الرفع يرسل سجلاتك غير المزامنة، والسحب يجلب طلاب الحلقة وأنشطتها من السيرفر.</p>
+                <div class="table-wrap responsive">
+                    <table class="info-table">
+                        <tr><th>حالة الاتصال</th><td id="settingsOnline">-</td></tr>
+                        <tr><th>سجلات بانتظار الرفع</th><td id="settingsPending">-</td></tr>
+                    </table>
+                </div>
                 <div id="settingsSyncStatus"></div>
                 <div class="sync-actions">
                     <button id="settingsSyncBtn" class="btn-sync"><i class="fas fa-sync-alt"></i> <span class="btn-text">رفع السجلات</span></button>
                     <button id="settingsPullBtn" class="btn-pull"><i class="fas fa-cloud-download-alt"></i> <span class="btn-text">سحب البيانات</span></button>
                 </div>
             </div>
+
+            <!-- 🎨 المظهر (appearance.js يملأ اللوحة) -->
+            <div class="card" id="appearanceCard">
+                <h3><i class="fas fa-palette"></i> المظهر</h3>
+                <div id="appearanceBody"></div>
+            </div>
+
+            <!-- أدوات متقدّمة: عند العطل وحده — مطويّة كي لا تُضغط خطأً -->
+            <details class="card settings-advanced">
+                <summary><i class="fas fa-screwdriver-wrench"></i> أدوات متقدّمة
+                    <small>الصيانة · التشخيص · النسخ الاحتياطي</small></summary>
 
             <!-- التشخيص -->
             <div class="card">
@@ -973,6 +989,7 @@
                 </p>
                 <div class="table-wrap responsive">
                     <table class="info-table">
+                        <tr><th>معرّف الجهاز</th><td id="settingsDeviceId">-</td></tr>
                         <tr><th>وضع التشخيص</th><td id="debugState">-</td></tr>
                         <tr><th>سياق آمن</th><td id="debugSecure">-</td></tr>
                         <tr><th>العمل دون اتصال</th><td id="debugSw">-</td></tr>
@@ -1012,6 +1029,7 @@
                 </div>
                 <input type="file" id="importFile" style="display:none" onchange="importBackup(this)">
             </div>
+            </details>
         </div>
 
     </div>

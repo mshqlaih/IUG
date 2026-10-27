@@ -62,7 +62,7 @@ if ('serviceWorker' in navigator) {
             if (data.type === 'APP_VERSION') {
                 localStorage.setItem("appVersion", data.version);
                 const el = document.getElementById("appVersion");
-                if (el) el.textContent = data.version;
+                if (el) el.textContent = formatAppVersion(data.version);
             }
         });
 
@@ -185,22 +185,26 @@ function dismissIosBanner() {
     localStorage.setItem('iosBannerDismissed', '1');
 }
 
-// --- شريط الحالة الديناميكي (متّصل/دون اتصال) ---
+// --- حالة الاتصال في الترويسة: نقطةٌ خضراء وحدها متّصلًا، وشارةٌ «دون اتصال» إن انقطع ---
 function updateStatusBanner() {
-    const chip = document.getElementById('statusChip');
-    const text = document.getElementById('statusChipText');
-    const note = document.getElementById('statusChipNote');
+    const chip = document.getElementById('netChip');
+    const text = document.getElementById('netChipText');
     if (!chip || !text) return;
-    const dot = chip.querySelector('i');
-    if (navigator.onLine) {
-        if (dot) dot.style.color = '#34a853';
-        text.textContent = 'متّصل';
-        if (note) note.textContent = 'يمكنك المزامنة وسحب البيانات الآن.';
-    } else {
-        if (dot) dot.style.color = '#9aa0a6';
-        text.textContent = 'يعمل دون اتصال';
-        if (note) note.textContent = 'التطبيق يعمل محلياً ويحتفظ ببياناتك حتى عودة الشبكة.';
-    }
+    const online = navigator.onLine;
+    chip.classList.toggle('offline', !online);
+    text.textContent = online ? '' : 'دون اتصال';
+    chip.title = online ? 'متّصل' : 'دون اتصال';
+}
+function showNetInfo() {
+    showToast(navigator.onLine
+        ? 'متّصل — يمكنك المزامنة وسحب البيانات الآن.'
+        : 'دون اتصال — التطبيق يعمل ويحفظ بياناتك على الجهاز حتى تعود الشبكة.');
+}
+
+// CACHE_NAME «quran-app-v2.04» ⇒ «2.04»
+function formatAppVersion(v) {
+    const m = String(v || '').match(/v?(\d+(?:\.\d+)*)\s*$/);
+    return m ? m[1] : (v || '-');
 }
 function onConnectivityChange() {
     updateStatusBanner();
@@ -3502,7 +3506,7 @@ async function refreshSettingsInfo() {
     const deviceId = localStorage.getItem("device_id") || "";
     set('settingsDeviceId', deviceId ? maskDeviceId(deviceId) : "-");
 
-    set('appVersion', localStorage.getItem("appVersion") || "-");
+    set('appVersion', formatAppVersion(localStorage.getItem("appVersion")));
     set('settingsLastUpdate', localStorage.getItem("lastUpdate") || "-");
     set('settingsOnline', navigator.onLine ? "متصل ✅" : "دون اتصال ⚠️");
 
