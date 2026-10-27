@@ -230,8 +230,10 @@
         <div id="activityTab" class="tab-content active">
             <!-- شريط المسمّع أُزيل (2026-10-24): الاسم والحلقة في الإعدادات، و«حسابي» في الترويسة -->
       <div class="card">
-        <div class="section-title" style="grid-column: 1 / -1">تفاصيل النشاط</div>
-        <div class="section-note" style="grid-column: 1 / -1">اختر الطالب، حدد الآيات، ثم أكمل التقييم قبل حفظ السجل.</div>
+        <div class="section-head" style="grid-column: 1 / -1">
+            <div class="section-title">تفاصيل النشاط</div>
+            <button type="button" class="help-btn" data-help="activity" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+        </div>
     <div class="grid">
         <!-- الحقول العلوية -->
                 <div class="field">
@@ -394,8 +396,10 @@
         </div>            
         <!-- شاشة إدارة الطلاب -->
         <div id="studentsTab" class="tab-content">
-            <div class="section-title">طلابي</div>
-            <div class="section-note">الطلبة الذين لم يُسمّعوا منذ فترة يظهرون أولاً. سجّل النشاط مباشرة من أيقونات البطاقة.</div>
+            <div class="section-head">
+                <div class="section-title">طلابي</div>
+                <button type="button" class="help-btn" data-help="students" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+            </div>
 
             <div class="students-toolbar">
                 <div class="search-wrap">
@@ -458,12 +462,15 @@
 
         <!-- شاشة التقارير -->
         <div id="logsTab" class="tab-content">
-            <div class="section-title">التقارير</div>
-            <div class="section-note">تقرير الأنشطة المسجّلة: صفِّه، عدّله، احذفه، أو صدّره ومزامنه دون فقدان البيانات.</div>
+            <!-- «تقرير الأنشطة» صار عنوان الشاشة (2026-10-27): كان عنوان البطاقة
+                 يزاحم أيقونات التصدير الأربع في سطرٍ واحد -->
+            <div class="section-head">
+                <div class="section-title"><i class="fas fa-chart-line"></i> تقرير الأنشطة</div>
+                <button type="button" class="help-btn" data-help="logs" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+            </div>
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items:center; margin-bottom:10px">
-    <h3 style="margin:0"><i class="fas fa-chart-line"></i> تقرير الأنشطة</h3>
-    <div style="display:flex; gap:8px;">
+                <div class="report-tools">
+    <div>
         <div class="buttons-container">
             <button class="btn-excel" onclick="exportToExcel()" title="تصدير إكسل">
                 <i class="fas fa-file-excel"></i> <span class="btn-text">Excel</span>
@@ -534,8 +541,10 @@
 
         <!-- شاشة الطلبات: ترشيح الطلبة للاختبار -->
         <div id="requestsTab" class="tab-content">
-            <div class="section-title">الطلبات</div>
-            <div class="section-note">ترشيح طلابك لاختبار الأجزاء، ومتابعة حالة الترشيحات السابقة.</div>
+            <div class="section-head">
+                <div class="section-title">الطلبات</div>
+                <button type="button" class="help-btn" data-help="requests" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+            </div>
 
             <div class="students-toolbar">
                 <div class="search-wrap">
@@ -625,8 +634,10 @@
 
             <!-- (1) قائمة الدورات -->
             <div id="coursesListView">
-                <div class="section-title">اختبارات الدورات</div>
-                <div class="section-note">أنشئ الدورة، سجّل طلابها، ثم ارصد درجاتهم من كشف الدورة.</div>
+                <div class="section-head">
+                    <div class="section-title">اختبارات الدورات</div>
+                    <button type="button" class="help-btn" data-help="courses" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+                </div>
 
                 <div class="students-toolbar">
                     <div class="search-wrap">
@@ -747,8 +758,10 @@
 
             <!-- (4) إشراف الدورات: المواضع التي تُعقد فيها دورات -->
             <div id="svCentersView" style="display:none">
-                <div class="section-title">إشراف الدورات</div>
-                <div class="section-note">المواضع التي تُعقد فيها الدورات — افتح موضعاً لترى دوراته وكشوفها وحضورها واعتماد نتائجها.</div>
+                <div class="section-head">
+                    <div class="section-title">إشراف الدورات</div>
+                    <button type="button" class="help-btn" data-help="svCenters" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+                </div>
                 <!-- أدوات المشرف — course_extras.js -->
                 <div class="cr-actions">
                     <button type="button" class="cr-action" onclick="openCxStudentSearch()">
@@ -842,8 +855,10 @@
              ⚠️ لا درجة هنا قبل اعتماد المشرف: مسارات Courses/my* بلا درجات أصلاً. -->
         <div id="myCoursesTab" class="tab-content">
             <div id="ctListView">
-                <div class="section-title">دوراتي</div>
-                <div class="section-note">رصد حضور طلاب دوراتك (يعمل دون اتصال ويُرفع لاحقاً)، وإضافة الطلاب، ونتائجهم بعد اعتماد المشرف.</div>
+                <div class="section-head">
+                    <div class="section-title">دوراتي</div>
+                    <button type="button" class="help-btn" data-help="myCourses" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+                </div>
                 <div class="cr-actions" style="justify-content:flex-end">
                     <button type="button" class="cr-action" onclick="loadMyCourses(true)">
                         <i class="fas fa-rotate"></i> تحديث</button>
@@ -886,8 +901,10 @@
 
         <!-- شاشة الإعدادات -->
         <div id="settingsTab" class="tab-content">
-            <div class="section-title">الإعدادات</div>
-            <div class="section-note">بيانات المستخدم والحلقة، نسخة التطبيق، وأدوات المزامنة والنسخ الاحتياطي.</div>
+            <div class="section-head">
+                <div class="section-title">الإعدادات</div>
+                <button type="button" class="help-btn" data-help="settings" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+            </div>
 
             <!-- بيانات المسمّع -->
             <div class="card">
@@ -1250,6 +1267,8 @@
     <script src="mushaf.js"></script>
     <!-- 🔔 صندوق الرسائل + إشعارات الجوال (بعد app.js: showConfirm و showToast) -->
     <script src="inbox.js"></script>
+    <!-- ❔ شرح الشاشة (يعتمد على أنماط modal-overlay وحدها) -->
+    <script src="help.js"></script>
 
         <div id="toast" class="toast-hidden"></div>
 </body>
