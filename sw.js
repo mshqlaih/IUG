@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.05';
+const CACHE_NAME = 'quran-app-v2.06';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -10,10 +10,11 @@ const CACHE_NAME = 'quran-app-v2.05';
 // ✅ appearance.js (2026-10-27): المظهر — الثيم والليليّ والخطّ، ويتبع الحساب
 //    وخطّاه fonts/*.ttf: تجوّل في ASSETS (صغير)، وأميري في OPTIONAL (420 ك.ب)
 // ✅ help.js (2026-10-27): ❔ شرح الشاشة بدل سطر الشرح تحت العنوان
+// ✅ safwa.css (2026-10-28): تصميم «الصفوة» — طبقة شكلٍ فوق app.css
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
                      'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'help.js',
-                     'app.css'];
-const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './app.js', './api.js',
+                     'app.css', 'safwa.css'];
+const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './safwa.css', './app.js', './api.js',
                './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js',
                './appearance.js', './help.js'];
 

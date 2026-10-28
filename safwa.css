@@ -1,0 +1,501 @@
+/* 🎨 تصميم «الصفوة» (2026-10-28) — طبقةٌ فوق app.css بروح صفحة about.html:
+ * شريطٌ داكن بزخرفةٍ هندسية وخيطٍ ذهبيّ، بطاقاتٌ ناعمة، شريط تبويبٍ عائم.
+ *
+ * شكلٌ فحسب: لا معرّف ولا صنف جديد يحتاجه JS، فحذف هذا الملفّ من index.html
+ * يعيد الشكل السابق كما كان.
+ * اللون من الثيم المختار (--primary و--primary-dark و--primary-wash — appearance.js)،
+ * والذهبيّ ثابتٌ في كل الثيمات. الليليّ يقلبه appearance.js بمرشّحه كما يقلب غيره.
+ */
+
+:root {
+  --gold: #b38b2c;
+  --gold-soft: #f3ead2;
+  --gold-line: #e2cf9c;
+  --ink: var(--primary-dark);
+  --surface: #ffffff;
+  --page: #f3f5f7;
+  --line-soft: #e6eaef;
+  --muted: #6b7280;
+  --radius-l: 20px;
+  --radius-m: 14px;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, .04), 0 10px 28px -14px rgba(16, 24, 40, .22);
+  --shadow-lift: 0 2px 4px rgba(16, 24, 40, .05), 0 16px 34px -14px rgba(16, 24, 40, .30);
+  /* نجمةٌ ثمانية — زخرفة الشريط وبطاقة التطبيق */
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.09' stroke-width='1.2'%3E%3Cpath d='M28 6 34.4 21.6 50 28 34.4 34.4 28 50 21.6 34.4 6 28 21.6 21.6Z'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4'/%3E%3C/g%3E%3C/svg%3E");
+}
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  :root {
+    --ink: color-mix(in srgb, var(--primary-dark) 82%, #000);
+    --page: color-mix(in srgb, var(--primary) 4%, #f4f5f6);
+  }
+}
+
+/* ===== الصفحة ===== */
+body {
+  background:
+    radial-gradient(1200px 420px at 50% -180px, var(--primary-wash), transparent 70%),
+    var(--page);
+  background-attachment: fixed;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font-family: inherit; }
+::selection { background: var(--gold-soft); }
+
+.container { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+.tab-content { padding: 18px 6px; }
+
+/* ===== الترويسة: شريطٌ داكن بزخرفة وخيطٍ ذهبيّ ===== */
+.app-header {
+  background: var(--pattern), linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 55%, var(--primary) 140%);
+  background-size: 56px 56px, auto;
+  border-bottom: 0;
+  box-shadow: 0 6px 20px -8px rgba(0, 0, 0, .35);
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+}
+.app-header::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold) 20%, #e9cf86 50%, var(--gold) 80%, transparent);
+  opacity: .9;
+}
+.app-title {
+  color: #fff !important;
+  font-size: 18px;
+  letter-spacing: .2px;
+}
+.app-title i {
+  color: var(--gold-line);
+  margin-left: 8px !important;
+}
+.net-chip { color: #4ade80; filter: drop-shadow(0 0 4px rgba(74, 222, 128, .6)); }
+.net-chip.offline { filter: none; }
+
+/* أزرار الترويسة زجاجيّةٌ على الشريط */
+.header-actions { gap: 6px; }
+.header-actions button,
+.header-actions .logout-btn {
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, .18);
+  color: #fff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.header-actions button:hover,
+.header-actions .logout-btn:hover { background: rgba(255, 255, 255, .22); }
+.header-actions .logout-btn:hover { background: rgba(239, 68, 68, .55); }
+.inbox-btn { position: relative; }
+@media (max-width: 600px) {
+  .header-actions button { width: 40px; height: 40px; border-radius: 13px; }
+}
+
+/* ===== شريط التبويب: عائمٌ زجاجيّ بمؤشّرٍ حول الأيقونة ===== */
+.tabs-header {
+  left: 10px;
+  right: 10px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  height: 64px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .7);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .88);
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  box-shadow: 0 10px 30px -10px rgba(16, 24, 40, .35), 0 1px 0 rgba(255, 255, 255, .6) inset;
+}
+@media (min-width: 1020px) {
+  .tabs-header { max-width: 760px; margin: 0 auto; }
+}
+.tab-btn { color: #6b7280; gap: 4px; }
+.tab-btn i {
+  font-size: 19px;
+  padding: 4px 0;
+  width: 46px;
+  border-radius: 999px;
+  text-align: center;
+  transition: background .25s ease, color .25s ease, transform .25s ease;
+}
+.tab-btn span { font-size: 10.5px; }
+.tab-btn.active { color: var(--primary-dark); }
+.tab-btn.active i {
+  background: var(--primary-wash);
+  color: var(--primary);
+  transform: none;
+}
+.tab-btn.active span { color: var(--primary-dark); }
+
+/* ===== عناوين الشاشات ===== */
+.section-head { margin: 2px 2px 16px; }
+.section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 1.28rem;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+.section-title::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  flex: none;
+  background: var(--gold);
+  transform: rotate(45deg);
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+.section-title i { color: var(--primary); }
+.card .section-title { font-size: 1.08rem; }
+.help-btn {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 2px 6px rgba(16, 24, 40, .06);
+  font-size: 13px;
+}
+
+/* ===== البطاقات ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-card);
+  padding: 18px 16px;
+  margin: 12px 0;
+}
+.card > h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.card > h3 > i {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--primary-wash);
+  color: var(--primary);
+  font-size: 15px;
+}
+
+/* ===== الحقول ===== */
+label, .field label { color: #4b5563; font-size: 12.5px; font-weight: 700; }
+input, select, textarea, #courseStudentIds {
+  border: 1.5px solid #e3e8ee;
+  border-radius: var(--radius-m);
+  background: #f8fafb;
+}
+input:focus, select:focus, textarea:focus, #courseStudentIds:focus {
+  border-color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 4px var(--primary-wash);
+  outline: none;
+}
+input::placeholder, textarea::placeholder { color: #9ca3af; }
+.clear-btn { color: #9ca3af; font-size: 12px; }
+
+/* ===== أنواع النشاط: بلاطاتٌ بأيقونةٍ في دائرةٍ من لونها ===== */
+#iconsContainer { gap: 10px; }
+.icon-card {
+  position: relative;
+  border: 1.5px solid var(--line-soft);
+  border-radius: 16px;
+  padding: 12px 4px 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.icon-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+.icon-card .emoji { margin-bottom: 6px; font-size: 18px; }
+.icon-card .emoji i {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, .05);
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+.icon-card .text { font-size: 11px; color: #374151; }
+.icon-card.active {
+  background: var(--primary-wash) !important;
+  border: 1.5px solid var(--primary) !important;
+  box-shadow: 0 8px 18px -8px var(--primary) !important;
+  transform: translateY(-2px);
+}
+.icon-card.active .text { color: var(--primary-dark); }
+.icon-card.active::after {
+  content: "\f00c";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #fff;
+  font-size: 10px;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* التقييم */
+.rating-chip { border-radius: 12px; padding: 10px 6px; background: var(--surface); }
+
+/* ===== الأزرار ===== */
+button { border-radius: 12px; }
+.btn-save, .btn-sync, .modal-confirm, .modal-ok {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  box-shadow: 0 8px 18px -8px var(--primary-dark);
+}
+.btn-save { border-radius: var(--radius-m); padding: 15px; font-size: 15px; }
+.btn-save:hover, .btn-sync:hover, .modal-confirm:hover, .modal-ok:hover {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  filter: brightness(1.07);
+}
+.btn-pull { background: linear-gradient(135deg, #16a34a, #166534); box-shadow: 0 8px 18px -10px #166534; }
+.btn-cancel, .btn-clear-form, .modal-cancel {
+  background: #eef1f4;
+  color: #374151;
+  border-radius: var(--radius-m);
+}
+.btn-new-student {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: var(--radius-m);
+  box-shadow: 0 8px 18px -8px var(--primary-dark);
+  padding: 13px 16px;
+}
+.btn-back {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 8px 16px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .06);
+}
+.btn-back i { color: var(--gold); }
+
+/* أدوات التصدير: دوائر ناعمة بظلّها */
+.buttons-container button { box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .45); }
+
+/* ===== البحث وشريط الأدوات ===== */
+.search-wrap input {
+  background: var(--surface);
+  border-color: var(--line-soft);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .05);
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.search-wrap .search-icon { color: var(--primary); opacity: .7; }
+
+/* ===== بطاقات الطلاب والطلبات والدورات ===== */
+.students-cards { gap: 12px; }
+.student-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-card);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.student-card::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  right: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+  background: linear-gradient(180deg, var(--primary), var(--gold));
+  opacity: .85;
+}
+.student-card:hover { box-shadow: var(--shadow-lift); }
+.student-name { color: #111827; font-size: 15.5px; }
+.student-idno { background: #f3f4f6; border-radius: 999px; padding: 1px 9px; }
+.student-last { border-top-style: solid; border-top-color: #f0f2f5; }
+.act-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f5f7f9;
+  border: 1px solid #edf0f3;
+}
+.act-btn:hover { background: var(--primary-wash); border-color: var(--primary-line); }
+
+.students-empty {
+  border: 1.5px dashed #d8dee5;
+  border-radius: var(--radius-l);
+  background: rgba(255, 255, 255, .7);
+  padding: 36px 16px;
+  color: var(--muted);
+}
+.students-empty::before {
+  content: "\f4d8"; /* fa-seedling */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  display: block;
+  font-size: 30px;
+  color: var(--gold-line);
+  margin-bottom: 8px;
+}
+
+/* ===== الجداول ===== */
+.table-wrap { border: 1px solid var(--line-soft); border-radius: var(--radius-m); }
+th {
+  background: var(--primary-wash);
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+tbody tr:nth-child(even) td { background: #fafbfc; }
+.info-table th { background: transparent; color: var(--muted); }
+.info-table tr td { background: transparent !important; }
+.info-table td { font-weight: 600; }
+.table-wrap.responsive { border: 0; }
+
+/* ===== الإعدادات: بطاقة التطبيق بشريط الهويّة ===== */
+.card.app-about {
+  background: var(--pattern), linear-gradient(135deg, var(--ink), var(--primary-dark) 60%, var(--primary) 150%);
+  background-size: 56px 56px, auto;
+  border: 0;
+  color: #fff;
+  box-shadow: 0 16px 34px -16px var(--primary-dark);
+  position: relative;
+  overflow: hidden;
+}
+.card.app-about::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+.app-about-icon { box-shadow: 0 0 0 3px rgba(255, 255, 255, .2), 0 6px 14px rgba(0, 0, 0, .3); }
+.app-about-name { color: #fff; font-size: 17px; }
+.app-version-chip { background: var(--gold); color: #fff; }
+.app-about-update { color: rgba(255, 255, 255, .7); }
+.card.app-about .btn-pull {
+  background: rgba(255, 255, 255, .14);
+  border: 1px solid rgba(255, 255, 255, .25);
+  box-shadow: none;
+}
+.settings-advanced > summary { color: var(--ink); }
+
+/* حلقاتي */
+.circle-row { background: var(--surface); border-color: var(--line-soft); border-radius: var(--radius-m); }
+
+/* ===== اللافتات ===== */
+.update-banner, .ios-install-banner, .sw-error-banner {
+  margin: 12px 12px 0;
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+@media (min-width: 1024px) {
+  .update-banner, .ios-install-banner, .sw-error-banner { margin: 12px auto 0; }
+}
+.editing-banner, .add-student-note, .course-warn { border-radius: var(--radius-m); }
+
+/* ===== الدورات ===== */
+.cr-mode-bar { background: #e9edf1; border-radius: 16px; padding: 5px; }
+.cr-mode-bar button { border-radius: 12px; }
+.cr-mode-bar button.active { color: var(--primary-dark); box-shadow: 0 2px 8px rgba(16, 24, 40, .1); }
+.cr-action { background: var(--surface); border-color: var(--line-soft); box-shadow: 0 1px 2px rgba(16, 24, 40, .05); }
+.roster-header { border-radius: 16px; }
+.cr-panel { border-radius: 16px; border-color: var(--line-soft); }
+
+/* ===== النوافذ ===== */
+.modal-overlay {
+  background: rgba(10, 20, 30, .5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.modal-box {
+  border-radius: 24px;
+  border-top: 4px solid var(--gold);
+  box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .45);
+}
+.modal-title { color: var(--ink); font-weight: 800; }
+.modal-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--gold-soft);
+  font-size: 30px;
+}
+.stage-pick { border: 1px solid var(--line-soft); background: #f8fafb; }
+
+/* على الجوال: النافذة لوحةٌ تصعد من الأسفل — قريبةٌ من الإبهام */
+@media (max-width: 600px) {
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-box {
+    max-width: 100% !important;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 26px 26px 0 0;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    animation: safwaSheetUp .28s cubic-bezier(.2, .8, .2, 1);
+  }
+  .modal-box::before {
+    content: "";
+    display: block;
+    width: 42px;
+    height: 5px;
+    border-radius: 99px;
+    background: #d6dbe1;
+    margin: -12px auto 14px;
+  }
+}
+@keyframes safwaSheetUp {
+  from { transform: translateY(40px); opacity: .4; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ===== التنبيه العابر ===== */
+#toast {
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  background: var(--ink);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  padding: 12px 22px;
+  box-shadow: 0 14px 30px -10px rgba(0, 0, 0, .5);
+  max-width: calc(100% - 40px);
+  text-align: center;
+}
+
+/* ===== حركة دخول الشاشة ===== */
+.tab-content.active > .card,
+.tab-content.active > .students-cards > * {
+  animation: safwaRise .45s cubic-bezier(.2, .8, .2, 1) both;
+}
+.tab-content.active > .students-cards > *:nth-child(2) { animation-delay: .04s; }
+.tab-content.active > .students-cards > *:nth-child(3) { animation-delay: .08s; }
+.tab-content.active > .students-cards > *:nth-child(4) { animation-delay: .12s; }
+@keyframes safwaRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

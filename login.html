@@ -19,9 +19,17 @@
       max-width: 100%;
       overflow-x: hidden;
     }
+    /* 🎨 تصميم «الصفوة» (2026-10-28): شريط الهويّة نفسه في index.html (safwa.css) —
+       الألوان من appearance.js (ثيم الجهاز إن اختير، وإلا الأصليّ) */
+    :root { --primary: #1a73e8; --primary-dark: #0d47a1; --primary-wash: #e8f0fe; --gold: #b38b2c; }
     body {
-      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-      background: linear-gradient(135deg, #1976D2 0%, #0d47a1 100%);
+      font-family: 'QmcTajawal', 'Segoe UI', Tahoma, Arial, sans-serif;
+      background-color: var(--primary-dark);
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.08' stroke-width='1.2'%3E%3Cpath d='M28 6 34.4 21.6 50 28 34.4 34.4 28 50 21.6 34.4 6 28 21.6 21.6Z'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Ccircle cx='28' cy='28' r='4'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(700px 500px at 50% 0%, var(--primary) 0%, transparent 70%),
+        linear-gradient(160deg, var(--primary-dark), #06121c);
+      background-size: 56px 56px, auto, auto;
       min-height: 100vh;
       min-height: 100dvh;   /* شريط Safari المتغيّر — حيث يُدعم */
       display: flex;
@@ -39,7 +47,7 @@
       content: "";
       position: fixed;
       border-radius: 50%;
-      background: rgba(255,255,255,0.06);
+      background: radial-gradient(circle, rgba(179,139,44,0.22), transparent 70%);
       pointer-events: none;
     }
     body::before { width: 320px; height: 320px; top: -120px; right: -80px; }
@@ -52,8 +60,9 @@
       width: 100%;
       max-width: 380px;
       padding: 34px 28px 28px;
-      border-radius: 20px;
-      box-shadow: 0 20px 45px rgba(0,0,0,0.25);
+      border-radius: 26px;
+      border-top: 4px solid var(--gold);
+      box-shadow: 0 30px 70px -20px rgba(0,0,0,0.6);
       animation: cardUp .5s cubic-bezier(.2,.7,.2,1);
     }
     @keyframes cardUp {
@@ -63,14 +72,17 @@
 
     .brand { text-align: center; margin-bottom: 22px; }
     .brand .logo {
-      width: 72px; height: 72px; border-radius: 50%;
-      display: inline-flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #1976D2, #0d47a1);
-      box-shadow: 0 8px 18px rgba(13,71,161,0.35);
-      font-size: 34px; line-height: 1; margin-bottom: 12px;
+      display: block; width: 84px; height: 84px; margin: -76px auto 14px;
+      border-radius: 24px; background: #fff;
+      box-shadow: 0 0 0 5px #fff, 0 0 0 7px rgba(179,139,44,0.55), 0 14px 28px rgba(0,0,0,0.3);
     }
-    .brand h2 { margin: 0; font-size: 20px; color: #1f2933; }
+    .brand .app-name {
+      display: block; font-size: 13px; font-weight: 700; color: var(--gold);
+      letter-spacing: .3px; margin-bottom: 4px;
+    }
+    .brand h2 { margin: 0; font-size: 21px; color: var(--primary-dark); }
     .brand p  { margin: 6px 0 0; font-size: 13px; color: #7b8794; }
+    .login-card { margin-top: 50px; }
 
     .form-group { margin-bottom: 16px; }
     label {
@@ -90,10 +102,11 @@
       outline: none;
     }
     .input-wrap input:focus {
-      border-color: #1976D2;
+      border-color: var(--primary);
       background: #fff;
-      box-shadow: 0 0 0 4px rgba(25,118,210,0.12);
+      box-shadow: 0 0 0 4px var(--primary-wash);
     }
+    .input-wrap input { border-radius: 14px; font-family: inherit; }
     .field-icon {
       position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
       font-size: 15px; opacity: .5; pointer-events: none;
@@ -108,13 +121,18 @@
 
     #loginBtn {
       width: 100%; margin-top: 8px; padding: 14px;
-      border: none; border-radius: 12px;
-      background: linear-gradient(135deg, #1976D2, #0d47a1);
+      border: none; border-radius: 14px; font-family: inherit;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
-      transition: transform .15s, box-shadow .2s, opacity .2s;
-      box-shadow: 0 8px 18px rgba(13,71,161,0.3);
+      transition: transform .15s, box-shadow .2s, opacity .2s, filter .2s;
+      box-shadow: 0 10px 22px -8px var(--primary-dark);
     }
-    #loginBtn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(13,71,161,0.4); }
+    #loginBtn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    .login-foot {
+      position: relative; z-index: 1; text-align: center;
+      color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 18px;
+    }
+    .login-wrap { width: 100%; max-width: 380px; }
     #loginBtn:active { transform: translateY(0); }
     #loginBtn:disabled { opacity: .7; cursor: not-allowed; transform: none; box-shadow: none; }
 
@@ -132,12 +150,16 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
+  <!-- الثيم المختار على هذا الجهاز + خطّ تجوّل (@font-face) -->
+  <script src="appearance.js"></script>
 </head>
 <body>
 
+  <div class="login-wrap">
   <div class="login-card">
     <div class="brand">
-      <span class="logo">🕌</span>
+      <img class="logo" src="icon.png" alt="">
+      <span class="app-name">تطبيق الصفوة لمتابعة الحلقات القرآنية</span>
       <h2>تسجيل الدخول لأول مرة</h2>
       <p>أدخل بياناتك لتفعيل الجهاز</p>
     </div>
@@ -162,6 +184,8 @@
     <button id="loginBtn" onclick="registerDevice()">تسجيل الجهاز</button>
 
     <div id="message" class="message"></div>
+  </div>
+  <div class="login-foot">عملٌ خالصٌ لوجه الله · لخدمة حلقات القرآن الكريم</div>
   </div>
 
   <!-- JavaScript -->
