@@ -940,8 +940,13 @@
                         <tr><th>اسم الموظف</th><td id="empName">-</td></tr>
                         <tr><th>الصلاحية</th><td id="settingsRole">-</td></tr>
                         <tr><th>المركز</th><td id="centerInfo">-</td></tr>
+                        <tr><th>البريد الإلكتروني</th><td id="settingsEmail">-</td></tr>
                     </table>
                 </div>
+                <!-- ✉️ (2026-10-28) تأكيد البريد أو تغييره — account.js -->
+                <button type="button" id="settingsEmailBtn" class="em-row-btn" onclick="openEmailSettings()">
+                    <i class="fas fa-at"></i> <span>تأكيد البريد</span>
+                </button>
 
                 <div class="circles-block">
                     <div class="circles-head">
@@ -1290,6 +1295,8 @@
     <script src="inbox.js"></script>
     <!-- ❔ شرح الشاشة (يعتمد على أنماط modal-overlay وحدها) -->
     <script src="help.js"></script>
+    <!-- ✉️ البريد الإلكتروني: تأكيده وتغييره (بعد app.js وinbox.js: showToast وQMC_INBOX) -->
+    <script src="account.js"></script>
 
         <div id="toast" class="toast-hidden"></div>
 </body>

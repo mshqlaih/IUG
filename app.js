@@ -3520,6 +3520,7 @@ async function refreshSettingsInfo() {
 
     const role = (USER_ACCESS && USER_ACCESS.role_name) ? String(USER_ACCESS.role_name) : '';
     set('settingsRole', roleNameLabel(role) || "غير محدّدة");
+    if (window.QmcAccount) QmcAccount.refreshRow();   // ✉️ حالة البريد من السيرفر (account.js)
 
     const deviceId = localStorage.getItem("device_id") || "";
     set('settingsDeviceId', deviceId ? maskDeviceId(deviceId) : "-");

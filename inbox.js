@@ -384,10 +384,16 @@
         (m.data && m.data.end_at ? ' · حتى ' + esc(m.data.end_at) : '') + '</span>' +
         (isAnn(m) && !read && m.id != null
           ? '<button type="button" data-read="' + esc(m.key) + '">تمّ الاطلاع</button>'
-          : (isAnn(m) ? '<span>✓ مقروءة</span>' : '')) +
+          : (isAnn(m) ? '<span>✓ مقروءة</span>'
+            // ✉️ (2026-10-28) التأكيد من هنا — account.js؛ نصّ التنبيه يذكر قائمة أندرويد
+            : (m.code === 'EMAIL_UNVERIFIED' && typeof openEmailSettings === 'function'
+                ? '<button type="button" data-email="1"><i class="fas fa-at"></i> تأكيد البريد</button>' : ''))) +
         '</div></div>';
     });
     host.innerHTML = h;
+    Array.prototype.forEach.call(host.querySelectorAll('button[data-email]'), function (b) {
+      b.onclick = function () { closeInbox(); openEmailSettings(); };
+    });
     Array.prototype.forEach.call(host.querySelectorAll('button[data-read]'), function (b) {
       b.onclick = async function () {
         var key = b.getAttribute('data-read');
@@ -615,5 +621,5 @@
 
   window.openInbox = openInbox;
   window.closeInbox = closeInbox;
-  window.QMC_INBOX = { fetch: fetchMessages, all: all, unreadCount: unreadCount };
+  window.QMC_INBOX = { fetch: fetchMessages, all: all, unreadCount: unreadCount, refreshUi: refreshUi };
 })();

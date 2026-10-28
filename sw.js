@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.07';
+const CACHE_NAME = 'quran-app-v2.08';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -11,12 +11,13 @@ const CACHE_NAME = 'quran-app-v2.07';
 //    وخطّاه fonts/*.ttf: تجوّل في ASSETS (صغير)، وأميري في OPTIONAL (420 ك.ب)
 // ✅ help.js (2026-10-27): ❔ شرح الشاشة بدل سطر الشرح تحت العنوان
 // ✅ safwa.css (2026-10-28): تصميم «الصفوة» — طبقة شكلٍ فوق app.css
+// ✅ account.js (2026-10-28): تأكيد البريد الإلكتروني (user/account/*)
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
                      'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'help.js',
-                     'app.css', 'safwa.css'];
+                     'account.js', 'app.css', 'safwa.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './safwa.css', './app.js', './api.js',
                './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js',
-               './appearance.js', './help.js'];
+               './appearance.js', './help.js', './account.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
