@@ -3490,6 +3490,24 @@ function countPendingRecords() {
     });
 }
 
+// أسماء الأدوار بالعربية — نسخة roleKeyLabels في lib/models/access_profile.dart (تُحدَّث معها).
+// role_name قد يحمل أكثر من رمز مفصولةً بفاصلة ⇒ كلٌّ يُترجم، والمجهول يبقى رمزه.
+const ROLE_KEY_LABELS = {
+    ADMINISTRATOR: 'مدير',
+    CONTRIBUTOR: 'مساعد مدير',
+    MEMO_SUPERVISOR: 'مشرف تحفيظ',
+    TAJW_SUPERVISOR: 'مشرف تجويد',
+    MEMORIZER: 'محفّظ',
+    TEACHER: 'مدرّس تجويد',
+    EXAMINER: 'مختبِر',
+    PROGRAMMER: 'مبرمج',
+    SUPER_ADMIN: 'مدير النظام'
+};
+function roleNameLabel(role) {
+    return String(role || '').split(/[,،]/).map(s => s.trim()).filter(Boolean)
+        .map(k => ROLE_KEY_LABELS[k.toUpperCase()] || k).join('، ');
+}
+
 // تعبئة كل بطاقات شاشة الإعدادات
 async function refreshSettingsInfo() {
     const set = (id, value) => {
@@ -3501,7 +3519,7 @@ async function refreshSettingsInfo() {
     set('settingsUserName', user || "غير مسجَّل");
 
     const role = (USER_ACCESS && USER_ACCESS.role_name) ? String(USER_ACCESS.role_name) : '';
-    set('settingsRole', role || "غير محدّدة");
+    set('settingsRole', roleNameLabel(role) || "غير محدّدة");
 
     const deviceId = localStorage.getItem("device_id") || "";
     set('settingsDeviceId', deviceId ? maskDeviceId(deviceId) : "-");
