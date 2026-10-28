@@ -14,7 +14,7 @@
 (function () {
   var REFRESH_MS = 10 * 60 * 1000;   // سحبٌ عند العودة إلى التطبيق بعد 10 دقائق
   var ROW_LABELS = {                  // kInboxRowLabels
-    name: 'الاسم', teacher: 'المحفّظ', circle: 'الحلقة',
+    name: 'الاسم', teacher: 'المعلّم', circle: 'الحلقة',
     last_activity: 'آخر نشاط', missed_days: 'أيام بلا تحفيظ',
     last_session: 'آخر حصة', missed_sessions: 'حصص بلا تسجيل',
     no_appt: 'قرّاء بلا موعد', days_idle: 'الأيام', count: 'العدد'

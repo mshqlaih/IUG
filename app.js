@@ -2117,7 +2117,7 @@ function displayRecords() {
 
                         lastDisplayedData.push({
                             "التاريخ": r.date,
-                            "المحفظ": teacherName,
+                            "المعلّم": teacherName,
                             "اسم الطالب": studentName,
                             "رقم الطالب": r.student,
                             "النوع": activityName,
@@ -3497,7 +3497,7 @@ const ROLE_KEY_LABELS = {
     CONTRIBUTOR: 'مساعد مدير',
     MEMO_SUPERVISOR: 'مشرف تحفيظ',
     TAJW_SUPERVISOR: 'مشرف تجويد',
-    MEMORIZER: 'محفّظ',
+    MEMORIZER: 'معلّم حلقة',
     TEACHER: 'مدرّس تجويد',
     EXAMINER: 'مختبِر',
     PROGRAMMER: 'مبرمج',
@@ -4336,7 +4336,7 @@ async function removeExamRequest(key) {
 }
 
 // دور المسمّع في الحلقة (emp_role) — نفس ترميز تطبيق Flutter
-const CIRCLE_ROLE_NAMES = { M: 'محفّظ أساسي', A: 'مساعد', Q: 'استعلام فقط' };
+const CIRCLE_ROLE_NAMES = { M: 'معلّم أساسي', A: 'مساعد', Q: 'استعلام فقط' };
 
 function circleRoleLabel(role) {
     const r = String(role || '').trim().toUpperCase();
