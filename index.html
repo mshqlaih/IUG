@@ -404,6 +404,8 @@
             <div class="section-head">
                 <div class="section-title">طلابي</div>
                 <button type="button" class="help-btn" data-help="students" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
+                <!-- 🕓 (2026-11-02) موعد الحلقة + الوصول والانصراف + PDF — schedule.js -->
+                <button type="button" class="sched-open-btn" onclick="openCircleSchedule()"><i class="fas fa-calendar-days"></i> موعد الحلقة</button>
             </div>
 
             <div class="students-toolbar">
@@ -868,6 +870,8 @@
                     <button type="button" class="cr-action" onclick="loadMyCourses(true)">
                         <i class="fas fa-rotate"></i> تحديث</button>
                 </div>
+                <!-- 🌾 (2026-11-02) حصاد الشهر الماضي — harvest.js -->
+                <div id="harvestCard"></div>
                 <div id="ctBanners"></div>
                 <div id="ctList" class="students-cards"></div>
                 <div id="ctEmpty" class="students-empty" style="display:none"></div>
@@ -1271,6 +1275,7 @@
             }
             if (tabId === "myCoursesTab" && typeof openMyCoursesHome === "function") {
                 openMyCoursesHome();
+                if (window.QmcHarvest) QmcHarvest.refresh();
             }
         }
 
@@ -1297,6 +1302,8 @@
     <script src="help.js"></script>
     <!-- ✉️ البريد الإلكتروني: تأكيده وتغييره (بعد app.js وinbox.js: showToast وQMC_INBOX) -->
     <script src="account.js"></script>
+    <script src="schedule.js"></script>
+    <script src="harvest.js"></script>
 
         <div id="toast" class="toast-hidden"></div>
 </body>

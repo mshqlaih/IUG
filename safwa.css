@@ -32,9 +32,13 @@
 
 /* ===== الصفحة ===== */
 body {
+  /* ⚠️ (2026-11-02) --page (color-mix) طبقةُ صورةٍ لا لونُ الخلفية: html2canvas يقرأ
+     backgroundColor المحسوب للـbody فيرمي «unsupported color function» ⇒ كل
+     PDF وصورة (html2pdf) يفشل. اللون الصريح تحتها بديلٌ لا يُرى. */
   background:
     radial-gradient(1200px 420px at 50% -180px, var(--primary-wash), transparent 70%),
-    var(--page);
+    linear-gradient(var(--page), var(--page)),
+    #f4f5f6;
   background-attachment: fixed;
   color: #1f2937;
   -webkit-font-smoothing: antialiased;
