@@ -232,10 +232,7 @@
   function todayPanel(circles) {
     var day = page.gazaDay;
     var teaching = circles.filter(function (c) { return c.me; });
-    // ⚙️ اختياريٌّ لكل مؤسسة: لم تفعّله مؤسسة المعلّم ⇒ سطرٌ يقول ذلك لا زرّ
-    if (teaching.length && teaching.every(function (c) { return !c.checkinOn; })) {
-      return note('calm', 'fa-user-check', 'تسجيل الوصول والانصراف غير مفعّل في مؤسستك — يفعّله مديرها إن أراده.');
-    }
+    // ⚙️ اختياريٌّ لكل مؤسسة: لم تفعّله مؤسسة المعلّم ⇒ لا ذكر له أصلًا
     var mine = teaching.filter(function (c) {
       return c.checkinOn && (day == null || !c.hasSchedule || slotOn(c, day));
     });
