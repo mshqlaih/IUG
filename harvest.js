@@ -1,15 +1,17 @@
-/* 🌾 حصاد الشهر لمعلّم الدورة (2026-11-02) — نظير lib/screens/harvest_screen.dart
- * (_courseSlides) و lib/services/harvest_service.dart في تطبيق أندرويد.
+/* 🌾 حصاد الشهر لمعلّم الحلقة ومعلّم الدورة (2026-11-02) — نظير
+ * lib/screens/harvest_screen.dart (_circleSlides · _courseSlides) و
+ * lib/services/harvest_service.dart في تطبيق أندرويد.
  *
  * النقطة نفسها (QMC_HARVEST_PKG — docs/harvest/):
  *   GET org/harvest?ym=YYYY-MM   ⇒ { ym, prev_ym, items: [{kind, no, cur, prev}] }
- * الاسم من التوكن (X-Device-Id يحقنه QMC.apiFetch). هنا بنود COURSE وحدها.
+ * الاسم من التوكن (X-Device-Id يحقنه QMC.apiFetch). هنا بنود CIRCLE وCOURSE
+ * (حصاد المركز للمدير لم يُنقل).
  *
- * · بطاقةٌ ذهبية «حصاد <الشهر>» أعلى «دوراتي» طوال الشهر.
- * · يُفتح وحده مرّةً في الشهر من اليوم 1 إلى 5 عند فتح «دوراتي»
+ * · بطاقةٌ ذهبية «حصاد <الشهر>» أعلى «طلابي» (الحلقات) وأعلى «دوراتي» (الدورات).
+ * · يُفتح وحده مرّةً في الشهر من اليوم 1 إلى 5 بعد فتح التطبيق
  *   (localStorage `harvest_seen:<ym>:<user>` — المفتاح نفسه في أندرويد).
- * · الشرائح: الجلسات · الحضور · التقييم · الخلاصة، ومقارنةٌ بالشهر السابق،
- *   و«مشاركة صورة» للشريحة (html2canvas داخل html2pdf.bundle).
+ * · الشرائح ومقارنتها بالشهر السابق كما في أندرويد، و«مشاركة صورة» للشريحة
+ *   (html2canvas داخل html2pdf.bundle).
  * نسخة الجهاز: localStorage `harvest:<ym>:<user>` للعرض دون اتصال.
  */
 (function () {
@@ -19,7 +21,7 @@
 
   var hv = null;          // { ym, prevYm, month, prevMonth, items }
   var hvUser = null;      // صاحب hv — تبديل المستخدم لا يُعيد تحميل الصفحة
-  var st = { item: 0, slide: 0, sharing: false };
+  var st = { list: [], item: 0, slide: 0, sharing: false };   // list: بنود الشاشة المفتوحة
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -81,9 +83,12 @@
     }
     if (!data) return null;
     var items = (Array.isArray(data.items) ? data.items : []).filter(function (x) {
-      return x && x.kind === 'COURSE' && x.cur && typeof x.cur === 'object';
+      return x && (x.kind === 'CIRCLE' || x.kind === 'COURSE') && x.cur && typeof x.cur === 'object';
     }).map(function (x) {
-      return { no: x.no, cur: x.cur, prev: x.prev && typeof x.prev === 'object' ? x.prev : null, name: String(x.cur.name || '') };
+      return {
+        kind: x.kind, no: x.no, cur: x.cur, prev: x.prev && typeof x.prev === 'object' ? x.prev : null,
+        name: x.kind === 'CIRCLE' ? circleName(x.cur.name) : String(x.cur.name || '')
+      };
     });
     var ym = String(data.ym || want);
     hv = { ym: ym, prevYm: String(data.prev_ym || ''), month: arMonth(ym), prevMonth: arMonth(data.prev_ym), items: items };
@@ -93,20 +98,34 @@
 
   function seenKey(ym) { return 'harvest_seen:' + ym + ':' + user(); }
 
-  /** بطاقة «دوراتي» + الفتح وحده مرّةً من 1 إلى 5 */
-  async function refresh() {
-    var box = document.getElementById('harvestCard');
+  /** «حلقة X» — إلا إن بدأ الاسم بها («حلقة الشيخ صائب» لا «حلقة حلقة …») */
+  function circleName(name) {
+    var s = String(name == null ? '' : name).trim();
+    return s.indexOf('حلقة') === 0 ? s : 'حلقة ' + s;
+  }
+
+  /** البطاقة في مكانها: الحلقات أعلى «طلابي»، والدورات أعلى «دوراتي» */
+  function paintSlot(id, kind, h) {
+    var box = document.getElementById(id);
     if (!box) return;
-    var h = await load(false);
-    if (!h || !h.items.length) { box.innerHTML = ''; return; }
-    var names = h.items.map(function (i) { return i.name; });
+    var mine = h ? h.items.filter(function (i) { return i.kind === kind; }) : [];
+    if (!mine.length) { box.innerHTML = ''; return; }
+    var names = mine.map(function (i) { return i.name; });
     var what = names.length > 1
       ? names.length + ' بطاقات: ' + names.slice(0, 2).join(' · ') + (names.length > 2 ? ' …' : '')
       : names[0];
-    box.innerHTML = '<button type="button" class="hv-entry" onclick="QmcHarvest.open()">' +
+    box.innerHTML = '<button type="button" class="hv-entry" onclick="QmcHarvest.open(\'' + kind + '\')">' +
       '<span class="hv-entry-icon"><i class="fas fa-wand-magic-sparkles"></i></span>' +
       '<span class="hv-entry-text"><b>حصاد ' + esc(h.month) + '</b><span>' + esc(what) + '</span></span>' +
       '<i class="fas fa-chevron-left hv-entry-go"></i></button>';
+  }
+
+  /** البطاقتان + الفتح وحده مرّةً من 1 إلى 5 */
+  async function refresh() {
+    var h = await load(false);
+    paintSlot('harvestCircleCard', 'CIRCLE', h);
+    paintSlot('harvestCard', 'COURSE', h);
+    if (!h || !h.items.length) return;
     var seen = true;
     try { seen = localStorage.getItem(seenKey(h.ym)) === '1'; } catch (_) {}
     if (!seen && new Date().getDate() <= 5) {
@@ -115,8 +134,84 @@
     }
   }
 
-  /* ---------- الشرائح (نسخة _courseSlides) ---------- */
-  function slidesOf(i) {
+  /* ---------- الشرائح ---------- */
+  function slidesOf(i) { return i.kind === 'CIRCLE' ? circleSlides(i) : courseSlides(i); }
+
+  /** «↑ 2 عن سبتمبر» — فرق عددين */
+  function diff(cur, prev) {
+    if (prev == null || prev === cur) return [null, null];
+    return [(cur > prev ? '↑' : '↓') + ' ' + Math.abs(cur - prev) + ' عن ' + hv.prevMonth, cur > prev];
+  }
+
+  // نسخة _circleSlides + _circlePoints
+  function circleSlides(i) {
+    var out = [];
+    var pnew = n(i, 'pnew') || 0, prev = n(i, 'prev') || 0;
+    var pages = pnew + prev;
+    var prevPages = i.prev ? (p(i, 'pnew') || 0) + (p(i, 'prev') || 0) : null;
+    var dp = pct(pages, prevPages);
+    var days = n(i, 'days') || 0;
+    out.push(pnew > 0
+      ? { kicker: 'حصاد ' + hv.month, big: f(pnew), unit: 'صفحة حفظٍ جديد',
+          sub: 'ومراجعة ' + f(prev) + ' صفحة · ' + days + ' يومًا فيها نشاط', delta: dp[0], up: dp[1] }
+      : { kicker: 'حصاد ' + hv.month, big: f(prev), unit: 'صفحة مراجعة',
+          sub: days + ' يومًا فيها نشاط', delta: dp[0], up: dp[1] });
+
+    var att = n(i, 'att') || 0;
+    var da = pts(n(i, 'att'), p(i, 'att'));
+    out.push({ kicker: 'الانتظام', big: att + '٪', unit: 'حضور طلاب الحلقة',
+      sub: (n(i, 'regular') || 0) + ' من ' + (n(i, 'students') || 0) + ' حضروا 90٪ من لقاءاتهم فأكثر',
+      delta: da[0], up: da[1] });
+
+    var passed = Math.round(n(i, 'passed') || 0);
+    var dx = diff(passed, p(i, 'passed'));
+    out.push(passed > 0
+      ? { kicker: 'الاختبارات', big: String(passed),
+          unit: passed === 1 ? 'اختبارٌ ناجح أمام اللجنة' : 'اختبارًا ناجحًا أمام اللجنة',
+          sub: i.cur.best_name != null ? 'أعلى معدّل ' + f(n(i, 'best')) + ' لـ' + i.cur.best_name : null,
+          delta: dx[0], up: dx[1] }
+      : { kicker: 'الاختبارات', big: '0', unit: 'اختبار ناجح هذا الشهر',
+          sub: 'الشهر الجديد فرصةٌ لترشيح من أتمّ جزءه' });
+
+    var topOk = i.cur.top_name != null && (n(i, 'top_pnew') || 0) > 0;
+    if (topOk) out.push({ kicker: 'الأكثر حفظًا', big: f(n(i, 'top_pnew')), unit: 'صفحة حفظٍ جديد', sub: String(i.cur.top_name) });
+
+    var rank = n(i, 'rank'), ofN = n(i, 'of_n');
+    var ranked = rank != null && ofN != null && ofN >= 3;
+    if (ranked) {
+      var pr = p(i, 'rank'), d = null, u = null;
+      if (pr != null) {
+        var m = Math.round(pr - rank), a = Math.abs(m);
+        var w = a === 1 ? 'مرتبةً واحدة' : a === 2 ? 'مرتبتين' : a <= 10 ? a + ' مراتب' : a + ' مرتبة';
+        d = m === 0 ? 'كما في ' + hv.prevMonth : (m > 0 ? 'صعدت ' : 'نزلت ') + w + ' عن ' + hv.prevMonth;
+        u = m === 0 ? null : m > 0;
+      }
+      out.push({ kicker: 'ترتيب الحلقة', big: String(Math.round(rank)),
+        unit: 'من ' + Math.round(ofN) + ' حلقة في ' + (i.cur.center || 'المركز'),
+        sub: 'بدرجة التميّز: صفحات الحفظ والمراجعة والسرد واختبارات اللجنة بأوزان مؤسستك، لكل طالب، مضروبةً في الحضور',
+        delta: d, up: u });
+    }
+
+    // الخلاصة نقاطًا
+    var pd = pct(pages, prevPages);
+    var points = [[pd[1] === true ? 'up' : pd[1] === false ? 'down' : 'info',
+      f(pages) + ' صفحة حفظٍ ومراجعة', pd[0] || 'أوّل شهرٍ للحلقة في الحصاد']];
+    var pa = pts(att, p(i, 'att'))[0];
+    points.push(att >= 90 ? ['star', 'حضورٌ ممتاز ' + att + '٪', pa]
+      : att >= 75 ? ['info', 'الحضور ' + att + '٪', 'يرتفع بمتابعة الغائبين' + (pa ? ' · ' + pa : '')]
+        : ['warn', 'الحضور ' + att + '٪', 'يحتاج تواصلًا مع أولياء الأمور' + (pa ? ' · ' + pa : '')]);
+    points.push(passed > 0
+      ? ['star', passed === 1 ? 'اختبارٌ ناجح أمام اللجنة' : passed + ' اختبارًا ناجحًا أمام اللجنة',
+          i.cur.best_name != null ? 'أعلاها ' + f(n(i, 'best')) + ' لـ' + i.cur.best_name : null]
+      : ['warn', 'لا اختبار ناجح هذا الشهر', 'رشّح من أتمّ جزءه']);
+    if (topOk) points.push(['star', 'الأكثر حفظًا: ' + i.cur.top_name, f(n(i, 'top_pnew')) + ' صفحة']);
+    if (ranked) points.push([rank <= 3 ? 'star' : 'info', 'المرتبة ' + Math.round(rank) + ' من ' + Math.round(ofN), 'في ' + (i.cur.center || 'المركز')]);
+    out.push({ kicker: 'خلاصة ' + hv.month, points: points, foot: 'بارك الله في الجهد' });
+    return out;
+  }
+
+  // نسخة _courseSlides
+  function courseSlides(i) {
     var out = [];
     var ds = pct(n(i, 'sessions'), p(i, 'sessions'));
     out.push({ kicker: 'حصاد ' + hv.month, big: String(n(i, 'sessions') || 0), unit: 'جلسة',
@@ -148,7 +243,7 @@
       h += s.points.map(function (pt) {
         return '<div class="hv-point hv-' + pt[0] + '"><i class="fas ' + TONE_ICON[pt[0]] + '"></i><span><b>' + esc(pt[1]) + '</b>' +
           (pt[2] ? '<span class="hv-tail">  ' + esc(pt[2]) + '</span>' : '') + '</span></div>';
-      }).join('');
+      }).join('') + (s.foot ? '<div class="hv-foot">' + esc(s.foot) + '</div>' : '');
     } else {
       h += '<div class="hv-big">' + esc(s.big) + '</div>' +
         (s.unit ? '<div class="hv-unit">' + esc(s.unit) + '</div>' : '') +
@@ -174,13 +269,13 @@
 
   function render() {
     var el = ensureScreen();
-    var it = hv.items[st.item];
+    var it = st.list[st.item];
     var slides = slidesOf(it);
     if (st.slide >= slides.length) st.slide = slides.length - 1;
     var h = '<div class="hv-bar"><button type="button" class="hv-icon" data-act="close" title="رجوع" aria-label="رجوع">' +
       '<i class="fas fa-arrow-right"></i></button><div class="hv-title">حصاد ' + esc(hv.month) + '</div></div><div class="hv-body">';
-    if (hv.items.length > 1) {
-      h += '<div class="hv-chips">' + hv.items.map(function (x, k) {
+    if (st.list.length > 1) {
+      h += '<div class="hv-chips">' + st.list.map(function (x, k) {
         return '<button type="button" data-act="item" data-i="' + k + '" class="' + (k === st.item ? 'on' : '') + '">' + esc(x.name) + '</button>';
       }).join('') + '</div>';
     }
@@ -195,7 +290,7 @@
   }
 
   function go(d) {
-    var count = slidesOf(hv.items[st.item]).length;
+    var count = slidesOf(st.list[st.item]).length;
     var x = st.slide + d;
     if (x < 0 || x >= count) return;
     st.slide = x;
@@ -225,7 +320,7 @@
     if (typeof ensurePdfLibrary === 'function' && !await ensurePdfLibrary()) return;
     st.sharing = true; render();
     try {
-      var it = hv.items[st.item];
+      var it = st.list[st.item];
       var slides = slidesOf(it);
       // الغلاف ltr كي تبدأ البطاقة من x=0 فيُقصّ عرضها وحده من الحاوية
       var html = '<div style="direction:ltr"><div dir="rtl" class="hv-export">' + cardHtml(slides[st.slide], slides.length, it) + '</div></div>';
@@ -247,9 +342,12 @@
     }
   }
 
-  function open() {
-    if (!hv || !hv.items.length) return;
-    st = { item: 0, slide: 0, sharing: false };
+  /** [kind]: من بطاقة «طلابي» (CIRCLE) أو «دوراتي» (COURSE) — وبلا نوعٍ كلّها */
+  function open(kind) {
+    if (!hv) return;
+    var list = kind ? hv.items.filter(function (i) { return i.kind === kind; }) : hv.items;
+    if (!list.length) return;
+    st = { list: list, item: 0, slide: 0, sharing: false };
     render();
     ensureScreen().style.display = 'flex';
     document.body.classList.add('hv-open');
@@ -300,6 +398,7 @@
     '.hv-star{background:' + GOLD + '12}.hv-star i{color:' + GOLD + '}' +
     '.hv-warn{background:#9f123912}.hv-warn i{color:#9f1239}' +
     '.hv-info{background:#1d5f8a12}.hv-info i{color:#1d5f8a}' +
+    '.hv-foot{margin-top:6px;font-size:14.5px;font-weight:600;color:' + GOLD + '}' +
     '.hv-brand{text-align:center;font-size:11px;color:#00000061}' +
     '.hv-export{width:360px}.hv-export .hv-main{flex:none;overflow:visible;padding:28px 0}' +
     '.hv-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}' +
@@ -320,4 +419,10 @@
   })();
 
   window.QmcHarvest = { refresh: refresh, open: open, close: close };
+
+  // بعد الإقلاع: البطاقتان، والفتح وحده 1–5 (كـ«اليوم» في أندرويد) — مهلةٌ كي لا يزاحم سحب البيانات
+  window.addEventListener('load', function () {
+    if (!window.QMC || !QMC.getUserName() || !QMC.getDeviceId()) return;
+    setTimeout(function () { refresh().catch(function () {}); }, 2500);
+  });
 })();

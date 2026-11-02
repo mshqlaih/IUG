@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.11';
+const CACHE_NAME = 'quran-app-v2.12';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -13,7 +13,7 @@ const CACHE_NAME = 'quran-app-v2.11';
 // ✅ safwa.css (2026-10-28): تصميم «الصفوة» — طبقة شكلٍ فوق app.css
 // ✅ account.js (2026-10-28): تأكيد البريد الإلكتروني (user/account/*)
 // ✅ schedule.js (2026-11-02): موعد الحلقة + الوصول والانصراف + PDF (org/circle-schedule)
-// ✅ harvest.js (2026-11-02): حصاد الشهر لمعلّم الدورة في «دوراتي» (org/harvest)
+// ✅ harvest.js (2026-11-02): حصاد الشهر لمعلّم الحلقة («طلابي») ومعلّم الدورة («دوراتي») (org/harvest)
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
                      'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'help.js',
                      'account.js', 'schedule.js', 'harvest.js', 'app.css', 'safwa.css'];

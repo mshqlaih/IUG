@@ -407,6 +407,8 @@
                 <!-- 🕓 (2026-11-02) موعد الحلقة + الوصول والانصراف + PDF — schedule.js -->
                 <button type="button" class="sched-open-btn" onclick="openCircleSchedule()"><i class="fas fa-calendar-days"></i> موعد الحلقة</button>
             </div>
+            <!-- 🌾 (2026-11-02) حصاد الشهر الماضي لحلقاتي — harvest.js -->
+            <div id="harvestCircleCard"></div>
 
             <div class="students-toolbar">
                 <div class="search-wrap">
@@ -1273,6 +1275,7 @@
                 if (typeof openCoursesHome === "function") openCoursesHome();
                 else if (typeof loadCourses === "function") { showCoursesView('coursesListView'); loadCourses(); }
             }
+            if (tabId === "studentsTab" && window.QmcHarvest) QmcHarvest.refresh();
             if (tabId === "myCoursesTab" && typeof openMyCoursesHome === "function") {
                 openMyCoursesHome();
                 if (window.QmcHarvest) QmcHarvest.refresh();
