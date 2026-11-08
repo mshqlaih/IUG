@@ -388,9 +388,23 @@
             // ✉️ (2026-10-28) التأكيد من هنا — account.js؛ نصّ التنبيه يذكر قائمة أندرويد
             : (m.code === 'EMAIL_UNVERIFIED' && typeof openEmailSettings === 'function'
                 ? '<button type="button" data-email="1"><i class="fas fa-at"></i> تأكيد البريد</button>' : ''))) +
+        // 🗂 (2026-11-08) رسالة إجراءٍ إداريّ ⇒ الردّ من «سجلّي الإداريّ» (adm_record.js)
+        (isAnn(m) && window.QmcAdm && QmcAdm.letterOf(m.body) != null
+          ? '<button type="button" data-adm="' + esc(QmcAdm.letterOf(m.body)) + '"><i class="fas fa-reply"></i> ردّك</button>' : '') +
         '</div></div>';
     });
     host.innerHTML = h;
+    Array.prototype.forEach.call(host.querySelectorAll('button[data-adm]'), function (b) {
+      b.onclick = async function () {
+        // الردّ اطّلاعٌ ضمنًا — يُقرّ بالقراءة أوّلًا كي لا تبقى الرسالة «جديدة»
+        var key = b.parentNode.querySelector('button[data-read]');
+        if (key) {
+          var m = all().filter(function (x) { return x.key === key.getAttribute('data-read'); })[0];
+          if (m) { await markRead(m); refreshUi(); }
+        }
+        QmcAdm.open(b.getAttribute('data-adm') || null);
+      };
+    });
     Array.prototype.forEach.call(host.querySelectorAll('button[data-email]'), function (b) {
       b.onclick = function () { closeInbox(); openEmailSettings(); };
     });

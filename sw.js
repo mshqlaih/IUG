@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.16';
+const CACHE_NAME = 'quran-app-v2.17';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -14,12 +14,13 @@ const CACHE_NAME = 'quran-app-v2.16';
 // ✅ account.js (2026-10-28): تأكيد البريد الإلكتروني (user/account/*)
 // ✅ schedule.js (2026-11-02): موعد الحلقة + الوصول والانصراف + PDF (org/circle-schedule)
 // ✅ harvest.js (2026-11-02): حصاد الشهر لمعلّم الحلقة («طلابي») ومعلّم الدورة («دوراتي») (org/harvest)
+// ✅ adm_record.js (2026-11-08): سجلّي الإداريّ والردّ على الإجراءات (org/adm-mine · POST org/adm)
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
                      'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'help.js',
-                     'account.js', 'schedule.js', 'harvest.js', 'app.css', 'safwa.css'];
+                     'account.js', 'schedule.js', 'harvest.js', 'adm_record.js', 'app.css', 'safwa.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './safwa.css', './app.js', './api.js',
                './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js',
-               './appearance.js', './help.js', './account.js', './schedule.js', './harvest.js'];
+               './appearance.js', './help.js', './account.js', './schedule.js', './harvest.js', './adm_record.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
