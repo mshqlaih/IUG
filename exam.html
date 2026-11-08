@@ -361,7 +361,7 @@
         // النتيجة تُفتح بانتهاء **الموعد** لا بالتسليم (قرار اللجنة)
         action = x.can_review === "Y"
           ? '<button class="btn2" data-res="' + x.request_id + '">النتيجة والمراجعة</button>'
-          : '<span class="slot-note good">تظهر نتيجتك بعد انتهاء الموعد</span>';
+          : '<span class="slot-note good">تظهر نتيجتك بعد انتهاء الموعد أو حين يسلّم الجميع</span>';
       }
       else if (x.state === "VOID") {
         tag = '<span class="tag no">أُلغي</span>';
