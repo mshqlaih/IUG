@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.17';
+const CACHE_NAME = 'quran-app-v2.18';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -25,7 +25,7 @@ const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.j
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.
 const ASSETS = ['./quran_data.js', './STATIC_LOOKUP.json', './manifest.json',
-                './icon.png', './icon-192.png', './icon-512.png', './mushaf/QuranFont.ttf', './mushaf/hafs_lines.json',
+                './app-icon.png', './app-icon-192.png', './app-icon-512.png', './favicon.ico', './mushaf/QuranFont.ttf', './mushaf/hafs_lines.json',
                 './fonts/Tajawal-Regular.ttf',
                 './vendor/fontawesome/css/all.min.css',
                 './vendor/fontawesome/webfonts/fa-solid-900.woff2'];
