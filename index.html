@@ -222,9 +222,11 @@
     <div id="inboxBanners"></div>
 
     <div class="tabs-header">
+        <!-- 🏠 الرئيسية (welcome.js، 2026-11-09) — أوّل ما يراه كل مستخدم، ظاهرةٌ دائمًا -->
+        <button class="tab-btn active" data-tab="homeTab" onclick="openTab('homeTab', this)"><i class="fas fa-house"></i><span>الرئيسية</span></button>
         <!-- «دوراتي» لمعلّم الدورة وحده (is_course_teacher) — يُظهره applyAccessToTabs -->
         <button class="tab-btn" data-tab="myCoursesTab" style="display:none" onclick="openTab('myCoursesTab', this)"><i class="fas fa-chalkboard-user"></i><span>دوراتي</span></button>
-        <button class="tab-btn active" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-calendar-check"></i><span>النشاط</span></button>
+        <button class="tab-btn" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-calendar-check"></i><span>النشاط</span></button>
         <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلبة</span></button>
         <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
         <button class="tab-btn" data-tab="requestsTab" onclick="openTab('requestsTab', this)"><i class="fas fa-clipboard-check"></i><span>الطلبات</span></button>
@@ -233,8 +235,12 @@
     </div>
 
     <div class="container">
+        <!-- 🏠 الرئيسية: الهوية والتحية ومواعيدي والاختصارات و«يحتاج تدخّلك» (welcome.js) -->
+        <div id="homeTab" class="tab-content active">
+            <div id="homeRoot"></div>
+        </div>
         <!-- شاشة النشاط -->
-        <div id="activityTab" class="tab-content active">
+        <div id="activityTab" class="tab-content">
             <!-- شريط المسمّع أُزيل (2026-10-24): الاسم والحلقة في الإعدادات، و«حسابي» في الترويسة -->
       <div class="card">
         <div class="section-head" style="grid-column: 1 / -1">
@@ -1270,6 +1276,11 @@
             document.getElementById(tabId).classList.add('active');
             if (btn) btn.classList.add('active');
             window.scrollTo(0,0);
+            // 🏠 الرئيسية تُرسم عند فتحها، وغيرها يُعدّ لترتيب اختصاراتها و«أكمل من حيث توقّفت»
+            if (window.QmcWelcome) {
+                if (tabId === "homeTab") QmcWelcome.render();
+                else QmcWelcome.noteTab(tabId);
+            }
             if (tabId === "settingsTab" && typeof refreshSettingsInfo === "function") {
                 refreshSettingsInfo();
             }
@@ -1315,6 +1326,8 @@
     <script src="harvest.js"></script>
     <!-- 🗂 سجلّي الإداريّ والردّ على الإجراءات (بعد inbox.js: زرّ «ردّك» في الرسالة) -->
     <script src="adm_record.js"></script>
+    <!-- 🏠 الرئيسية (بعد app.js وinbox.js وhelp.js: USER_ACCESS وopenInbox و_helpMarkDots) -->
+    <script src="welcome.js"></script>
 
         <div id="toast" class="toast-hidden"></div>
 </body>

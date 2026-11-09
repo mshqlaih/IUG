@@ -403,7 +403,8 @@ function applyAccessToTabs() {
 
     const screenAllows = (tabId) => {
         // الإعدادات دائماً ظاهرة: منها التشخيص والمزامنة وإعادة الضبط
-        if (tabId === 'settingsTab') return true;
+        // والرئيسية (welcome.js) لكل مستخدم كأندرويد
+        if (tabId === 'settingsTab' || tabId === 'homeTab') return true;
 
         // «دوراتي» لا تُصفّى بقائمة الشاشات: إذنُها ملكيّة (roleAllows أعلاه)
         if (tabId === 'myCoursesTab') return true;
@@ -428,12 +429,15 @@ function applyAccessToTabs() {
 
     /* ⚠️ الحارس يقيس شاشات العمل لا العدد الكلي: «الإعدادات» ظاهرة دائماً،
        فقائمة صلاحيات لا تُطابق شيئاً كانت تترك المستخدم أمامها وحدها. */
-    const hasWorkTab = visible.some(b => b.dataset.tab !== 'settingsTab');
+    const hasWorkTab = visible.some(b => b.dataset.tab !== 'settingsTab' && b.dataset.tab !== 'homeTab');
     if (!hasWorkTab) visible = byRole;
 
     buttons.forEach(b => {
         b.style.display = (visible.indexOf(b) !== -1) ? '' : 'none';
     });
+
+    // 🏠 اختصارات الرئيسية والاسم والمسمّى تتبع الصلاحيات
+    if (window.QmcWelcome) QmcWelcome.refreshIfActive();
 
     // لو كانت الشاشة المفتوحة قد أُخفيت، انتقل لأول شاشة متاحة
     const activeBtn = document.querySelector('.tab-btn.active');
