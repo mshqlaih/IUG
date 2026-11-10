@@ -566,6 +566,64 @@
     }
   }
 
+  // ── 👥 حلقةٌ بلا طلاب (T_EMPTY، 2026-11-10) — نظير EmptyCircleInvite ──
+  //    حلقةٌ بلا طلاب لا فائدة منها ⇒ أوّل ما يراه معلّمها دعوةٌ كبيرة تحت
+  //    التحية، والإضافة تُفتح وحدها مرّةً لكل حلقة (مفتاح أندرويد نفسه).
+  function emptyCard() {
+    var d = state.insights && state.insights.data;
+    var cards = d && Array.isArray(d.cards) ? d.cards : [];
+    for (var i = 0; i < cards.length; i++) if (cards[i].code === 'T_EMPTY') return cards[i];
+    return null;
+  }
+  function emptyCircles() {
+    var c = emptyCard();
+    return (c && Array.isArray(c.items) ? c.items : []).filter(function (it) { return it.circle_no != null; });
+  }
+  function inviteHtml() {
+    var list = emptyCircles();
+    if (!list.length) return '';
+    var one = list.length === 1;
+    var h = '<div class="wh-inv"><div class="wh-inv-h"><div class="wh-inv-i"><i class="fas fa-user-plus"></i></div><div>' +
+      '<b>' + esc(one ? 'حلقة «' + list[0].name + '» ليس فيها طلاب بعد' : 'حلقاتك ليس فيها طلاب بعد') + '</b>' +
+      '<span>ابدأ بإضافتهم برقم الهوية، ويُجلب الاسم وحده</span></div></div>';
+    list.forEach(function (it) {
+      h += '<button type="button" class="wh-inv-btn" data-act="addstu" data-circle="' + esc(it.circle_no) + '">' +
+        '<i class="fas fa-user-plus"></i> ' + esc(one ? 'أضف طلاب حلقتك' : 'أضف طلاب «' + it.name + '»') + '</button>';
+    });
+    return h + '</div>';
+  }
+  function openAdd(circleNo) {
+    goTab('studentsTab');
+    if (typeof openAddStudentForm === 'function') {
+      setTimeout(function () { openAddStudentForm(circleNo); }, 60);
+    }
+  }
+  var _autoOpened = false;
+  function maybeAutoOpenEmpty() {
+    if (_autoOpened || !isActive()) return;
+    var list = emptyCircles();
+    for (var i = 0; i < list.length; i++) {
+      var k = 'empty_circle_opened:' + list[i].circle_no + ':' + state.user;
+      var seen = false;
+      try { seen = localStorage.getItem(k) === 'true'; } catch (_) {}
+      if (seen) continue;
+      try { localStorage.setItem(k, 'true'); } catch (_) {}
+      _autoOpened = true;
+      openAdd(list[i].circle_no);
+      return;
+    }
+  }
+  /* أُضيف طالب (app.js: «انتهيت») ⇒ البطاقات من جديد فتزول الدعوة */
+  function studentsAdded() {
+    var d = state.insights && state.insights.data;
+    if (d && Array.isArray(d.cards)) {
+      d.cards = d.cards.filter(function (c) { return c.code !== 'T_EMPTY'; });
+    }
+    state.fetched.insights = 0;
+    if (isActive()) paint();
+    refreshAll(false);
+  }
+
   /* يجلب ما قدم — [force] بزرّ التحديث */
   function refreshAll(force) {
     if (!navigator.onLine || !window.QMC || !state.user) return;
@@ -578,7 +636,8 @@
     if (jobs.length) Promise.all(jobs).then(function () { if (isActive()) paint(); });
     if (due('insights', 2 * 60000)) {
       f.insights = now;
-      fetchInsights().then(function () { if (isActive()) paintInsights(); });
+      // الدعوة والتحية خارج لوحة البطاقات ⇒ رسمٌ كامل، ثم الفتح التلقائيّ مرّة
+      fetchInsights().then(function () { if (isActive()) { paint(); maybeAutoOpenEmpty(); } });
     }
   }
 
@@ -775,6 +834,14 @@
       '.wh-clear i{font-size:34px}.wh-clear b{display:block;margin:8px 0 4px;font-size:16px}' +
       '.wh-clear span{color:#6b7280;font-size:13.5px}' +
       '.wh-skel{height:66px;border-radius:14px;background:#f2f2f2}' +
+      '.wh-inv{padding:16px;border-radius:16px;background:var(--primary-wash,#EEF4FF);border:1px solid var(--primary-line,#C7D7F5)}' +
+      '.wh-inv-h{display:flex;align-items:center;gap:12px;margin-bottom:12px}' +
+      '.wh-inv-i{width:48px;height:48px;flex:0 0 48px;border-radius:12px;background:#fff;display:flex;' +
+      'align-items:center;justify-content:center;color:var(--primary);font-size:22px}' +
+      '.wh-inv-h b{display:block;font-size:16px;color:var(--primary-dark,var(--primary))}' +
+      '.wh-inv-h span{font-size:13px;color:#6b7280}' +
+      '.wh-inv-btn{display:block;width:100%;min-height:48px;margin-top:6px;border:0;border-radius:24px;' +
+      'background:var(--primary);color:#fff;font:inherit;font-size:15.5px;font-weight:700;cursor:pointer}' +
       '.wh-ag-row{display:flex;gap:10px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid #f0f0f0}' +
       '.wh-ag-row i{width:20px;text-align:center;margin-top:3px}' +
       '.wh-ag-day{font-weight:700;font-size:13.5px;color:var(--primary-dark,var(--primary));margin:12px 2px 2px}' +
@@ -815,7 +882,17 @@
     var withQuote = w.quote_mode !== 'WORDS';
     var base = messageFor(now, role, withQuote);
     var nowD = new Date();
-    var real = role === 'teacher' ? circleLineFor(todayCircles(), nowD.getHours() * 60 + nowD.getMinutes()) : null;
+    // 👥 حلقته بلا طلاب ⇒ الخطوة الأولى لا «يسّر الله لك ولطلابك»، ما لم
+    //    تكن له اليوم حلقةٌ فيها طلاب (نظير welcome_home_screen._hero)
+    var empty = role === 'teacher' ? emptyCircles() : [];
+    var todayC = todayCircles().filter(function (c) {
+      return !empty.some(function (e) { return String(c.title).indexOf(e.name) !== -1; });
+    });
+    var real = empty.length && !todayC.length
+      ? (empty.length === 1
+        ? 'حلقة «' + empty[0].name + '» جاهزة؛ ابدأ بإضافة طلابك، وبهم تبدأ الحلقة.'
+        : 'حلقاتك جاهزة؛ ابدأ بإضافة طلابك، وبهم تبدأ الحلقة.')
+      : role === 'teacher' ? circleLineFor(todayC, nowD.getHours() * 60 + nowD.getMinutes()) : null;
     var line = real || base.line;
     var hijri = hijriLabel(now);
     var compact = !!state.compact;
@@ -980,9 +1057,13 @@
         t.getDate() + '/' + (t.getMonth() + 1) + ' ' + pad2(t.getHours()) + ':' + pad2(t.getMinutes()) +
         '، وتتحدّث متى عاد الاتصال</div>';
     }
-    var cards = (Array.isArray(d.cards) ? d.cards : []).slice().sort(function (a, b) {
+    // T_EMPTY دعوةٌ تحت التحية (inviteHtml) لا بطاقة هنا
+    var cards = (Array.isArray(d.cards) ? d.cards : []).filter(function (c) {
+      return c.code !== 'T_EMPTY';
+    }).sort(function (a, b) {
       return sevOf(a.sev).rank - sevOf(b.sev).rank;
     });
+    if (!cards.length && emptyCircles().length) return h;
     if (!cards.length) {
       return h + '<div class="wh-clear"><i class="fas fa-circle-check"></i><b>لا شيء يحتاج تدخّلك الآن</b>' +
         '<span>حين يغيب طالبٌ أو تنقطع حلقةٌ أو يهبط حفظٌ تظهر هنا بطاقةٌ بسببها.</span></div>';
@@ -1045,6 +1126,7 @@
     r.innerHTML = '<div class="wh">' +
       heroHtml(role, w) +
       occasionHtml(w) +
+      inviteHtml() +
       agendaHtml() +
       shortcutsHtml() +
       '<div id="whIns" class="wh-ins" style="display:none"></div>' +
@@ -1065,6 +1147,7 @@
     if (act === 'edit') { e.stopPropagation(); openSettingsDialog(); }
     else if (act === 'agenda') openAgendaList();
     else if (act === 'tab') goTab(el.dataset.tab);
+    else if (act === 'addstu') openAdd(Number(el.dataset.circle));
     else if (act === 'refresh') {
       state.fetched.insights = 0;
       refreshAll(true);
@@ -1248,6 +1331,8 @@
     render: render,
     refreshIfActive: refreshIfActive,
     noteTab: noteTab,
+    emptyCircles: emptyCircles,
+    studentsAdded: studentsAdded,
     // للفحص: نفس اختيار Dart
     _pickIndex: pickIndex,
     _messageFor: messageFor,

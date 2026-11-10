@@ -434,6 +434,8 @@
                 <p class="add-student-note" id="addStudentNote">
                     <i class="fas fa-wifi"></i> إضافة طالب جديد تتطلب اتصالاً بالإنترنت، لأن السيرفر هو من يُصدر رقم الطالب.
                 </p>
+                <!-- 👥 (2026-11-10) عدّاد الإضافة المتتابعة — renderAddedStudents -->
+                <div id="addStudentDone" class="add-student-done" style="display:none"></div>
 
                 <div class="grid">
                     <div class="field">
@@ -469,7 +471,7 @@
                 <div id="addStudentStatus" class="settings-status"></div>
                 <div class="add-student-actions">
                     <button class="btn-save" id="submitStudentBtn" onclick="submitStudentForm()"><i class="fas fa-check"></i> حفظ الطالب</button>
-                    <button class="btn-cancel" onclick="closeAddStudentForm()">إلغاء</button>
+                    <button class="btn-cancel" id="cancelStudentBtn" onclick="closeAddStudentForm()">إلغاء</button>
                 </div>
             </div>
 

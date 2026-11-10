@@ -1820,7 +1820,20 @@ function renderStudentCards() {
             empty.textContent = 'لا طلبة في حلقاتك — دورك في حلقاتك «استعلام فقط»، ' +
                                 'ولا يُسجَّل نشاط إلا لحلقة تُدرّسها.';
         } else {
-            empty.textContent = 'لا يوجد طلاب لعرضهم حالياً — اسحب البيانات من الإعدادات أو أضف طالباً جديداً';
+            // 👥 (2026-11-10) دعوةٌ للإضافة لا نصٌّ وحده. «ليس فيها طلاب» بتأكيد
+            //    السيرفر (T_EMPTY في الرئيسية) لا بمخزن الجهاز الفارغ.
+            const ec = (window.QmcWelcome && QmcWelcome.emptyCircles) ? QmcWelcome.emptyCircles() : [];
+            const title = !ec.length ? 'لا يوجد طلاب لعرضهم حالياً'
+                : ec.length === 1 ? 'حلقة «' + ec[0].name + '» ليس فيها طلاب بعد'
+                : 'حلقاتك ليس فيها طلاب بعد';
+            const sub = ec.length ? 'ابدأ بإضافتهم برقم الهوية، ويُجلب الاسم وحده'
+                : 'اسحب البيانات من الإعدادات، أو أضف طالبًا جديدًا';
+            const circle = ec.length === 1 ? ec[0].circle_no : '';
+            empty.innerHTML = '<div class="empty-invite"><i class="fas fa-user-plus big"></i>' +
+                '<b>' + escapeHtmlLite(title) + '</b><span>' + escapeHtmlLite(sub) + '</span>' +
+                '<button type="button" class="empty-invite-btn" onclick="openAddStudentForm(' +
+                (circle ? Number(circle) : '') + ')"><i class="fas fa-user-plus"></i> ' +
+                (ec.length ? 'أضف طلاب حلقتك' : 'إضافة طالب') + '</button></div>';
         }
     }
 }
@@ -2375,8 +2388,46 @@ function clearStudentForm() {
     _lastCivilLookupId = null;
 }
 
-async function openAddStudentForm() {
+// 👥 (2026-11-10) الإضافة المتتابعة — نظير add_student_form.dart: بعد الحفظ
+//    يبقى النموذج للطالب التالي مع عدّادٍ بمن أُضيف، و«انتهيت» يُغلقه.
+let _addedStudents = [];
+
+function _countStudentsAr(n) {
+    if (n === 1) return 'طالبٌ واحد';
+    if (n === 2) return 'طالبان';
+    if (n <= 10) return n + ' طلاب';
+    return n + ' طالبًا';
+}
+
+function renderAddedStudents() {
+    const box = document.getElementById('addStudentDone');
+    const n = _addedStudents.length;
+    if (box) {
+        if (!n) { box.style.display = 'none'; box.innerHTML = ''; }
+        else {
+            const names = _addedStudents.slice(-3).reverse().join(' · ') + (n > 3 ? ' …' : '');
+            box.style.display = 'block';
+            box.innerHTML = '<b><i class="fas fa-circle-check"></i> أُضيف ' + _countStudentsAr(n) + '</b>' +
+                '<div>' + escapeHtmlLite(names) + '</div>' +
+                '<div>أدخل هويّة الطالب التالي، أو اضغط «انتهيت».</div>';
+        }
+    }
+    const sub = document.getElementById('submitStudentBtn');
+    if (sub) sub.innerHTML = '<i class="fas fa-check"></i> ' + (n ? 'حفظ الطالب التالي' : 'حفظ الطالب');
+    const cancel = document.getElementById('cancelStudentBtn');
+    if (cancel) cancel.textContent = n ? 'انتهيت — أُضيف ' + _countStudentsAr(n) : 'إلغاء';
+}
+
+function escapeHtmlLite(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/** circleNo: الحلقة مختارةً مسبقًا (من دعوة الحلقة الفارغة في الرئيسية) */
+async function openAddStudentForm(circleNo) {
     clearStudentForm();
+    _addedStudents = [];
+    renderAddedStudents();
     const t = document.getElementById('addStudentTitle');
     if (t) t.textContent = 'إضافة طالب جديد';
     const note = document.getElementById('addStudentNote');
@@ -2385,16 +2436,51 @@ async function openAddStudentForm() {
     const card = document.getElementById('addStudentCard');
     if (card) card.style.display = 'block';
 
-    await populateCircleSelect();
+    await populateCircleSelect(circleNo);
 
     const idEl = document.getElementById('stuIdNo');
     if (idEl) idEl.focus();
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeAddStudentForm() {
     const card = document.getElementById('addStudentCard');
     if (card) card.style.display = 'none';
     clearStudentForm();
+    if (_addedStudents.length) {
+        _addedStudents = [];
+        renderAddedStudents();
+        // أُضيف طالب ⇒ لم تعد الحلقة فارغة: تُحدَّث الرئيسية
+        if (window.QmcWelcome && QmcWelcome.studentsAdded) QmcWelcome.studentsAdded();
+    }
+}
+
+/** مقيَّدٌ في حلقةٍ أخرى ⇒ لمعلّم الحلقة رسالةٌ وحدها «راجع الإدارة» (قرار
+ *  المستخدم 2026-11-10)، ومن يدير الحلقات يبقى له نصّ السيرفر «انقله…». */
+function enrolledElsewhereMsg(msg) {
+    const head = 'مقيَّدٌ في حلقة:';
+    const i = String(msg || '').indexOf(head);
+    if (i < 0) return false;
+    const caps = (USER_ACCESS && Array.isArray(USER_ACCESS.capabilities))
+        ? USER_ACCESS.capabilities.map(x => String(x).toUpperCase()) : [];
+    if (caps.indexOf('CIRCLES_MANAGE') !== -1) return false;
+    let where = msg.substring(i + head.length).trim();
+    const cut = where.lastIndexOf(' — انقله');
+    if (cut > 0) where = where.substring(0, cut).trim();
+    const o = document.createElement('div');
+    o.className = 'modal-overlay';
+    o.style.display = 'flex';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.innerHTML = '<div class="modal-box" style="text-align:start">' +
+        '<h4 class="modal-title"><i class="fas fa-circle-info" style="color:#92400E"></i> هذا الطالب مسجَّلٌ في حلقةٍ أخرى</h4>' +
+        '<p style="line-height:1.8">' + (where ? 'مسجَّلٌ في «' + escapeHtmlLite(where) + '».<br>' : '') +
+        'الطالب لا يُسجَّل في حلقتين — راجع إدارة المركز بهذا الخصوص.</p>' +
+        '<div class="modal-actions"><button type="button" class="modal-btn modal-confirm" data-close>حسنًا</button></div></div>';
+    o.addEventListener('click', ev => { if (ev.target === o || ev.target.closest('[data-close]')) o.remove(); });
+    document.body.appendChild(o);
+    setStudentStatus('', '');
+    return true;
 }
 
 function toggleAddStudentForm() {
@@ -2649,18 +2735,34 @@ async function addNewStudentOnline() {
         // الحلقة المختارة من القائمة؛ وإن غابت القائمة نرجع لحلقة المسمّع من empdata
         const circleNo = form.circleNo || await getCurrentCircleNo();
 
-        const studentNo = await QMC.addNewStudent({
-            USER_ID_NO_IN  : getCurrentUser(),
-            ID_NO_IN       : form.idNo,
-            FIRST_NAME_IN  : form.fName,
-            FATHER_NAME_IN : form.pName,
-            GFATHER_NAME_IN: form.gName,
-            FAMILY_NAME_IN : form.lName,
-            BIRTH_DATE_IN  : form.birthDate || null,
-            GENDER_IN      : form.gender,
-            MOBILE_NO_IN   : form.mobile,
-            CIRCLE_NO_IN   : circleNo,
+        // ✅ (2026-11-10) org/student/save كأندرويد (QMC_ORG_PKG.student_save_json):
+        //    هويّة من يضيف من التوكن لا من الجسم، وقيدٌ واحد للطالب في المؤسسة،
+        //    وسقف المعتمدين. كان addNewStudent القديم يُصدّق USER_ID_NO_IN.
+        const r = await QMC.apiFetch('org/student/save', {
+            method: 'POST',
+            timeoutMs: 30000,
+            body: {
+                student_no  : null,
+                circle_no   : Number(circleNo),
+                nat_iso     : 'PS',
+                id_no       : form.idNo,
+                first_name  : form.fName,
+                father_name : form.pName,
+                gfather_name: form.gName,
+                family_name : form.lName,
+                gender      : form.gender,
+                birth_date  : form.birthDate || null,   // <input type=date> ⇒ YYYY-MM-DD
+                mobile      : form.mobile,
+                status      : '1',
+            },
         });
+        const d = await r.json().catch(() => null);
+        if (!d || d.status !== 'success') {
+            throw new Error((d && d.message) || (r.status === 404
+                ? 'الخدمة لم تُفعَّل على الخادم بعد' : 'تعذّر إضافة الطالب (رمز ' + r.status + ')'));
+        }
+        const studentNo = Number(d.student_no || d.studentno);
+        if (!studentNo) throw new Error('لم يُستلم رقم الطالب من السيرفر');
 
         const student = {
             id       : studentNo,     // المفتاح = رقم الطالب من السيرفر
@@ -2677,12 +2779,27 @@ async function addNewStudentOnline() {
 
         db.transaction("students", "readwrite").objectStore("students").put(student).onsuccess = () => {
             refreshAll();
-            showToast(`✅ تم إضافة الطالب — رقمه ${studentNo}`);
-            closeAddStudentForm();
+            // رسالة السيرفر تقول «إضافيًّا» متى اكتمل معتمدو الحلقة
+            showToast('✅ ' + (d.message || 'أُضيف الطالب') + ` — رقمه ${studentNo}`);
+            // يبقى النموذج للطالب التالي: الحلقة كما هي والحقول فارغة
+            _addedStudents.push([form.fName, form.lName].filter(Boolean).join(' ') || 'طالب');
+            STUDENT_FORM_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.value = ''; el.readOnly = false; }
+            });
+            const g = document.getElementById('stuGender');
+            if (g) g.value = '';
+            _lastCivilLookupId = null;
+            setStudentStatus('', '');
+            renderAddedStudents();
+            const idEl = document.getElementById('stuIdNo');
+            if (idEl) idEl.focus();
         };
     } catch (err) {
         console.error("❌ تعذّر إضافة الطالب:", err);
-        setStudentStatus('❌ ' + (err.message || 'تعذّر إضافة الطالب'), '#c0392b');
+        const m = err && err.name === 'AbortError' ? 'انتهت المهلة — أعد المحاولة'
+            : (err && err.message) || 'تعذّر إضافة الطالب';
+        if (!enrolledElsewhereMsg(m)) setStudentStatus('❌ ' + m, '#c0392b');
     } finally {
         if (btn) btn.disabled = false;
     }

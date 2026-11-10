@@ -1492,6 +1492,20 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .req-row i { font-size: 13px; margin-top: 2px; flex-shrink: 0; width: 16px; text-align: center; }
 .req-grade { font-weight: 700; color: #b26a00; }
 
+/* 👥 (2026-11-10) عدّاد الإضافة المتتابعة + دعوة الحلقة الفارغة */
+.add-student-done {
+    background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534;
+    border-radius: 12px; padding: 10px 12px; margin: 8px 0; line-height: 1.7; font-size: 14px;
+}
+.add-student-done div { color: #475569; font-size: 13px; }
+.empty-invite { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.empty-invite i.big { font-size: 40px; color: var(--primary); opacity: .75; }
+.empty-invite b { font-size: 16px; color: var(--primary-dark); }
+.empty-invite .empty-invite-btn {
+    border: 0; border-radius: 12px; padding: 12px 22px; font: inherit; font-weight: 700;
+    background: var(--primary); color: #fff; cursor: pointer; min-width: 220px;
+}
+
 .students-empty {
     text-align: center;
     color: #5f6368;
