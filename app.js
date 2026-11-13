@@ -2033,8 +2033,14 @@ function renderDayStrip(students) {
         'onclick="pickActDay(event)" onchange="showActDay(this.value)" aria-label="نشاط أيّ يوم؟"></span>';
     if (!any) h += '<span class="day-none">لم يُسجَّل شيء</span>';
     else {
-        h += `<b style="color:#1565c0">سمّع ${recited}</b>`;
-        if (present) h += `<b style="color:#00796b">حضر ${present}</b>`;
+        // «حضر» يشمل من سمّع — كان «سمّع 12 حضر 4» يُقرأ أنّ الحاضرين 4
+        // وهم من حضر بلا تسميع (2026-11-13، ومثله أندرويد)
+        const attended = recited + present;
+        if (attended) {
+            const detail = recited && present ? `سمّع ${recited} · لم يُسمّع ${present}`
+                         : recited ? 'سمّعوا جميعًا' : 'لم يُسمّع أحد';
+            h += `<span><b style="color:#00796b">حضر ${attended}</b> <span style="color:#6b7280;font-weight:normal">(${detail})</span></span>`;
+        }
         if (absent) h += `<b style="color:#c62828">غاب ${absent}</b>`;
     }
     h += '</div><div class="day-strip-acts">';
