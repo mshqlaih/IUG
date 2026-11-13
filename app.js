@@ -3203,9 +3203,13 @@ function extractArabicError(errorObj) {
   }
 
   // 1. البحث عن نص عربي (الأولوية للعربي)
-  const arabicMatches = textToSearch.match(/[\u0600-\u06FF\s،؟!ـ]+/g);
+  // 🔢 (2026-11-13) الجملة تبدأ بحرفٍ عربيّ وتمتدّ معها الأرقام والترقيم:
+  //    كان النمط يحذف كل ما ليس حرفًا عربيًّا، فتسقط من رسالة السيرفر
+  //    «ناجح بمعدّل 88 (2024-01-01)، في «…»» الأرقامُ والأقواس. واللاتينيّ
+  //    (ORA- وأسماء الأعمدة) يقطع الجملة كما كان.
+  const arabicMatches = textToSearch.match(/[\u0600-\u06FF][\u0600-\u06FF\s0-9\u0660-\u0669،؟!ـ«»().:\/\u2013-]*/g);
   if (arabicMatches) {
-    const cleanedArabic = arabicMatches.join(" ").trim();
+    const cleanedArabic = arabicMatches.join(" ").replace(/[\s(«\u2013:\/-]+$/, '').trim();
     if (cleanedArabic.length > 5) return cleanedArabic; // إرجاعه إذا كان نصاً معتبراً
   }
 
