@@ -547,6 +547,7 @@
       '.td-sub{display:flex;gap:8px;align-items:flex-start;padding:10px;margin-bottom:10px;border-radius:10px;background:#FFF8E1;color:#3E2723;font-size:13px;line-height:1.5;grid-column:1/-1}' +
       '.td-sub i{color:#B45309;margin-top:3px}' +
       '.td-box{text-align:start;max-height:88vh;overflow:auto;max-width:480px}' +
+      '.td-box .modal-actions{margin-top:16px}' +
       '.td-p{font-size:13px;line-height:1.55;margin:4px 0 8px}' +
       '.td-lbl{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}' +
       '.td-chips{display:flex;flex-wrap:wrap;gap:6px}' +

@@ -228,7 +228,8 @@
         <button class="tab-btn" data-tab="myCoursesTab" style="display:none" onclick="openTab('myCoursesTab', this)"><i class="fas fa-chalkboard-user"></i><span>دوراتي</span></button>
         <button class="tab-btn" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-calendar-check"></i><span>النشاط</span></button>
         <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلبة</span></button>
-        <button class="tab-btn" data-tab="logsTab" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
+        <!-- 📊 مُخفى (2026-11-13): بديله سطر «نشاط اليوم» في الطلبة — applyAccessToTabs -->
+        <button class="tab-btn" data-tab="logsTab" style="display:none" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
         <button class="tab-btn" data-tab="requestsTab" onclick="openTab('requestsTab', this)"><i class="fas fa-clipboard-check"></i><span>الطلبات</span></button>
         <button class="tab-btn" data-tab="coursesTab" onclick="openTab('coursesTab', this)"><i class="fas fa-graduation-cap"></i><span>الدورات</span></button>
         <button class="tab-btn" data-tab="settingsTab" onclick="openTab('settingsTab', this)"><i class="fas fa-gear"></i><span>الإعدادات</span></button>
@@ -418,6 +419,8 @@
                 <button type="button" class="sched-open-btn" onclick="openCircleSchedule()"><i class="fas fa-calendar-days"></i> موعد الحلقة</button>
                 <!-- 📝 (2026-11-13) طلب «منقطع» ومعتمد ⇄ إضافي بموافقة المدير — status_req.js -->
                 <button type="button" class="status-open-btn" onclick="openCircleStatus()"><i class="fas fa-id-card"></i> حالات الطلاب</button>
+                <!-- 📊 (2026-11-13) تقرير الأنشطة صفحةً من هنا كأندرويد (أيقونة شريط الطلبة) — لا تبويب -->
+                <button type="button" class="status-open-btn" onclick="openActivityReport()" title="تقرير الأنشطة: Excel · PDF · مشاركة" aria-label="تقرير الأنشطة"><i class="fas fa-chart-simple"></i></button>
             </div>
             <!-- 🌾 (2026-11-02) حصاد الشهر الماضي لحلقاتي — harvest.js -->
             <div id="harvestCircleCard"></div>
@@ -479,6 +482,8 @@
                 </div>
             </div>
 
+            <!-- 📅 (2026-11-13) نشاط اليوم: الخلاصة والرفع والمشاركة — بديل «تقرير الأنشطة» -->
+            <div id="dayStrip" style="display:none"></div>
             <div id="studentsCards" class="students-cards"></div>
             <div id="studentsEmpty" class="students-empty" style="display:none">لا يوجد طلاب لعرضهم حالياً</div>
         </div>
@@ -488,6 +493,8 @@
             <!-- «تقرير الأنشطة» صار عنوان الشاشة (2026-10-27): كان عنوان البطاقة
                  يزاحم أيقونات التصدير الأربع في سطرٍ واحد -->
             <div class="section-head">
+                <!-- يُفتح من «طلابي» ⇒ الرجوع إليها -->
+                <button type="button" class="report-back-btn" onclick="closeActivityReport()" title="رجوع إلى طلابي" aria-label="رجوع إلى طلابي"><i class="fas fa-arrow-right"></i></button>
                 <div class="section-title"><i class="fas fa-chart-line"></i> تقرير الأنشطة</div>
                 <button type="button" class="help-btn" data-help="logs" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
             </div>

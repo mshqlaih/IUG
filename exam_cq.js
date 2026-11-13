@@ -23,8 +23,12 @@ window.CQ = (function () {
 
   var LS = window.localStorage;
   var LETTERS = ["أ", "ب", "ج", "د", "هـ", "و"];
-  var STAGE = { MID: "الاختبار النصفي", FINAL: "الاختبار النهائي",
+  // 🟢 (2026-11-04) الاسم من السيرفر (stage_label) أوّلًا: في الوقفية MID
+  //    «الاختبار الأول» وMID2 «الاختبار الثاني». الخريطة احتياطٌ لسيرفرٍ أقدم.
+  var STAGE = { MID: "الاختبار النصفي", MID2: "الاختبار الثاني",
+                FINAL: "الاختبار النهائي",
                 QZ1: "الاختبار القصير الأول", QZ2: "الاختبار القصير الثاني" };
+  function stageName(o) { return o.stage_label || STAGE[o.stage] || o.stage; }
   var RETRY = [5, 15, 45];
 
   function K() { return window.OXK; }
@@ -212,7 +216,7 @@ window.CQ = (function () {
                "</span>";
     }
     return '<div class="cq-exam"><div class="slot-head" style="margin-bottom:6px">' +
-           '<b class="slot-title">' + esc(STAGE[x.stage] || x.stage) + "</b>" + tag + "</div>" +
+           '<b class="slot-title">' + esc(stageName(x)) + "</b>" + tag + "</div>" +
            '<div class="meta"><div><span class="k">اليوم</span><span class="v">' + k.dayLabel(ws) +
            '</span></div><div><span class="k">الوقت</span><span class="v num">' + k.hm(ws) + " ← " +
            k.hm(we) + "</span></div>" +
@@ -508,7 +512,7 @@ window.CQ = (function () {
     var old = exLoad(x.slot_id) || {};
     ex = {
       slot: x.slot_id,
-      title: (STAGE[d.stage] || "الاختبار") + " — " + (c.class_name || c.course_name),
+      title: (d.stage ? stageName(d) : (x.stage_label || "الاختبار")) + " — " + (c.class_name || c.course_name),
       key: d.attempt_key,
       deadline: k.parseIso(d.deadline_at),
       items: d.items || [],

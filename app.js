@@ -424,7 +424,10 @@ function applyAccessToTabs() {
         return !screens.length || (code && screens.indexOf(code) !== -1);
     };
 
-    const byRole = buttons.filter(b => roleAllows(b.dataset.tab));
+    /* 📊 «التقارير» (تقرير الأنشطة) أُخفي من الشريط (2026-11-13، كالصفوة): نشاط اليوم
+       ومشاركته وتعديله وحذفه في «طلابي»، والمزامنة في الإعدادات. الشاشة باقيةٌ في الكود. */
+    const RETIRED_TABS = ['logsTab'];
+    const byRole = buttons.filter(b => roleAllows(b.dataset.tab) && RETIRED_TABS.indexOf(b.dataset.tab) === -1);
     let visible = byRole.filter(b => screenAllows(b.dataset.tab));
 
     /* ⚠️ الحارس يقيس شاشات العمل لا العدد الكلي: «الإعدادات» ظاهرة دائماً،
@@ -1586,6 +1589,9 @@ async function offerSecondReview(record, first, onSaved) {
 let _studentsCache = [];          // كل الطلبة من IndexedDB
 let _lastActivityByStudent = {};  // رقم الطالب ← آخر نشاط له
 let _circlesCache = [];           // حلقات المستخدم بأدواره فيها
+let _recordsCache = [];           // كل سجلات النشاط على الجهاز (لسطر «نشاط اليوم»)
+let _actDay = null;               // اليوم المعروض في «طلابي» (YYYY-MM-DD)؛ null = اليوم
+let _dayActsCache = {};           // نشاط ذلك اليوم لكل طالب — يُبنى في renderStudentCards
 
 /* شاشة الطلبة فقط: تُعرض حلقات المحفّظ الذي دوره فيها M (أساسي) أو A (مساعد).
    ⚠️ Q (استعلام فقط) يُستبعد — لا يُسجَّل نشاط لطالب حلقةٍ لا تُدرّسها.
@@ -1619,12 +1625,119 @@ function allowedCircleNos() {
     return set;
 }
 
-// الطلبة الذين يحقّ للمستخدم العمل عليهم في شاشة الطلبة
+// الطلبة الذين يحقّ للمستخدم العمل عليهم في شاشة الطلبة — وفي «الحلقة الحالية» إن اختارها
 function studentsInMyCircles() {
-    if (!circleRoleRestrictionActive()) return _studentsCache;
-    const allowed = allowedCircleNos();
-    return _studentsCache.filter(s =>
-        s.circleNo != null && allowed[Number(s.circleNo)] === true);
+    let list = _studentsCache;
+    if (circleRoleRestrictionActive()) {
+        const allowed = allowedCircleNos();
+        list = list.filter(s => s.circleNo != null && allowed[Number(s.circleNo)] === true);
+    }
+    const scope = currentCircleScope();
+    return scope == null ? list : list.filter(s => Number(s.circleNo) === scope);
+}
+
+/* =========================================================
+   🕌 الحلقة الحالية (2026-11-13) — نظير CircleScope في أندرويد (circle_scope.dart):
+   لمن يحفّظ في أكثر من حلقة اختيارٌ واحد «الحلقة: …» أعلى النشاط والطلبة
+   والتقارير والطلبات تتبعه كلُّها (ومعها بطاقة المشاركة). لا يظهر لمن له
+   حلقةٌ واحدة. يُتذكَّر في localStorage `circle_filter:<user>`، وحلقةٌ محفوظة
+   لم تعد من حلقاته تُعامَل «كل الحلقات».
+   ========================================================= */
+const SCOPE_TABS = ['activityTab', 'studentsTab', 'logsTab', 'requestsTab'];
+
+// الحلقات التي يحفّظ فيها (M · A · S)، وكلّها إن لم تصل الأدوار بعد
+function scopeChoices() {
+    const byRole = _circlesCache.some(c => String(c.empRole || '').trim() !== '');
+    return _circlesCache.filter(c => {
+        const r = String(c.empRole || '').trim().toUpperCase();
+        return !byRole || r === 'M' || r === 'A' || r === 'S';
+    }).sort((a, b) => String(a.circleName || '').localeCompare(String(b.circleName || ''), 'ar'));
+}
+
+function currentCircleScope() {
+    let no = null;
+    try { no = parseInt(localStorage.getItem('circle_filter:' + getCurrentUser()), 10); } catch (_) {}
+    if (!no || isNaN(no)) return null;
+    const list = scopeChoices();
+    if (list.length < 2 || !list.some(c => Number(c.circleNo) === no)) return null;
+    return no;
+}
+
+// طالبٌ في الحلقة الحالية (أو لا حلقة مختارة)
+function inCircleScope(studentNo) {
+    const scope = currentCircleScope();
+    if (scope == null) return true;
+    const s = _studentsCache.find(x => Number(x.id) === Number(studentNo));
+    return !!s && Number(s.circleNo) === scope;
+}
+
+function scopeCircleLabel(c, multiCenter) {
+    const n = c.circleName || ('حلقة ' + c.circleNo);
+    return multiCenter && c.centerName ? n + ' · ' + c.centerName : n;
+}
+
+function renderCircleScopeBars() {
+    const list = scopeChoices();
+    const show = list.length > 1;
+    const no = currentCircleScope();
+    const multi = new Set(list.map(c => c.centerNo)).size > 1;
+    const sel = list.find(c => Number(c.circleNo) === no);
+    const name = sel ? scopeCircleLabel(sel, multi) : 'كل الحلقات';
+    SCOPE_TABS.forEach(id => {
+        const tab = document.getElementById(id);
+        if (!tab) return;
+        let bar = tab.querySelector(':scope > .circle-scope-bar');
+        if (!show) { if (bar) bar.remove(); return; }
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'circle-scope-bar';
+            tab.insertBefore(bar, tab.firstChild);
+        }
+        bar.innerHTML = '<button type="button" class="circle-scope-chip' + (sel ? ' on' : '') +
+            '" onclick="openCircleScopePicker()"><i class="fas fa-mosque"></i><span>الحلقة: ' +
+            escapeHtml(name) + '</span><i class="fas fa-caret-down"></i></button>';
+    });
+}
+
+function openCircleScopePicker() {
+    const list = scopeChoices();
+    if (list.length < 2) return;
+    const cur = currentCircleScope();
+    const multi = new Set(list.map(c => c.centerNo)).size > 1;
+    const old = document.getElementById('circleScopeModal');
+    if (old) old.remove();
+    const o = document.createElement('div');
+    o.id = 'circleScopeModal';
+    o.className = 'modal-overlay';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.style.display = 'flex';
+    const row = (no, label) => `<button type="button" class="circle-scope-row${(no === cur) ? ' on' : ''}" data-no="${no == null ? '' : no}">` +
+        `<i class="fas fa-mosque"></i><span>${escapeHtml(label)}</span>${no === cur ? '<i class="fas fa-check"></i>' : ''}</button>`;
+    o.innerHTML = '<div class="modal-box" style="text-align:start;max-width:440px">' +
+        '<h4 class="modal-title">اختر الحلقة</h4>' +
+        '<p style="font-size:13px;color:#6b7280;margin:0 0 8px">تتبع الحلقةَ المختارة كلُّ التبويبات: النشاط والطلبة والتقارير والطلبات.</p>' +
+        row(null, 'كل الحلقات') +
+        list.map(c => row(Number(c.circleNo), scopeCircleLabel(c, multi))).join('') +
+        '<div class="modal-actions"><button type="button" class="modal-btn modal-cancel" data-close>إغلاق</button></div></div>';
+    o.addEventListener('click', ev => {
+        if (ev.target === o || ev.target.closest('[data-close]')) { o.remove(); return; }
+        const b = ev.target.closest('.circle-scope-row');
+        if (!b) return;
+        o.remove();
+        selectCircleScope(b.dataset.no ? Number(b.dataset.no) : null);
+    });
+    document.body.appendChild(o);
+}
+
+function selectCircleScope(circleNo) {
+    try {
+        const k = 'circle_filter:' + getCurrentUser();
+        if (circleNo == null) localStorage.removeItem(k); else localStorage.setItem(k, String(circleNo));
+    } catch (_) {}
+    renderCircleScopeBars();
+    refreshAll();                                    // النشاط والطلبة والتقارير
+    if (typeof renderExamRequests === 'function') renderExamRequests();
 }
 
 function fullStudentName(s) {
@@ -1657,6 +1770,7 @@ function loadStudentsAndActivities() {
 
         tx.oncomplete = () => {
             _studentsCache = sReq.result || [];
+            _recordsCache = rReq.result || [];   // 📅 نشاط اليوم المختار في «طلابي»
             _lastActivityByStudent = {};
             (rReq.result || []).forEach(r => {
                 const key = Number(r.student);
@@ -1733,9 +1847,214 @@ function actionButtonHtml(type, studentId, quick) {
            `onclick="${fn}(${studentId}, ${type})">${activityIconHtml(type)}</button>`;
 }
 
+/* =========================================================
+   📅 نشاط اليوم في «طلابي» (2026-11-13) — نظير _todayStrip/_todayChip في
+   students_screen.dart: ما كان يُرى في «تقرير الأنشطة» صار هنا، والتبويب أُخفي
+   من الشريط. اليوم المعروض قابلٌ للتغيير، فنشاط يومٍ مضى يُراجَع ويُشارَك.
+   ========================================================= */
+function ymdLocal(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function actDay() { return _actDay || ymdLocal(new Date()); }
+function isActToday() { return !_actDay || _actDay === ymdLocal(new Date()); }
+
+function actDayLabel(ymd) {
+    const today = ymdLocal(new Date());
+    if (ymd === today) return 'اليوم';
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    if (ymd === ymdLocal(y)) return 'أمس';
+    const p = ymd.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    const W = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    return W[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1);
+}
+
+// نشاط اليوم المعروض لكل طالب
+function dayActsByStudent() {
+    const day = actDay(), out = {};
+    _recordsCache.forEach(r => {
+        if (String(r.date) !== day) return;
+        const k = Number(r.student);
+        (out[k] = out[k] || []).push(r);
+    });
+    return out;
+}
+
+// «تسميع: البقرة (155) – البقرة (176)» — ونصّ النوع وحده للحضور والغياب
+function actChipLabel(r) {
+    const t = Number(r.type);
+    const name = activityTypeName(t);
+    let from = '', to = '';
+    if (t === 6 || t === 7) { from = JUZ_NAMES[r.partFrom] || ''; to = JUZ_NAMES[r.partTo] || ''; }
+    else if (ATTENDANCE_ONLY_TYPES.indexOf(t) === -1) { from = compactAyahLabel(r.fromRange); to = compactAyahLabel(r.toRange); }
+    if (!from) return name;
+    return (!to || to === from) ? `${name}: ${from}` : `${name}: ${from} – ${to}`;
+}
+
+function actChipHtml(r) {
+    const failed = !r.synced && String(r.syncError || '').trim() !== '';
+    const cloud = r.synced ? '' : `<i class="fas ${failed ? 'fa-circle-exclamation' : 'fa-cloud-arrow-up'}" style="color:${failed ? '#c62828' : '#e67e22'}"></i>`;
+    return `<button type="button" class="act-chip" title="${r.synced ? 'عرض / تعديل / حذف' : 'لم يُرفع بعد'}" ` +
+        `onclick="openActChipMenu(${Number(r.id)})">${activityIconHtml(r.type)}<span>${escapeHtml(actChipLabel(r))}</span>${cloud}</button>`;
+}
+
+async function openActChipMenu(id) {
+    const r = await getRecordById(id);
+    if (!r) return showAlert('لم يُعثر على السجل');
+    const student = _studentsCache.find(s => Number(s.id) === Number(r.student));
+    const failed = !r.synced && String(r.syncError || '').trim() !== '';
+    const old = document.getElementById('actChipModal');
+    if (old) old.remove();
+    const o = document.createElement('div');
+    o.id = 'actChipModal';
+    o.className = 'modal-overlay';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.style.display = 'flex';
+    o.innerHTML = '<div class="modal-box" style="text-align:start;max-width:440px">' +
+        `<h4 class="modal-title">${escapeHtml(fullStudentName(student) || ('الطالب ' + r.student))}</h4>` +
+        `<div style="font-size:13.5px;color:#475569;margin-bottom:8px">${escapeHtml(formatActivitySummary(r))}</div>` +
+        (r.synced
+            ? '<div class="act-menu-row off"><i class="fas fa-cloud" style="color:#2e7d32"></i><span>مرفوعٌ إلى السيرفر</span></div>'
+            : `<button type="button" class="act-menu-row" data-do="sync"><i class="fas ${failed ? 'fa-circle-exclamation' : 'fa-cloud-arrow-up'}" style="color:${failed ? '#c62828' : '#e67e22'}"></i>` +
+              `<span>لم يُرفع بعد — مزامنة${failed ? '<small>' + escapeHtml(extractArabicError(r.syncError) || r.syncError) + '</small>' : ''}</span></button>`) +
+        '<button type="button" class="act-menu-row" data-do="edit"><i class="fas fa-pen" style="color:var(--primary)"></i><span>عرض / تعديل</span></button>' +
+        '<button type="button" class="act-menu-row" data-do="delete"><i class="fas fa-trash" style="color:#c5221f"></i><span>حذف</span></button>' +
+        '<div class="modal-actions"><button type="button" class="modal-btn modal-cancel" data-close>إغلاق</button></div></div>';
+    o.addEventListener('click', ev => {
+        if (ev.target === o || ev.target.closest('[data-close]')) { o.remove(); return; }
+        const b = ev.target.closest('[data-do]');
+        if (!b) return;
+        o.remove();
+        if (b.dataset.do === 'sync') uploadUnsyncedFromStudents();
+        else if (b.dataset.do === 'edit') editRecord(id);
+        else if (b.dataset.do === 'delete') deleteRecord(id);
+    });
+    document.body.appendChild(o);
+}
+
+// رفع ما لم يُرفع (الكلّ، كزرّ المزامنة) والنتيجة رسالةً هنا لا في التقرير المخفيّ
+async function uploadUnsyncedFromStudents() {
+    if (!navigator.onLine) return showToast('لا اتصال — يُرفع حين يعود');
+    showToast('جارٍ الرفع…');
+    try {
+        await syncRecordsFromPage();
+        const left = (await new Promise(res => {
+            const q = db.transaction('records').objectStore('records').getAll();
+            q.onsuccess = () => res(q.result || []);
+            q.onerror = () => res([]);
+        })).filter(x => !x.synced).length;
+        showToast(left ? `بقي ${left} لم يُرفع — المس الشارة الحمراء لترى السبب` : '✅ رُفع كل النشاط');
+    } catch (e) {
+        showToast('تعذّر الرفع');
+    }
+    refreshAll();
+    if (typeof refreshSettingsInfo === 'function') refreshSettingsInfo();
+}
+
+// آخر يومٍ قبل المعروض فيه نشاطٌ لطلاب القائمة (على الجهاز)
+function previousActiveDay(students) {
+    const nos = {};
+    students.forEach(s => { nos[Number(s.id)] = 1; });
+    const day = actDay();
+    let best = null;
+    _recordsCache.forEach(r => {
+        const d = String(r.date);
+        if (!nos[Number(r.student)] || d >= day) return;
+        if (!best || d > best) best = d;
+    });
+    return best;
+}
+
+function showActDay(ymd) {
+    _actDay = (!ymd || ymd === ymdLocal(new Date())) ? null : ymd;
+    renderStudentCards();
+}
+
+// المتصفّحات المكتبية لا تفتح المنتقي بلمس الحقل كلّه ⇒ showPicker حيث وُجد
+function pickActDay(ev) {
+    const inp = ev && ev.target;
+    if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch (_) {} }
+}
+
+/* 📊 تقرير الأنشطة صفحةً من رأس «طلابي» (كأيقونة شريط الطلبة في أندرويد):
+   التبويب مخفيٌّ من الشريط، والطلبة يبقى مضيئًا فيه ما دام التقرير مفتوحًا.
+   يُفتح على اليوم المعروض في سطر «نشاط اليوم». */
+function openActivityReport() {
+    const fd = document.getElementById('filterDate');
+    if (fd) fd.value = actDay();
+    openTab('logsTab', document.querySelector('.tab-btn[data-tab="studentsTab"]'));
+    displayRecords();
+    if (typeof _helpMarkDots === 'function') { try { _helpMarkDots(); } catch (_) {} }
+}
+
+function closeActivityReport() {
+    openTab('studentsTab', document.querySelector('.tab-btn[data-tab="studentsTab"]'));
+}
+
+// المشاركة بأشكالها الأربعة لنشاط اليوم المعروض (share_card.js)
+async function shareActDay() {
+    const scoped = {};
+    studentsInMyCircles().forEach(s => { scoped[Number(s.id)] = 1; });
+    const day = actDay();
+    const recs = _recordsCache.filter(r => String(r.date) === day && scoped[Number(r.student)])
+        .sort((a, b) => Number(a.sortOrder || 999) - Number(b.sortOrder || 999));
+    if (!recs.length) return showToast('لا نشاط مسجَّل ' + actDayLabel(day));
+    if (typeof openActivityShare === 'function') return openActivityShare(recs, day);
+    const msg = await buildClassicReportText(recs, day);
+    if (msg) shareTextSafely(msg);
+}
+
+function renderDayStrip(students) {
+    const el = document.getElementById('dayStrip');
+    if (!el) return;
+    if (!students.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+    el.style.display = '';
+    const byStu = dayActsByStudent();
+    const day = actDay(), label = actDayLabel(day);
+    let recited = 0, present = 0, absent = 0, unsynced = 0, any = 0;
+    students.forEach(s => {
+        const acts = byStu[Number(s.id)] || [];
+        if (!acts.length) return;
+        any += acts.length;
+        unsynced += acts.filter(a => !a.synced).length;
+        const types = acts.map(a => Number(a.type));
+        if (types.some(t => [1, 2, 6, 7, SECOND_REVIEW_TYPE].indexOf(t) !== -1)) recited++;
+        else if (types.indexOf(3) !== -1) present++;
+        else absent++;
+    });
+    const prev = any ? null : previousActiveDay(students);
+    let h = `<div class="day-strip${isActToday() ? '' : ' past'}"><div class="day-strip-top">` +
+        // حقل التاريخ شفّافٌ فوق الزرّ نفسه: اللمس يفتح منتقي النظام (iOS لا يفتحه برمجيًّا)
+        `<span class="day-pick-wrap"><span class="day-pick"><i class="fas fa-calendar-days"></i> نشاط ${escapeHtml(label)} <i class="fas fa-caret-down"></i></span>` +
+        `<input type="date" id="actDayInput" class="day-input" value="${day}" max="${ymdLocal(new Date())}" ` +
+        'onclick="pickActDay(event)" onchange="showActDay(this.value)" aria-label="نشاط أيّ يوم؟"></span>';
+    if (!any) h += '<span class="day-none">لم يُسجَّل شيء</span>';
+    else {
+        h += `<b style="color:#1565c0">سمّع ${recited}</b>`;
+        if (present) h += `<b style="color:#00796b">حضر ${present}</b>`;
+        if (absent) h += `<b style="color:#c62828">غاب ${absent}</b>`;
+    }
+    h += '</div><div class="day-strip-acts">';
+    if (!isActToday()) h += '<button type="button" onclick="showActDay(null)"><i class="fas fa-calendar-day"></i> عودة إلى اليوم</button>';
+    if (prev) h += `<button type="button" onclick="showActDay('${prev}')"><i class="fas fa-clock-rotate-left"></i> آخر يومٍ مسجَّل: ${escapeHtml(actDayLabel(prev))}</button>`;
+    if (unsynced) h += `<button type="button" class="warn" onclick="uploadUnsyncedFromStudents()"><i class="fas fa-cloud-arrow-up"></i> رفع ${unsynced} لم يُرفع</button>`;
+    if (any) h += '<button type="button" class="share" onclick="shareActDay()"><i class="fas fa-share-nodes"></i> مشاركة</button>';
+    h += '</div></div>';
+    el.innerHTML = h;
+}
+
 function studentCardHtml(s) {
     const id   = Number(s.id);
     const act  = _lastActivityByStudent[id];
+    const dayActs = (_dayActsCache && _dayActsCache[id]) || [];
+
+    // سُجّل له في اليوم المعروض ⇒ شاراتُ نشاطه (تعديل/حذف/مزامنة)، وإلا آخر نشاطٍ كما كان
+    const lastLine = dayActs.length
+        ? `<div class="act-chips">${dayActs.map(actChipHtml).join('')}</div>`
+        : !isActToday()
+        ? `<div class="student-last"><span class="student-last-text student-last-none">لا نشاط له ${escapeHtml(actDayLabel(actDay()))}</span></div>`
+        : null;
 
     const summary = act
         ? `<span class="student-last-text">${escapeHtml(formatActivitySummary(act))}</span>`
@@ -1759,12 +2078,12 @@ function studentCardHtml(s) {
             ${idNoHtml}
         </div>
         ${studentNoHtml}
-        <div class="student-last">
+        ${lastLine != null ? lastLine : `<div class="student-last">
             <span class="student-last-icon">${
                 act ? activityIconHtml(act.type) : '<i class="fas fa-minus" style="color:#bdc3c7"></i>'
             }</span>
             ${summary}
-        </div>
+        </div>`}
         <div class="student-actions">
             <button class="act-btn" title="ترشيح للاختبار" aria-label="ترشيح للاختبار"
                     onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check" style="color:#FF5722"></i></button>
@@ -1810,6 +2129,9 @@ function renderStudentCards() {
 
     list.sort(compareStudentsByFollowUp);
 
+    // 📅 سطر «نشاط اليوم» وشاراته (بديل «تقرير الأنشطة»)
+    _dayActsCache = dayActsByStudent();
+    renderDayStrip(scoped);
     wrap.innerHTML = list.map(studentCardHtml).join('');
 
     if (empty) {
@@ -2001,6 +2323,7 @@ function refreshAll() {
                 }
                 syncStudentPickerText();
             }
+            renderCircleScopeBars();
             renderStudentCards();
             displayRecords();
         })
@@ -2086,9 +2409,12 @@ function displayRecords() {
     // أولاً: جلب الطلاب
     db.transaction("students").objectStore("students").getAll().onsuccess = (e) => {
         const studentsMap = {};
+        const studentsCircle = {};
+        const scopeNo = currentCircleScope();
         e.target.result.forEach(s => {
             const fullName = `${s.fName} ${s.pName} ${s.gName} ${s.lName}`.replace(/\s+/g, ' ').trim();
             studentsMap[s.id] = fullName;
+            studentsCircle[s.id] = s.circleNo == null ? null : Number(s.circleNo);
         });
 
         // ثانياً: جلب بيانات المحفظين
@@ -2112,8 +2438,10 @@ function displayRecords() {
                     // r.student رقم وليس نصاً — التحويل ضروري وإلا انهار الفلتر
                     const matchesID   = !fID || String(r.student).includes(fID) ||
                                         studentName.indexOf(fID) !== -1;
+                    // 🕌 الحلقة الحالية (والمشاركة تتبعها: صورةٌ لحلقتها وحدها)
+                    const matchesCircle = scopeNo == null || studentsCircle[r.student] === scopeNo;
 
-                    if (matchesDate && matchesID) {
+                    if (matchesDate && matchesID && matchesCircle) {
                         let fromText = "";
                         let toText   = "";
 
@@ -2620,6 +2948,7 @@ async function fetchAndStoreCircles() {
         // الأدوار وصلت ⇒ أعِد تصفية الطلبة ورسم القوائم
         _circlesCache = await getCirclesFromDb();
         renderCirclesList();
+        renderCircleScopeBars();
         renderStudentCards();
         return items;
     } catch (err) {
@@ -3871,9 +4200,11 @@ function handleRequestStudentSearch(inputEl) {
     const raw = String(inputEl.value || '').trim();
     const q = normalizeAr(raw).toLowerCase();
 
-    let matches = _studentsCache;
+    // 🕌 الحلقة الحالية
+    const pool = _studentsCache.filter(s => inCircleScope(s.id));
+    let matches = pool;
     if (q) {
-        matches = _studentsCache.filter(s =>
+        matches = pool.filter(s =>
             normalizeAr(fullStudentName(s)).toLowerCase().indexOf(q) !== -1 ||
             String(s.id || '').indexOf(q) !== -1 ||
             String(s.idNo || '').indexOf(q) !== -1
@@ -4490,6 +4821,8 @@ function renderExamRequests() {
     // ⏰ من تنبيه «ترشيحات بانتظار الاختبار»: ما مضى موعده بلا نتيجة وحده
     renderOverdueBar();
     if (_reqOverdueOnly) list = list.filter(isOverdueNomination);
+    // 🕌 الحلقة الحالية
+    if (currentCircleScope() != null) list = list.filter(r => inCircleScope(r.studentNo));
     if (q) {
         list = list.filter(r => {
             const student = _studentsCache.find(s => Number(s.id) === Number(r.studentNo));
@@ -5181,20 +5514,22 @@ function buildReportLine(r) {
 }
 
 /* النصّ المعتاد — خيارٌ في نافذة المشاركة (share_card.js). null بلا تاريخٍ مختار */
-async function buildClassicReportText() {
-    const dateInput = document.getElementById("filterDate").value;
-    if (!dateInput || !lastDisplayedRecords.length) return null;
+async function buildClassicReportText(records, day) {
+    // من «طلابي»: سجلّات اليوم المعروض؛ وإلا ما في التقرير
+    const recs = records || lastDisplayedRecords;
+    const dateInput = day || document.getElementById("filterDate").value;
+    if (!dateInput || !recs.length) return null;
 
     const selectedDate = new Date(dateInput);
     const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
     let msg = `*📊 تقرير نشاط يوم ${days[selectedDate.getDay()]} (${dateInput})* 😇\n`;
 
-    const circleLine = await reportCircleLine();
+    const circleLine = await reportCircleLine(recs);
     if (circleLine) msg += `*الحلقة:* ${circleLine}\n`;
 
     msg += `--------------------------\n`;
-    lastDisplayedRecords.forEach(r => { msg += buildReportLine(r) + `\n`; });
+    recs.forEach(r => { msg += buildReportLine(r) + `\n`; });
     msg += `--------------------------\n`;
     msg += `_تم الإرسال عبر نظام إدارة التحفيظ_`;
     return msg;
@@ -5213,8 +5548,18 @@ async function shareAsWhatsAppText() {
 }
 
 // اسم الحلقة (أو الحلقات) لترويسة التقرير
-async function reportCircleLine() {
-    const circles = await getCirclesFromDb();
+async function reportCircleLine(records) {
+    let circles = await getCirclesFromDb();
+    // حلقات السجلّات المُشارَكة وحدها — لا كل حلقات المعلّم (حلقتان واليوم في واحدة)
+    if (records && records.length && circles.length) {
+        const nos = {};
+        records.forEach(r => {
+            const s = _studentsCache.find(x => Number(x.id) === Number(r.student));
+            if (s && s.circleNo != null) nos[Number(s.circleNo)] = 1;
+        });
+        const only = circles.filter(c => nos[Number(c.circleNo)]);
+        if (only.length) circles = only;
+    }
     if (circles.length) {
         return circles
             .sort((a, b) => Number(a.circleNo) - Number(b.circleNo))

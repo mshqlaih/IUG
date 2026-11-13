@@ -674,6 +674,10 @@
     if (!circles.length) { toast('لم تُجلب حلقاتك بعد — حدّث بياناتك من الإعدادات'); return; }
     var go = function (c) { ui.circle = c; ui.view = 'list'; show(); loadStudents(false); };
     if (circles.length === 1) { go(circles[0]); return; }
+    // 🕌 الحلقة الحالية مختارة ⇒ هي بلا سؤال
+    var scope = typeof currentCircleScope === 'function' ? currentCircleScope() : null;
+    var hit = circles.filter(function (c) { return c.no === scope; })[0];
+    if (hit) { go(hit); return; }
     var o = overlay('srPickModal', '<h4 class="modal-title">اختر الحلقة</h4>' + circles.map(function (c, i) {
       return '<button type="button" class="sr-tile" data-pick="' + i + '"><span class="sr-tb"><b>' + esc(c.name) + '</b></span></button>';
     }).join('') + '<div class="modal-actions"><button type="button" class="modal-btn modal-cancel" data-close>إلغاء</button></div>');
@@ -723,6 +727,7 @@
     '.sr-empty{text-align:center;color:#9e9e9e;padding:16px}' +
     '.sr-btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;border:0;border-radius:22px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer}' +
     '.sr-box{text-align:start;max-height:88vh;overflow:auto;max-width:500px}' +
+    '.sr-box .modal-actions{margin-top:16px}' +
     '.sr-radio{display:flex;gap:10px;align-items:flex-start;padding:7px 2px;cursor:pointer}.sr-radio.off{opacity:.55;cursor:default}' +
     '.sr-radio input{width:18px;height:18px;margin-top:3px;accent-color:var(--primary);flex-shrink:0}' +
     '.sr-radio span{display:flex;flex-direction:column}.sr-radio small{font-size:11.5px;color:#64748B}' +

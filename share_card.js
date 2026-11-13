@@ -481,9 +481,11 @@
     catch (_) { toast('تعذّر النسخ على هذا المتصفح'); }
   }
 
-  /* المدخل: زرّ «مشاركة» في تقرير الأنشطة */
-  async function openActivityShare() {
-    var recs = typeof lastDisplayedRecords !== 'undefined' ? lastDisplayedRecords : [];
+  /* المدخل: «مشاركة» في سطر نشاط اليوم في «طلابي» ([records] و[day])،
+     أو زرّ التقرير (ما يعرضه) */
+  async function openActivityShare(records, day) {
+    var recs = Array.isArray(records) ? records
+      : (typeof lastDisplayedRecords !== 'undefined' ? lastDisplayedRecords : []);
     if (!recs || !recs.length) {
       if (typeof showAlert === 'function') showAlert('لا توجد سجلات لمشاركتها بهذه التصفية');
       return;
@@ -491,7 +493,8 @@
     injectCss();
     var days = await groupDays(recs);
     var rich = richText(days);
-    var classic = typeof buildClassicReportText === 'function' ? await buildClassicReportText() : null;
+    var classic = typeof buildClassicReportText === 'function'
+      ? await buildClassicReportText(Array.isArray(records) ? recs : null, day || null) : null;
     var mode = lastMode();
     var cards = null, building = false;
 
@@ -584,6 +587,11 @@
     st.id = 'shCss';
     st.textContent =
       '.sh-box{text-align:start;max-width:520px;max-height:90vh;overflow:auto}' +
+      // الأزرار ثابتةٌ أسفل النافذة بهامشٍ عمّا فوقها، والنصّ الطويل يمرّ تحتها
+      '.sh-box .modal-actions{position:sticky;bottom:0;background:#fff;margin-top:14px;padding-top:12px;' +
+      'border-top:1px solid #eef0f3;flex-wrap:wrap;z-index:1}' +
+      '.sh-box .modal-actions .modal-btn{min-width:calc(50% - 5px)}' +
+      '@media (min-width:480px){.sh-box .modal-actions .modal-btn{min-width:0}}' +
       '.sh-sub{font-size:12.5px;color:#6b7280;margin:-4px 0 10px}' +
       '.sh-modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}' +
       '.sh-mode{background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:12px;padding:9px 8px;font:inherit;font-size:13px;cursor:pointer;text-align:start}' +
