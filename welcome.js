@@ -636,6 +636,8 @@
     if (jobs.length) Promise.all(jobs).then(function () { if (isActive()) paint(); });
     // 🧑‍🏫 يوم المحفّظ يرسم نفسه في #whTday بعد الجلب
     if (window.QmcTeacherDay && due('tday', 2 * 60000)) { f.tday = now; QmcTeacherDay.refresh(); }
+    // 🌾 الحصاد يجلب مرّةً في الشهر (load يُبقي ما جُلب) ويرسم نفسه في #whHarvest
+    if (window.QmcHarvest && due('harvest', 30 * 60000)) { f.harvest = now; QmcHarvest.refresh(); }
     if (due('insights', 2 * 60000)) {
       f.insights = now;
       // الدعوة والتحية خارج لوحة البطاقات ⇒ رسمٌ كامل، ثم الفتح التلقائيّ مرّة
@@ -1134,10 +1136,13 @@
       //    «المحفّظون اليوم» — يغيب لمن لا شيء له فيه
       '<div id="whTday" style="display:none"></div>' +
       shortcutsHtml() +
+      // 🌾 حصاد الشهر (harvest.js) — أعلى «يحتاج تدخّلك» كأندرويد (2026-11-13)
+      '<div id="whHarvest"></div>' +
       '<div id="whIns" class="wh-ins" style="display:none"></div>' +
       '</div>';
     paintInsights();
     if (window.QmcTeacherDay) { try { QmcTeacherDay.paintHome(); } catch (_) {} }
+    if (window.QmcHarvest && QmcHarvest.paintHome) { try { QmcHarvest.paintHome(); } catch (_) {} }
     if (typeof _helpMarkDots === 'function') { try { _helpMarkDots(); } catch (_) {} }
   }
 

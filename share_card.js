@@ -110,6 +110,7 @@
       d.title = name.indexOf('حلقة') === 0 ? name : 'حلقة ' + name;
       d.circleName = name;
       d.centerName = c && c.centerName ? String(c.centerName).trim() : '';
+      d.centerNo = c && c.centerNo != null ? Number(c.centerNo) : null;
       d.dateLabel = dayLabel(d.date);
       return d;
     });
@@ -277,18 +278,82 @@
     ctx.closePath();
   }
 
-  function loadLogo() {
+  /* 🏛 (2026-11-13) شعار المؤسسة التي **تتحدّث عنها البطاقة** واسمها — لا مؤسسة
+     الجلسة (معلّمٌ في الشهيدين وكتاتيب الصفا ظهر له شعار الشهيدين على بطاقة الصفا،
+     كما وقع في بطاقات اليوم بأندرويد). الحلقة ⇐ مركزها ⇐ جذره من `sv/myCenters`
+     (QMC_V_CENTERS_BY_USER يشمل مراكز حلقاته كلّها) ⇐ الصورة `org/logo/:root`.
+     كلاهما محفوظٌ على الجهاز، والجلسة احتياطٌ أخير حين لا يُعرف المركز. */
+  var _centers = null;
+  async function centerRoots() {
+    var u = user(), key = 'my_centers_roots:' + u;
+    if (_centers && _centers.u === u) return _centers.map;
+    var map = lsGet(key) || {};
+    if (navigator.onLine && window.QMC) {
+      try {
+        var r = await QMC.apiFetch('sv/myCenters', { timeoutMs: 15000 });
+        var j = r.ok ? await r.json() : null;
+        if (j && Array.isArray(j.items)) {
+          map = {};
+          j.items.forEach(function (c) {
+            var root = c.root_center_no != null ? Number(c.root_center_no) : Number(c.center_no);
+            map[Number(c.center_no)] = { root: root, name: String(c.root_name || '').trim() };
+          });
+          try { localStorage.setItem(key, JSON.stringify(map)); } catch (_) {}
+        }
+      } catch (_) {}
+    }
+    _centers = { u: u, map: map };
+    return map;
+  }
+
+  function imgFrom(src) {
+    return new Promise(function (res) {
+      if (!src) { res(null); return; }
+      var im = new Image();
+      im.onload = function () { res(im); };
+      im.onerror = function () { res(null); };
+      im.src = src;
+    });
+  }
+
+  var _logos = {};   // root ⇒ dataURL أو '' (لا شعار)
+  async function logoFor(root) {
+    if (_logos[root] !== undefined) return _logos[root];
+    var key = 'org_logo_root:' + root;
+    var have = null;
+    try { have = localStorage.getItem(key); } catch (_) {}
+    if (navigator.onLine && window.QMC) {
+      try {
+        var r = await fetch(QMC.BASE + '/org/logo/' + root);
+        if (r.status === 404) { have = ''; }
+        else if (r.ok) {
+          var blob = await r.blob();
+          have = await new Promise(function (res) {
+            var fr = new FileReader();
+            fr.onload = function () { res(String(fr.result || '')); };
+            fr.onerror = function () { res(null); };
+            fr.readAsDataURL(blob);
+          });
+        }
+        if (have != null) { try { localStorage.setItem(key, have); } catch (_) {} }
+      } catch (_) {}
+    }
+    _logos[root] = have || '';
+    return _logos[root];
+  }
+
+  async function orgOf(d) {
     var u = user();
     var b = u ? lsGet('org_brand:' + u) : null;
     var w = u ? lsGet('welcome:' + u) : null;
-    var name = (w && w.root_name) || (b && b.name) || '';
-    if (!b || !b.b64) return Promise.resolve({ img: null, name: name });
-    return new Promise(function (res) {
-      var im = new Image();
-      im.onload = function () { res({ img: im, name: name }); };
-      im.onerror = function () { res({ img: null, name: name }); };
-      im.src = 'data:image/png;base64,' + b.b64;
-    });
+    var session = { root: b && b.root != null ? Number(b.root) : null, name: (w && w.root_name) || (b && b.name) || '', b64: b && b.b64 };
+    var hit = d.centerNo != null ? (await centerRoots())[d.centerNo] : null;
+    if (hit && hit.root) {
+      // مؤسسة الجلسة نفسها ⇒ شعارها المحفوظ بلا جلب
+      var src = hit.root === session.root && session.b64 ? 'data:image/png;base64,' + session.b64 : await logoFor(hit.root);
+      return { img: await imgFrom(src), name: hit.name || (hit.root === session.root ? session.name : '') };
+    }
+    return { img: await imgFrom(session.b64 ? 'data:image/png;base64,' + session.b64 : null), name: session.name };
   }
 
   async function fontsReady() {
@@ -443,10 +508,10 @@
 
   async function buildCards(days) {
     await fontsReady();
-    var org = await loadLogo();
     var out = [];
     for (var i = 0; i < days.length; i++) {
       var d = days[i];
+      var org = await orgOf(d);   // لكل حلقةٍ مؤسستها
       var cv = document.createElement('canvas');
       cv.width = W * SCALE; cv.height = H * SCALE;
       var ctx = cv.getContext('2d');
@@ -608,5 +673,5 @@
 
   window.openActivityShare = openActivityShare;
   // للفحص
-  window.QmcShareCard = { richText: richText, groupDays: groupDays, stats: stats, buildCards: buildCards };
+  window.QmcShareCard = { richText: richText, groupDays: groupDays, stats: stats, buildCards: buildCards, orgOf: orgOf };
 })();

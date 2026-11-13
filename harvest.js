@@ -7,7 +7,8 @@
  * الاسم من التوكن (X-Device-Id يحقنه QMC.apiFetch). هنا بنود CIRCLE وCOURSE
  * (حصاد المركز للمدير لم يُنقل).
  *
- * · بطاقةٌ ذهبية «حصاد <الشهر>» أعلى «طلابي» (الحلقات) وأعلى «دوراتي» (الدورات).
+ * · بطاقةٌ ذهبية «حصاد <الشهر>» في الرئيسية أعلى «يحتاج تدخّلك» (#whHarvest، كأندرويد
+ *   منذ 2026-11-13؛ كانت أعلى «طلابي» و«دوراتي»).
  * · يُفتح وحده مرّةً في الشهر من اليوم 1 إلى 5 بعد فتح التطبيق
  *   (localStorage `harvest_seen:<ym>:<user>` — المفتاح نفسه في أندرويد).
  * · الشرائح ومقارنتها بالشهر السابق كما في أندرويد، و«مشاركة صورة» للشريحة
@@ -104,27 +105,32 @@
     return s.indexOf('حلقة') === 0 ? s : 'حلقة ' + s;
   }
 
-  /** البطاقة في مكانها: الحلقات أعلى «طلابي»، والدورات أعلى «دوراتي» */
+  /** 🏠 (2026-11-13) بطاقةٌ واحدة في الرئيسية لكل البنود (حلقات ودورات) — كأندرويد
+   *  (أعلى «يحتاج تدخّلك»)؛ كانت أعلى «طلابي» وأعلى «دوراتي». [kind] فارغ = الكلّ */
   function paintSlot(id, kind, h) {
     var box = document.getElementById(id);
     if (!box) return;
-    var mine = h ? h.items.filter(function (i) { return i.kind === kind; }) : [];
+    var mine = h ? h.items.filter(function (i) { return !kind || i.kind === kind; }) : [];
     if (!mine.length) { box.innerHTML = ''; return; }
     var names = mine.map(function (i) { return i.name; });
     var what = names.length > 1
       ? names.length + ' بطاقات: ' + names.slice(0, 2).join(' · ') + (names.length > 2 ? ' …' : '')
       : names[0];
-    box.innerHTML = '<button type="button" class="hv-entry" onclick="QmcHarvest.open(\'' + kind + '\')">' +
+    box.innerHTML = '<button type="button" class="hv-entry" onclick="QmcHarvest.open(' + (kind ? '\'' + kind + '\'' : '') + ')">' +
       '<span class="hv-entry-icon"><i class="fas fa-wand-magic-sparkles"></i></span>' +
       '<span class="hv-entry-text"><b>حصاد ' + esc(h.month) + '</b><span>' + esc(what) + '</span></span>' +
       '<i class="fas fa-chevron-left hv-entry-go"></i></button>';
   }
 
-  /** البطاقتان + الفتح وحده مرّةً من 1 إلى 5 */
+  /** البطاقة في الرئيسية من المحفوظ — بلا جلب (الرئيسية تعيد رسمها كثيرًا) */
+  function paintHome() {
+    paintSlot('whHarvest', null, hv && hvUser === user() ? hv : null);
+  }
+
+  /** الجلب + البطاقة + الفتح وحده مرّةً من 1 إلى 5 */
   async function refresh() {
     var h = await load(false);
-    paintSlot('harvestCircleCard', 'CIRCLE', h);
-    paintSlot('harvestCard', 'COURSE', h);
+    paintSlot('whHarvest', null, h);
     if (!h || !h.items.length) return;
     var seen = true;
     try { seen = localStorage.getItem(seenKey(h.ym)) === '1'; } catch (_) {}
@@ -418,7 +424,7 @@
     document.head.appendChild(s);
   })();
 
-  window.QmcHarvest = { refresh: refresh, open: open, close: close };
+  window.QmcHarvest = { refresh: refresh, paintHome: paintHome, open: open, close: close };
 
   // بعد الإقلاع: البطاقتان، والفتح وحده 1–5 (كـ«اليوم» في أندرويد) — مهلةٌ كي لا يزاحم سحب البيانات
   window.addEventListener('load', function () {

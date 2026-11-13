@@ -422,8 +422,7 @@
                 <!-- 📊 (2026-11-13) تقرير الأنشطة صفحةً من هنا كأندرويد (أيقونة شريط الطلبة) — لا تبويب -->
                 <button type="button" class="status-open-btn" onclick="openActivityReport()" title="تقرير الأنشطة: Excel · PDF · مشاركة" aria-label="تقرير الأنشطة"><i class="fas fa-chart-simple"></i></button>
             </div>
-            <!-- 🌾 (2026-11-02) حصاد الشهر الماضي لحلقاتي — harvest.js -->
-            <div id="harvestCircleCard"></div>
+            <!-- 🌾 حصاد الشهر انتقل إلى الرئيسية (2026-11-13، كأندرويد) — #whHarvest -->
 
             <div class="students-toolbar">
                 <div class="search-wrap">
@@ -895,7 +894,6 @@
                         <i class="fas fa-rotate"></i> تحديث</button>
                 </div>
                 <!-- 🌾 (2026-11-02) حصاد الشهر الماضي — harvest.js -->
-                <div id="harvestCard"></div>
                 <div id="ctBanners"></div>
                 <div id="ctList" class="students-cards"></div>
                 <div id="ctEmpty" class="students-empty" style="display:none"></div>
@@ -1308,11 +1306,9 @@
                 if (typeof openCoursesHome === "function") openCoursesHome();
                 else if (typeof loadCourses === "function") { showCoursesView('coursesListView'); loadCourses(); }
             }
-            if (tabId === "studentsTab" && window.QmcHarvest) QmcHarvest.refresh();
             if (tabId === "activityTab" && window.QmcTeacherDay) QmcTeacherDay.paintActivity();
             if (tabId === "myCoursesTab" && typeof openMyCoursesHome === "function") {
                 openMyCoursesHome();
-                if (window.QmcHarvest) QmcHarvest.refresh();
             }
         }
 
