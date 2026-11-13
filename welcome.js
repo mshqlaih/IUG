@@ -293,10 +293,29 @@
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function dayKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 
-  function messageFor(now, role, withQuote) {
+  // 🌙 يومٌ بلا حلقات (نسخة dayOffLines) — المقرئ ليس هنا: مجالسه قد تكون الجمعة
+  var DAY_OFF_LINES = {
+    manager: [
+      'يومٌ بلا حلقات؛ استراحةٌ تجدّد الهمّة لأسبوعٍ عامر بالقرآن.',
+      'تقبّل الله ما مضى من حلقات الأسبوع، وبارك في القادم.',
+      'استراحةٌ من الحلقات، وما يحتاج تدخّلك — إن وُجد — تجده هنا.'
+    ],
+    supervisor: [
+      'يومٌ بلا حلقات؛ استراحةٌ تعين على متابعة الأسبوع القادم.',
+      'تقبّل الله ما مضى من زيارات الأسبوع ومتابعته.',
+      'استراحةٌ مستحقّة؛ وما بقي من تقارير الزيارات تجده هنا.'
+    ],
+    teacher: [
+      'لا حلقة لك اليوم؛ استراحةٌ تجدّد الهمّة للحلقة القادمة.',
+      'تقبّل الله ما قدّمته لطلابك؛ يومٌ هانئ.',
+      'وِردٌ خاصّ في يوم الراحة يُبقي الصلة بالقرآن موصولة.'
+    ]
+  };
+
+  function messageFor(now, role, withQuote, dayOff) {
     var p = periodOf(now);
     var key = dayKey(now) + '|' + p + '|' + role;
-    var lines = LINES[p][role];
+    var lines = (dayOff && p !== 'night' && DAY_OFF_LINES[role]) || LINES[p][role];
     var line = lines[pickIndex(key, lines.length)];
     if (!withQuote) return { line: line, quote: null };
     var pool = PERIOD_QUOTES[p].concat(ROLE_QUOTES[role]);
@@ -884,7 +903,11 @@
     var org = w.root_name || (state.brand && state.brand.name) || '';
     var title = s(a.job_name) || ROLE_TITLE[role];
     var withQuote = w.quote_mode !== 'WORDS';
-    var base = messageFor(now, role, withQuote);
+    // 🌙 يومٌ بلا حلقات: المعلّم بحلقاته اليوم (متى جُلبت الأجندة)، والباقون بالجمعة
+    var dayOff = role === 'teacher' && state.agenda
+      ? !todayCircles().length
+      : now.getDay() === 5;
+    var base = messageFor(now, role, withQuote, dayOff);
     var nowD = new Date();
     // 👥 حلقته بلا طلاب ⇒ الخطوة الأولى لا «يسّر الله لك ولطلابك»، ما لم
     //    تكن له اليوم حلقةٌ فيها طلاب (نظير welcome_home_screen._hero)
