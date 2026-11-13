@@ -247,6 +247,8 @@
             <div class="section-title">تفاصيل النشاط</div>
             <button type="button" class="help-btn" data-help="activity" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
         </div>
+        <!-- 🔁 (2026-11-13) نيابةً عن محفّظٍ غائب — teacher_day.js -->
+        <div id="subBanner" style="display:none"></div>
     <div class="grid">
         <!-- الحقول العلوية -->
                 <div class="field">
@@ -414,6 +416,8 @@
                 <button type="button" class="help-btn" data-help="students" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
                 <!-- 🕓 (2026-11-02) موعد الحلقة + الوصول والانصراف + PDF — schedule.js -->
                 <button type="button" class="sched-open-btn" onclick="openCircleSchedule()"><i class="fas fa-calendar-days"></i> موعد الحلقة</button>
+                <!-- 📝 (2026-11-13) طلب «منقطع» ومعتمد ⇄ إضافي بموافقة المدير — status_req.js -->
+                <button type="button" class="status-open-btn" onclick="openCircleStatus()"><i class="fas fa-id-card"></i> حالات الطلاب</button>
             </div>
             <!-- 🌾 (2026-11-02) حصاد الشهر الماضي لحلقاتي — harvest.js -->
             <div id="harvestCircleCard"></div>
@@ -503,8 +507,9 @@
                 <i class="fas fa-share-alt"></i> <span class="btn-text">مشاركة PDF</span>
             </button>
         
-            <button class="btn-text-share" onclick="shareAsWhatsAppText()" title="مشاركة نصية">
-                <i class="fas fa-comment"></i> <span class="btn-text">مشاركة نصية</span>
+            <!-- 🖼️ (2026-11-13) نصٌّ معتاد أو منسّق أو بطاقة صورة — share_card.js -->
+            <button class="btn-text-share" onclick="shareAsWhatsAppText()" title="مشاركة (نصّ أو بطاقة)">
+                <i class="fas fa-share-nodes"></i> <span class="btn-text">مشاركة</span>
             </button>
         </div>
     </div>
@@ -1286,6 +1291,8 @@
             if (tabId === "settingsTab" && typeof refreshSettingsInfo === "function") {
                 refreshSettingsInfo();
             }
+            // ⏰ مرشّح «مضى موعدها» يخصّ الفتح من التنبيه وحده
+            if (tabId !== "requestsTab" && typeof _reqOverdueOnly !== "undefined") _reqOverdueOnly = false;
             if (tabId === "requestsTab" && typeof loadExamRequests === "function") {
                 loadExamRequests();
             }
@@ -1295,6 +1302,7 @@
                 else if (typeof loadCourses === "function") { showCoursesView('coursesListView'); loadCourses(); }
             }
             if (tabId === "studentsTab" && window.QmcHarvest) QmcHarvest.refresh();
+            if (tabId === "activityTab" && window.QmcTeacherDay) QmcTeacherDay.paintActivity();
             if (tabId === "myCoursesTab" && typeof openMyCoursesHome === "function") {
                 openMyCoursesHome();
                 if (window.QmcHarvest) QmcHarvest.refresh();
@@ -1328,6 +1336,12 @@
     <script src="harvest.js"></script>
     <!-- 🗂 سجلّي الإداريّ والردّ على الإجراءات (بعد inbox.js: زرّ «ردّك» في الرسالة) -->
     <script src="adm_record.js"></script>
+    <!-- 🧑‍🏫 يوم المحفّظ: «لن أحضر» والنيابة (قبل welcome.js: يرسم في #whTday) -->
+    <script src="teacher_day.js"></script>
+    <!-- 📝 حالات الطلاب وطلبات تغييرها (بعد app.js: getCirclesFromDb وshowToast) -->
+    <script src="status_req.js"></script>
+    <!-- 🖼️ مشاركة النشاط بطاقةً ونصًّا منسّقًا (بعد app.js: lastDisplayedRecords وshareTextSafely) -->
+    <script src="share_card.js"></script>
     <!-- 🏠 الرئيسية (بعد app.js وinbox.js وhelp.js: USER_ACCESS وopenInbox و_helpMarkDots) -->
     <script src="welcome.js"></script>
 

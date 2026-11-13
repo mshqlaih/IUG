@@ -634,6 +634,8 @@
     if (due('brand', 60 * 60000)) { f.brand = now; jobs.push(fetchBrand().catch(function () {})); }
     if (due('agenda', 30 * 60000)) { f.agenda = now; jobs.push(fetchAgenda().catch(function () {})); }
     if (jobs.length) Promise.all(jobs).then(function () { if (isActive()) paint(); });
+    // 🧑‍🏫 يوم المحفّظ يرسم نفسه في #whTday بعد الجلب
+    if (window.QmcTeacherDay && due('tday', 2 * 60000)) { f.tday = now; QmcTeacherDay.refresh(); }
     if (due('insights', 2 * 60000)) {
       f.insights = now;
       // الدعوة والتحية خارج لوحة البطاقات ⇒ رسمٌ كامل، ثم الفتح التلقائيّ مرّة
@@ -1128,10 +1130,14 @@
       occasionHtml(w) +
       inviteHtml() +
       agendaHtml() +
+      // 🧑‍🏫 يوم المحفّظ (2026-11-13، teacher_day.js): نيابتي · حلقاتي «لن أحضر» ·
+      //    «المحفّظون اليوم» — يغيب لمن لا شيء له فيه
+      '<div id="whTday" style="display:none"></div>' +
       shortcutsHtml() +
       '<div id="whIns" class="wh-ins" style="display:none"></div>' +
       '</div>';
     paintInsights();
+    if (window.QmcTeacherDay) { try { QmcTeacherDay.paintHome(); } catch (_) {} }
     if (typeof _helpMarkDots === 'function') { try { _helpMarkDots(); } catch (_) {} }
   }
 
@@ -1150,6 +1156,7 @@
     else if (act === 'addstu') openAdd(Number(el.dataset.circle));
     else if (act === 'refresh') {
       state.fetched.insights = 0;
+      state.fetched.tday = 0;
       refreshAll(true);
     } else if (act === 'toggle') {
       var c = el.dataset.code;
@@ -1333,6 +1340,9 @@
     noteTab: noteTab,
     emptyCircles: emptyCircles,
     studentsAdded: studentsAdded,
+    // 🖼️ بطاقة مشاركة النشاط (share_card.js) — التاريخ بالتقويمين كالتحية
+    gregorianLabel: gregorianLabel,
+    hijriLabel: hijriLabel,
     // للفحص: نفس اختيار Dart
     _pickIndex: pickIndex,
     _messageFor: messageFor,

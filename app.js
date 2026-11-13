@@ -1613,7 +1613,8 @@ function allowedCircleNos() {
     const set = {};
     _circlesCache.forEach(c => {
         const r = String(c.empRole || '').trim().toUpperCase();
-        if (r === 'M' || r === 'A') set[Number(c.circleNo)] = true;
+        // S = بديلٌ عن محفّظٍ غائب (يوم المحفّظ 2026-11-12): حلقته هنا ما دام التكليف ساريًا
+        if (r === 'M' || r === 'A' || r === 'S') set[Number(c.circleNo)] = true;
     });
     return set;
 }
@@ -3985,6 +3986,91 @@ function toggleExamRequestForm() {
     else closeExamRequestForm();
 }
 
+/* 📖 (2026-11-13) نظير hifzUntestedParts في plan_progress.dart (قرار المدير 11-12):
+   الطالب **بدأ** خطة التحفيظ ولم يُتمّها، ويُرشَّح لنوعٍ في خطةٍ تشترطها (التثبيت)،
+   وفي النطاق جزءٌ لا يغطّيه مربعٌ منجَز في الخطتين ⇒ تُعاد الأجزاء. تنبيهٌ لا منع.
+   لا سجلّ تحفيظ ⇒ لا حكم (طلبة التثبيت القدامى). يُرجع null حين لا تنبيه. */
+async function planCatalogsForWarning() {
+    const key = 'plan_catalog_rows';
+    if (navigator.onLine) {
+        try {
+            const r = await QMC.apiFetch('sv/plan/catalog', { timeoutMs: 15000 });
+            if (r.ok) {
+                const j = await r.json();
+                const rows = Array.isArray(j.items) ? j.items : [];
+                if (rows.length) { saveExamCache(key, rows); return rows; }
+            }
+        } catch (_) {}
+    }
+    return readExamCache(key, []);
+}
+
+async function planCellsForWarning(studentNo) {
+    const key = 'plan_student_cells:' + studentNo;
+    if (navigator.onLine) {
+        try {
+            const r = await QMC.apiFetch('sv/plan/student/' + encodeURIComponent(studentNo), { timeoutMs: 15000 });
+            if (r.ok) {
+                const j = await r.json();
+                const cells = (Array.isArray(j.items) ? j.items : [])
+                    .filter(x => String(x.row_type || '').toUpperCase() !== 'X')
+                    .map(x => ({ milestoneId: Number(x.milestone_id), done: String(x.done_flag || '').toUpperCase() === 'Y' }));
+                saveExamCache(key, cells);
+                return cells;
+            }
+        } catch (_) {}
+    }
+    return readExamCache(key, []);
+}
+
+function hifzUntestedParts(rows, cells, examType, partFrom, partTo) {
+    const type = String(examType || '').trim();
+    if (!type || !partFrom || !partTo || partFrom > partTo || !cells.length) return null;
+    const done = {};
+    cells.forEach(c => { if (c.done) done[c.milestoneId] = true; });
+    const plans = {};
+    rows.forEach(r => {
+        const id = String(r.plan_id);
+        if (!plans[id]) plans[id] = { code: String(r.plan_code || '').trim(), prereq: String(r.prereq_plan_code || '').trim(), ms: [] };
+        plans[id].ms.push({
+            id: Number(r.milestone_id), seq: Number(r.seq) || 0, type: String(r.exam_type || '').trim(),
+            from: Number(r.part_from) || 0, to: Number(r.part_to) || 0,
+        });
+    });
+    const list = Object.keys(plans).map(k => plans[k]);
+    for (const target of list) {
+        if (!target.prereq) continue;
+        if (!target.ms.some(m => m.type === type)) continue;
+        const pre = list.filter(p => p.code === target.prereq).pop();
+        if (!pre || !pre.ms.length) continue;
+        const preDone = pre.ms.filter(m => done[m.id]);
+        if (!preDone.length) continue;                       // لا سجلّ تحفيظ ⇒ لا حكم
+        const last = pre.ms.slice().sort((a, b) => a.seq - b.seq).pop();
+        if (last && done[last.id]) continue;                 // أتمّه
+        const covered = {};
+        preDone.concat(target.ms.filter(m => done[m.id])).forEach(m => {
+            for (let p = m.from; p <= m.to; p++) covered[p] = true;
+        });
+        const missing = [];
+        for (let p = partFrom; p <= partTo; p++) if (!covered[p]) missing.push(p);
+        if (missing.length) return missing;
+    }
+    return null;
+}
+
+/* «11–15» أو «11، 13–15» */
+function partsRangeText(parts) {
+    const out = [];
+    let i = 0;
+    while (i < parts.length) {
+        let j = i;
+        while (j + 1 < parts.length && parts[j + 1] === parts[j] + 1) j++;
+        out.push(i === j ? String(parts[i]) : parts[i] + '–' + parts[j]);
+        i = j + 1;
+    }
+    return out.join('، ');
+}
+
 async function submitExamRequest() {
     const val = id => String((document.getElementById(id) || {}).value || '').trim();
 
@@ -4019,6 +4105,30 @@ async function submitExamRequest() {
         : null;
 
     const student = _studentsCache.find(s => Number(s.id) === studentNo);
+
+    // 📖 في التحفيظ ولم يُختبر في هذه الأجزاء — سؤالٌ لا منع (والطلب القائم بنطاقه مستثنًى)
+    const sameRange = existing && Number(existing.partFrom) === partFrom && Number(existing.partTo) === partTo;
+    if (!sameRange) {
+        let missing = null;
+        try {
+            const [rows, cells] = await Promise.all([planCatalogsForWarning(), planCellsForWarning(studentNo)]);
+            missing = hifzUntestedParts(rows, cells, examType, partFrom, partTo);
+        } catch (_) { missing = null; }
+        if (missing) {
+            const who = fullStudentName(student) || 'الطالب';
+            const warn = `📖 ${who} ما زال في مرحلة التحفيظ، ولم يُختبر في تحفيظ ` +
+                `${missing.length === 1 ? 'الجزء' : 'الأجزاء'} ${partsRangeText(missing)}. تأكّد أنه الطالب المقصود.`;
+            setExamRequestStatus(warn, '#BF360C');
+            const go = await showConfirm({
+                title: 'هل هو الطالب المقصود؟',
+                message: warn + '\n\nالترشيح مسموح إن كان مقصودًا.',
+                confirmText: 'متابعة الترشيح',
+                icon: '📖',
+            });
+            if (!go) return;
+        }
+    }
+
     const circle = student && student.circleNo
         ? (await getCirclesFromDb()).find(c => Number(c.circleNo) === Number(student.circleNo))
         : null;
@@ -4377,6 +4487,9 @@ function renderExamRequests() {
 
     // المعلَّم للحذف يختفي فوراً وإن لم يصل السيرفر بعد
     let list = _examRequests.filter(r => !r.pendingDelete);
+    // ⏰ من تنبيه «ترشيحات بانتظار الاختبار»: ما مضى موعده بلا نتيجة وحده
+    renderOverdueBar();
+    if (_reqOverdueOnly) list = list.filter(isOverdueNomination);
     if (q) {
         list = list.filter(r => {
             const student = _studentsCache.find(s => Number(s.id) === Number(r.studentNo));
@@ -4390,10 +4503,51 @@ function renderExamRequests() {
 
     if (empty) {
         empty.style.display = list.length ? 'none' : 'block';
-        empty.textContent = _examRequests.length
+        empty.textContent = _reqOverdueOnly && !q
+            ? 'لا ترشيحات مضى موعدها بلا نتيجة على هذا الجهاز — اسحب الطلبات من جديد بالاتصال'
+            : _examRequests.length
             ? 'لا نتائج مطابقة لبحثك'
             : 'لا توجد ترشيحات بعد — اضغط «ترشيح طالب» للبدء';
     }
+}
+
+/* ⏰ (2026-11-13) نظير ExamRequestsScreen(overdueOnly) — شرط a_oldnom نفسه:
+   مقبول (A) + للمستخدم صلاحية تعديله (عضو اللجنة: can_edit) + موعده قبل اليوم */
+let _reqOverdueOnly = false;
+
+function isOverdueNomination(r) {
+    if (String(r.status || '').toUpperCase() !== 'A' || !r.canEdit) return false;
+    const d = String(r.examDate || '').split('T')[0];
+    if (!d) return false;
+    const t = new Date();
+    const today = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    return d < today;
+}
+
+function renderOverdueBar() {
+    const list = document.getElementById('requestsList');
+    if (!list) return;
+    let bar = document.getElementById('reqOverdueBar');
+    if (!_reqOverdueOnly) { if (bar) bar.remove(); return; }
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'reqOverdueBar';
+        bar.className = 'req-overdue-bar';
+        list.parentNode.insertBefore(bar, list);
+    }
+    bar.innerHTML = '<i class="fas fa-clock"></i><span>الترشيحات التي مضى موعدها بلا نتيجة</span>' +
+        '<button type="button" onclick="showAllNominations()">عرض الكلّ</button>';
+}
+
+function showAllNominations() {
+    _reqOverdueOnly = false;
+    renderExamRequests();
+}
+
+function openOverdueNominations() {
+    _reqOverdueOnly = true;
+    const b = document.querySelector('.tab-btn[data-tab="requestsTab"]');
+    if (typeof openTab === 'function') openTab('requestsTab', b);
 }
 
 function editExamRequest(key) {
@@ -4457,7 +4611,7 @@ async function removeExamRequest(key) {
 }
 
 // دور المسمّع في الحلقة (emp_role) — نفس ترميز تطبيق Flutter
-const CIRCLE_ROLE_NAMES = { M: 'معلّم أساسي', A: 'مساعد', Q: 'استعلام فقط' };
+const CIRCLE_ROLE_NAMES = { M: 'معلّم أساسي', A: 'مساعد', S: 'بديل (نيابةً)', Q: 'استعلام فقط' };
 
 function circleRoleLabel(role) {
     const r = String(role || '').trim().toUpperCase();
@@ -4522,7 +4676,7 @@ async function renderCirclesList() {
             // نُبرز كم حلقة تُدرّسها فعلاً — لأنها وحدها التي يظهر طلابها
             const teaching = rows.filter(c => {
                 const r = String(c.empRole || '').trim().toUpperCase();
-                return r === 'M' || r === 'A';
+                return r === 'M' || r === 'A' || r === 'S';
             }).length;
             const total = rows.length === 1 ? 'حلقة واحدة' : `${rows.length} حلقات`;
             count.textContent = (teaching && teaching !== rows.length)
@@ -5026,13 +5180,10 @@ function buildReportLine(r) {
     return `${emoji} *${name}* — ${typeName}${detail}`;
 }
 
-async function shareAsWhatsAppText() {
+/* النصّ المعتاد — خيارٌ في نافذة المشاركة (share_card.js). null بلا تاريخٍ مختار */
+async function buildClassicReportText() {
     const dateInput = document.getElementById("filterDate").value;
-    if (!dateInput) return showAlert("⚠️ يرجى اختيار التاريخ");
-
-    if (!lastDisplayedRecords.length) {
-        return showAlert("لا توجد سجلات لمشاركتها بهذه التصفية");
-    }
+    if (!dateInput || !lastDisplayedRecords.length) return null;
 
     const selectedDate = new Date(dateInput);
     const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -5046,7 +5197,18 @@ async function shareAsWhatsAppText() {
     lastDisplayedRecords.forEach(r => { msg += buildReportLine(r) + `\n`; });
     msg += `--------------------------\n`;
     msg += `_تم الإرسال عبر نظام إدارة التحفيظ_`;
+    return msg;
+}
 
+/* 🖼️ (2026-11-13) «مشاركة» تفتح النافذة بأشكالها الأربعة: المعتاد · بطاقة + منسّق ·
+   البطاقة وحدها · المنسّق وحده (share_card.js)، والمعتاد وحده إن لم تُحمَّل */
+async function shareAsWhatsAppText() {
+    if (!lastDisplayedRecords.length) {
+        return showAlert("لا توجد سجلات لمشاركتها بهذه التصفية");
+    }
+    if (typeof openActivityShare === 'function') return openActivityShare();
+    const msg = await buildClassicReportText();
+    if (!msg) return showAlert("⚠️ يرجى اختيار التاريخ");
     await shareTextSafely(msg);
 }
 

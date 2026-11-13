@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.20';
+const CACHE_NAME = 'quran-app-v2.21';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -17,12 +17,17 @@ const CACHE_NAME = 'quran-app-v2.20';
 // ✅ adm_record.js (2026-11-08): سجلّي الإداريّ والردّ على الإجراءات (org/adm-mine · POST org/adm)
 // ✅ welcome.js (2026-11-09): 🏠 الرئيسية — التحية ومواعيدي والاختصارات و«يحتاج تدخّلك»
 //    (org/welcome · org/branding · org/agenda · org/insights)
+// ✅ teacher_day.js (2026-11-13): يوم المحفّظ — «لن أحضر» والنيابة (org/teacher-day)
+// ✅ status_req.js (2026-11-13): حالات الطلاب وطلبات تغييرها (org/students · org/status-request*)
+// ✅ share_card.js (2026-11-13): مشاركة النشاط بطاقةً ونصًّا منسّقًا (بلا شبكة)
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
                      'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'help.js',
-                     'account.js', 'schedule.js', 'harvest.js', 'adm_record.js', 'welcome.js', 'app.css', 'safwa.css'];
+                     'account.js', 'schedule.js', 'harvest.js', 'adm_record.js', 'welcome.js',
+                     'teacher_day.js', 'status_req.js', 'share_card.js', 'app.css', 'safwa.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './safwa.css', './app.js', './api.js',
                './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js',
-               './appearance.js', './help.js', './account.js', './schedule.js', './harvest.js', './adm_record.js', './welcome.js'];
+               './appearance.js', './help.js', './account.js', './schedule.js', './harvest.js', './adm_record.js', './welcome.js',
+               './teacher_day.js', './status_req.js', './share_card.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.

@@ -387,7 +387,14 @@
           : (isAnn(m) ? '<span>✓ مقروءة</span>'
             // ✉️ (2026-10-28) التأكيد من هنا — account.js؛ نصّ التنبيه يذكر قائمة أندرويد
             : (m.code === 'EMAIL_UNVERIFIED' && typeof openEmailSettings === 'function'
-                ? '<button type="button" data-email="1"><i class="fas fa-at"></i> تأكيد البريد</button>' : ''))) +
+                ? '<button type="button" data-email="1"><i class="fas fa-at"></i> تأكيد البريد</button>'
+                // 📝 (2026-11-13) طلبات الحالة — status_req.js
+                : ((m.code === 'STATUS_REQUESTS' || m.code === 'STATUS_REQ_DECIDED') && typeof openStatusRequests === 'function'
+                  ? '<button type="button" data-sreq="' + esc(m.data && m.data.req_id != null ? m.data.req_id : '') + '"><i class="fas fa-id-card"></i> ' +
+                    (m.code === 'STATUS_REQ_DECIDED' ? 'اعرض طلباتي' : 'افتح الطلبات') + '</button>'
+                  // ⏰ (2026-11-13) الترشيحات التي مضى موعدها بلا نتيجة — هي وحدها
+                  : (m.code === 'OLD_NOMINATIONS' && typeof openOverdueNominations === 'function'
+                    ? '<button type="button" data-oldnom="1"><i class="fas fa-clipboard-check"></i> اعرض الترشيحات</button>' : ''))))) +
         // 🗂 (2026-11-08) رسالة إجراءٍ إداريّ ⇒ الردّ من «سجلّي الإداريّ» (adm_record.js)
         (isAnn(m) && window.QmcAdm && QmcAdm.letterOf(m.body) != null
           ? '<button type="button" data-adm="' + esc(QmcAdm.letterOf(m.body)) + '"><i class="fas fa-reply"></i> ردّك</button>' : '') +
@@ -407,6 +414,16 @@
     });
     Array.prototype.forEach.call(host.querySelectorAll('button[data-email]'), function (b) {
       b.onclick = function () { closeInbox(); openEmailSettings(); };
+    });
+    Array.prototype.forEach.call(host.querySelectorAll('button[data-sreq]'), function (b) {
+      b.onclick = function () {
+        var id = parseInt(b.getAttribute('data-sreq'), 10);
+        closeInbox();
+        openStatusRequests(isNaN(id) ? null : id);
+      };
+    });
+    Array.prototype.forEach.call(host.querySelectorAll('button[data-oldnom]'), function (b) {
+      b.onclick = function () { closeInbox(); openOverdueNominations(); };
     });
     Array.prototype.forEach.call(host.querySelectorAll('button[data-read]'), function (b) {
       b.onclick = async function () {

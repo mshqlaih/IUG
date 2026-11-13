@@ -888,6 +888,10 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .role-M { background: #e6f4ea; color: #137333; }
 .role-A { background: var(--primary-wash); color: var(--primary); }
 .role-Q { background: #f1f3f4; color: #5f6368; }
+.role-S { background: #FFF8E1; color: #B45309; }
+.req-overdue-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin-bottom: 10px; border-radius: 12px; background: #FFFBEB; color: #92400E; font-size: 14px; }
+.req-overdue-bar span { flex: 1; font-weight: 600; }
+.req-overdue-bar button { background: #fff; color: var(--primary); border: 1px solid var(--primary-line, #c6dafc); border-radius: 18px; padding: 6px 12px; font-size: 13px; }
 .circles-empty {
     font-size: 12.5px;
     color: #5f6368;
