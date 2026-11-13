@@ -694,7 +694,9 @@ function initDB() {
     request.onsuccess = (e) => {
         db = e.target.result;
         // الثوابت أولاً: تعتمدها أسماء الأنشطة والتقديرات وأنواع الاختبار
-        loadAllLookups().then(refreshAll);
+        // ثم سحب الطلاب والأنشطة تلقائيًّا: كان لا يقع إلا بزرّ «سحب البيانات»
+        // ⇒ بعد الخروج والدخول تبقى «طلابي» فارغة حتى يضغطه المستخدم
+        loadAllLookups().then(refreshAll).finally(autoPullOnOpen);
         fetchAndStoreEmpData(getCurrentUser());
         fetchAndStoreCircles();
         loadUserAccess();
@@ -5267,9 +5269,27 @@ async function handleLogout() {
     }
 }
 
-async function pullRecordsFromServer() {
+/* 🔄 سحبٌ صامت عند فتح التطبيق (2026-11-13) — نظير التحديث التلقائيّ في أندرويد.
+   متّصلٌ فقط؛ الفشل يبقى في الكونسول والبيانات المحلية تُعرض كما هي. */
+function autoPullOnOpen() {
+    if (!getCurrentUser() || !navigator.onLine) return;
+    pullRecordsFromServer({ silent: true })
+        .then(() => { if (typeof refreshSettingsInfo === 'function') refreshSettingsInfo(); })
+        .catch(err => console.warn("تعذّر السحب التلقائيّ:", err));
+}
+
+// سحبٌ واحد في وقتٍ واحد: التلقائيّ والزرّ ويوم المحفّظ قد تتزامن
+let _pullInFlight = null;
+function pullRecordsFromServer(opts) {
+    if (_pullInFlight) return _pullInFlight;
+    _pullInFlight = _pullRecordsFromServer(opts || {})
+        .finally(() => { _pullInFlight = null; });
+    return _pullInFlight;
+}
+
+async function _pullRecordsFromServer(opts) {
     const puserName = getCurrentUser();
-    const syncContainer = getSyncMessageContainer();
+    const syncContainer = opts.silent ? null : getSyncMessageContainer();
 
     if (!puserName) {
         console.warn("⚠️ لا يوجد اسم مستخدم مسجل لسحب البيانات.");
@@ -5415,12 +5435,16 @@ async function pullRecordsFromServer() {
                 synced:      true
             };
 
-            const localId = await new Promise(r => {
-                const req = indexRec.getKey([recordToSave.student, recordToSave.date, recordToSave.type]);
+            const local = await new Promise(r => {
+                const req = indexRec.get([recordToSave.student, recordToSave.date, recordToSave.type]);
                 req.onsuccess = e => r(e.target.result);
+                req.onerror   = () => r(undefined);
             });
 
-            if (localId !== undefined) recordToSave.id = localId;
+            // ⚠️ تعديلٌ محلّيّ لم يُرفع بعد هو الأحدث — لا يمحوه السحب
+            //    (صار السحب يقع وحده عند الفتح، قبل أن يرفع المستخدم)
+            if (local && !local.synced) continue;
+            if (local) recordToSave.id = local.id;
             storeRec.put(recordToSave);
         }
 
