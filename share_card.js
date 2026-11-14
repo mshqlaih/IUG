@@ -666,8 +666,9 @@
       '.sh-cards img{width:100%;max-width:320px;border-radius:12px;box-shadow:0 2px 8px #0002}' +
       '.sh-wait{text-align:center;color:#6b7280;padding:24px}' +
       '.sh-note{font-size:12px;color:#6b7280;margin:8px 0}' +
-      '.sh-text{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:12.5px;line-height:1.6;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px;max-height:240px;overflow:auto;margin:8px 0 0;direction:rtl;text-align:right}' +
-      'html.qmc-dark .sh-cards img{filter:invert(1) hue-rotate(180deg)}';
+      '.sh-text{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:12.5px;line-height:1.6;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px;max-height:240px;overflow:auto;margin:8px 0 0;direction:rtl;text-align:right}';
+    // 🌙 (2026-11-14) كانت هنا قاعدةٌ تعكس قلبَ الصفحة الليليّ عن صور البطاقات؛ القلب أُلغي
+    //    (ألوانٌ حقيقية — appearance.js) فصارت تقلب الصورة نفسها، فحُذفت.
     document.head.appendChild(st);
   }
 

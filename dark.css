@@ -1,0 +1,113 @@
+/* 🌙 الوضع الليليّ (2026-11-14) — آخر طبقات الشكل، ولا يعمل إلا تحت html.qmc-dark.
+ *
+ * يعمل مع محوّل الألوان في appearance.js (Remap): ذاك يحوّل كل لونٍ صريح في
+ * الملفّات والأنماط المحقونة، وهذا الملفّ — المستثنى منه — يضبط ما يُرى أوّلًا:
+ * رموز الطبقات (safwa.css)، والصفحة، والترويسة، والشريط، والسطوح المتراكبة.
+ * رموز الثيم (--primary*) تُحسب في appearance.js من لون الثيم المختار.
+ *
+ * ⚠️ التصدير (PDF/صور) فاتحٌ دائمًا: lightClone يُزيل الصنف من نسخته.
+ * ⚠️ لونٌ جديد في أيّ ملفّ يُحوَّل وحده؛ هنا فقط ما يحتاج قرارًا تصميميًّا.
+ */
+
+html.qmc-dark {
+  color-scheme: dark;
+  /* السطوح — من الأعمق إلى الأعلى */
+  --dk-page: #0f141b;
+  --dk-surface: #1b222b;
+  --dk-raised: #222b36;
+  --dk-line: #2c3644;
+  --dk-text: #e6ebf2;
+  --dk-muted: #9ba7b7;
+  /* رموز safwa.css */
+  --surface: var(--dk-surface);
+  --page: var(--dk-page);
+  --line-soft: var(--dk-line);
+  --ink: #eef2f7;
+  --ink-fill: #0b121c;          /* «الحبر» حين يكون خلفية (الترويسة) */
+  --muted: var(--dk-muted);
+  /* الشاشات ملء الشاشة (الحصاد · حالات الطلاب · موعد الحلقة): var(--bg,#f8f9fa) */
+  --bg: var(--dk-page);
+  --gold: #d6b25e;
+  --gold-soft: #3a3016;
+  --gold-line: #8a7034;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 26px -14px rgba(0, 0, 0, .7);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, .4), 0 16px 34px -14px rgba(0, 0, 0, .8);
+}
+
+/* ===== الصفحة ===== */
+html.qmc-dark body {
+  background:
+    radial-gradient(1200px 420px at 50% -180px, var(--primary-wash), transparent 70%),
+    var(--dk-page);
+  background-attachment: fixed;
+  color: var(--dk-text);
+}
+html.qmc-dark ::selection { background: #4a3d1c; color: #fff; }
+html.qmc-dark a { color: var(--primary); }
+
+/* ===== الترويسة: كما في النهاريّ (داكنةٌ أصلًا) ===== */
+html.qmc-dark .app-header,
+html.qmc-dark .card.app-about {
+  background: var(--pattern), linear-gradient(135deg, var(--ink-fill) 0%, var(--primary-fill-2) 70%, var(--primary-fill) 150%);
+  background-size: 56px 56px, auto;
+}
+html.qmc-dark .app-title,
+html.qmc-dark .app-about-name { color: #fff !important; }
+html.qmc-dark .app-about-update { color: rgba(255, 255, 255, .72); }
+
+/* ===== شريط التبويب ===== */
+html.qmc-dark .tabs-header {
+  background: rgba(27, 34, 43, .9);
+  border-color: rgba(255, 255, 255, .06);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .05) inset;
+}
+html.qmc-dark .tab-btn { color: var(--dk-muted); }
+html.qmc-dark .tab-btn.active,
+html.qmc-dark .tab-btn.active span { color: var(--primary-dark); }
+
+/* ===== البطاقات والنوافذ: سطحٌ أعلى من الصفحة ===== */
+html.qmc-dark .card,
+html.qmc-dark .student-card,
+html.qmc-dark #studentsCards,
+html.qmc-dark .day-strip { background: var(--dk-surface); border-color: var(--dk-line); }
+html.qmc-dark .modal-box { background: var(--dk-raised); color: var(--dk-text); }
+html.qmc-dark .modal-overlay { background: rgba(0, 0, 0, .62); }
+html.qmc-dark #activityTab.as-sheet > .card { background: var(--dk-raised); }
+html.qmc-dark #activityTab.as-sheet .activity-actions { background: var(--dk-raised); border-top-color: var(--dk-line); }
+html.qmc-dark .modal-box::before { background: #3a4554; }
+
+/* ===== الحقول ===== */
+html.qmc-dark input,
+html.qmc-dark select,
+html.qmc-dark textarea {
+  background: #141a22;
+  border-color: #313c4b;
+  color: var(--dk-text);
+}
+html.qmc-dark input:focus,
+html.qmc-dark select:focus,
+html.qmc-dark textarea:focus { background: #10161d; border-color: var(--primary); }
+html.qmc-dark input::placeholder,
+html.qmc-dark textarea::placeholder { color: #6d7888; }
+/* أيقونة التقويم في حقل التاريخ تتبع color-scheme */
+
+/* ===== التنبيه العابر ===== */
+html.qmc-dark #toast { background: #e9eef5; color: #111827; border-color: transparent; }
+html.qmc-dark .toast-action { color: #8a5a00; }
+
+/* ===== الذهبيّ: الشارات والزخرفة ===== */
+html.qmc-dark .section-title::before { box-shadow: 0 0 0 3px var(--gold-soft); }
+html.qmc-dark .icon-card.active::after { box-shadow: 0 0 0 2px var(--dk-surface); }
+
+/* ===== زرّ «من المصحف»: أنماط المصحف مستثناةٌ من المحوّل (له ليليٌّ خاصّ) ===== */
+html.qmc-dark .mushaf-open-btn { background: #17301f; color: #a5d68a; border-color: #2d5536; }
+
+/* ===== شارة الإصدار: الذهبيّ الفاتح لا يحمل نصًّا أبيض ===== */
+html.qmc-dark .app-version-chip { background: #a47d22; color: #fff; }
+
+/* ===== شارة «N للرفع» في الترويسة ===== */
+html.qmc-dark .header-actions .pend-pill { background: #e9c46a; color: #3d2a00; }
+
+/* ===== الصور: بلا تغيير (لا مرشّح بعد اليوم) — والشعارات على خلفيةٍ بيضاء تبقى بيضاء ===== */
+html.qmc-dark .wh-logo,
+html.qmc-dark .app-about-icon { background: #fff; }

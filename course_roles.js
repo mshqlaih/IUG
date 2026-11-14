@@ -2336,7 +2336,8 @@ async function pdfCourseSheet() {
             margin: [0.8, 0.8, 1, 0.8],
             filename: fileName,
             image: { type: 'jpeg', quality: 0.92 },
-            html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+            html2canvas: { scale: 2, backgroundColor: '#ffffff',
+                           onclone: window.QmcAppearance && QmcAppearance.lightClone },   // 🌙 فاتحٌ دائمًا
             jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' },
             // لا يُشطر صفّ طالبٍ بين صفحتين
             pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },

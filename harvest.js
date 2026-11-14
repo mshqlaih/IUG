@@ -425,7 +425,8 @@
       var slides = slidesOf(it);
       // الغلاف ltr كي تبدأ البطاقة من x=0 فيُقصّ عرضها وحده من الحاوية
       var html = '<div style="direction:ltr"><div dir="rtl" class="hv-export">' + cardHtml(slides[st.slide], slides.length, it) + '</div></div>';
-      var canvas = await html2pdf().set({ html2canvas: { scale: 3, width: 360, backgroundColor: null } })
+      var canvas = await html2pdf().set({ html2canvas: { scale: 3, width: 360, backgroundColor: null,
+        onclone: window.QmcAppearance && QmcAppearance.lightClone } })   // 🌙 الصورة فاتحةٌ دائمًا
         .from(html, 'string').toCanvas().get('canvas');
       var blob = await new Promise(function (res) { canvas.toBlob(res, 'image/png'); });
       if (!blob) throw new Error('تعذّر إنشاء الصورة');

@@ -11,8 +11,15 @@
  *    القيمة الفارغة = لم يختر ⇒ يبقى شكل IUG كما كان، ولا تُرسَل (السيرفر
  *    يُبقي ما عنده — NVL في prefs_save_json) فلا يمحو اختيارًا من أندرويد.
  *
- * الليليّ: قلبُ الإضاءة بمرشّح CSS على الصفحة كلّها مع إبقاء الصبغة
- * (invert + hue-rotate) — كـAppColors._flip في أندرويد — والصور تُعاد كما هي.
+ * الليليّ (2026-11-14): ألوانٌ داكنة حقيقية لا مرشّح — `html.qmc-dark` + dark.css.
+ *   كان قلبًا للصفحة كلّها بـinvert(1) hue-rotate(180deg): يُبهت الذهبيّ ويقلب
+ *   ألوان الحالات (الأخضر يصير بنفسجيًّا) ويُثقل الرسم على الأجهزة الضعيفة.
+ *   رموز الثيم في الليليّ تُشتقّ من لونه نفسه (mix): --primary أفتح ليُقرأ على
+ *   الداكن، و--primary-dark نصٌّ فاتح، و--primary-wash/-line صبغةٌ داكنة.
+ *   والتعبئة ذات النصّ الأبيض (أزرار، ترويسة) من --primary-fill/-fill-2 = لونا
+ *   الثيم الأصليّان في الوضعين.
+ *   ⚠️ التصدير (html2pdf) يأخذ نسخةً من الصفحة بصنفها ورموزها ⇒ `lightClone`
+ *   في onclone لكل تصدير، فالـPDF والصور فاتحةٌ دائمًا.
  */
 (function () {
   'use strict';
@@ -70,10 +77,8 @@
   var css =
     "@font-face{font-family:'QmcTajawal';src:url('fonts/Tajawal-Regular.ttf') format('truetype');font-display:swap}" +
     "@font-face{font-family:'QmcAmiri';src:url('fonts/Amiri-Regular.ttf') format('truetype');font-display:swap}" +
-    // الليليّ: الصفحة كلّها، والصور والفيديو تُقلب ثانيةً فتعود كما هي
-    "html.qmc-dark{filter:invert(1) hue-rotate(180deg);background:#fff}" +
-    "html.qmc-dark img,html.qmc-dark video,html.qmc-dark picture,html.qmc-dark .qmc-noinvert" +
-    "{filter:invert(1) hue-rotate(180deg)}" +
+    // الليليّ: الرموز والسطوح في dark.css — هنا الخلفية وحدها كي لا يومض الأبيض قبل تحميله
+    "html.qmc-dark{background:#0f141b;color-scheme:dark}" +
     '.ap-row{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}' +
     '.ap-label{font-weight:700;margin-top:4px}' +
     '.ap-hint{font-size:12px;color:#5f6368;margin:0 0 6px}' +
@@ -95,19 +100,294 @@
     (document.head || document.documentElement).appendChild(st);
   }
 
+  // ── مزج لونين (#rrggbb) بنسبة t من الثاني — لاشتقاق رموز الليليّ من لون الثيم ──
+  function rgb(h) { h = String(h).replace('#', ''); return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function mix(a, b, t) {
+    var x = rgb(a), y = rgb(b);
+    return '#' + [0, 1, 2].map(function (i) {
+      var v = Math.round(x[i] + (y[i] - x[i]) * t);
+      return (v < 16 ? '0' : '') + v.toString(16);
+    }).join('');
+  }
+  var DARK_SURFACE = '#18202b';   // = --surface في dark.css
+
+  // رموز الثيم في وضعٍ ما: ليليًّا مشتقّةٌ من لونه، ونهاريًّا كما هي
+  function tokensOf(p, dark) {
+    return dark
+      ? { '--primary': mix(p.p, '#ffffff', 0.32), '--primary-dark': mix(p.p, '#ffffff', 0.62),
+          '--primary-wash': mix(p.p, DARK_SURFACE, 0.78), '--primary-line': mix(p.p, DARK_SURFACE, 0.55) }
+      : { '--primary': p.p, '--primary-dark': p.d, '--primary-wash': p.w, '--primary-line': p.l };
+  }
+
+  function setTokens(root, p, dark) {
+    var t = tokensOf(p, dark);
+    Object.keys(t).forEach(function (k) { root.style.setProperty(k, t[k]); });
+    // التعبئة ذات النصّ الأبيض: لونا الثيم الأصليّان في الوضعين
+    root.style.setProperty('--primary-fill', p.p);
+    root.style.setProperty('--primary-fill-2', p.d);
+    root.style.setProperty('--bs-primary', t['--primary']);
+    root.style.setProperty('--bs-link-color', t['--primary']);
+  }
+
+  /* =======================================================================
+     🌙 محوّل الألوان (2026-11-14) — يمرّ على كل قاعدة CSS (الملفّات والأنماط
+     التي تحقنها ملفّات JS) وعلى الأنماط المضمّنة في العناصر، ويحوّل كل لونٍ
+     صريح بحسب دوره، **محافظًا على صبغته** (الأخضر يبقى أخضر والذهبيّ ذهبيًّا):
+       · خلفية/حدّ فاتح ⇒ داكنٌ من الصبغة نفسها (الأبيض ⇒ سطحٌ أزرق رماديّ)
+       · نصّ داكن ⇒ فاتح؛ والنصّ الفاتح يبقى (هو على تعبئةٍ ملوّنة أصلًا)
+       · لون الثيم خلفيةً (var(--primary)…) ⇒ --primary-fill: الأزرار بنصّها الأبيض
+     بهذا تعمل كل شاشةٍ قادمة بلا قاعدةٍ ليليّة خاصّة. و dark.css فوقه للهويّة
+     والسطوح الرئيسية (يُستثنى من التحويل). ⚠️ يُعكس كلّه عند العودة للنهاريّ.
+     ======================================================================= */
+  var Remap = (function () {
+    var on = false, sheets = new WeakSet(), styles = new WeakSet(), undo = [], obs = null;
+    // ⚠️ ما أنتجه المحوّل لا يُحوَّل ثانيةً، وعنصرٌ نمطُه كما كتبناه لا يُعاد:
+    //    متغيّرٌ لونيّ مُعتَم يُقرأ في المرور التالي «نصًّا» فيُفتَّح — حلقةٌ لا تنتهي
+    var produced = new Set(), lastAttr = new WeakMap();
+    var PROPS = /^(color|background-color|background-image|border-(top|right|bottom|left)-color|outline-color|fill|stroke|text-decoration-color|caret-color|column-rule-color)$/;
+    var SKIP_HREF = /dark\.css|fontawesome|all\.min\.css|eruda/;
+
+    function toHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
+      if (d) {
+        s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+        h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h *= 60;
+      }
+      return [h, s, l];
+    }
+    function toRgb(h, s, l) {
+      function f(n) { var k = (n + h / 30) % 12, a = s * Math.min(l, 1 - l); return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }
+      return [f(0), f(8), f(4)];
+    }
+    function fmt(c, a) { return a >= 1 ? 'rgb(' + c.join(', ') + ')' : 'rgba(' + c.join(', ') + ', ' + (+a.toFixed(3)) + ')'; }
+
+    // kind: fg نصّ · bg خلفية · line حدّ
+    function mapRgba(r, g, b, a, kind) {
+      var x = toHsl(r, g, b), h = x[0], s = x[1], l = x[2];
+      if (kind === 'fg') {
+        if (a < 0.05 || l >= 0.62) return null;                 // الفاتح على تعبئة يبقى
+        return fmt(toRgb(h, s, 0.93 - l * 0.55), a);
+      }
+      if (a < 0.5) {                                             // شفّاف: أسودُ الظلّ ⇒ أبيضُ خفيف
+        return l < 0.3 ? fmt([255, 255, 255], Math.min(a * 0.9, 0.5)) : null;
+      }
+      if (l <= 0.45) return null;                                // داكنٌ أو تعبئةٌ مشبعة: يبقى
+      var neutral = s < 0.08;
+      var h2 = neutral ? 215 : h, s2 = neutral ? 0.2 : Math.min(s, 0.5);
+      var l2 = kind === 'line' ? 0.2 + (1 - l) * 0.55 : 0.135 + (1 - l) * 0.55;
+      return fmt(toRgb(h2, s2, l2), a);
+    }
+
+    var HEX = /#([0-9a-f]{3,8})\b/gi, RGB = /rgba?\(([^)]+)\)/gi, KW = /\b(white|black)\b/gi;
+    function mapLiterals(v, kind) {
+      var out = v.replace(RGB, function (m, inner) {
+        var p = inner.split(/[\s,\/]+/).filter(Boolean).map(function (t) { return t.indexOf('%') > 0 ? parseFloat(t) / 100 : parseFloat(t); });
+        if (p.length < 3 || p.some(isNaN)) return m;
+        var r = mapRgba(p[0], p[1], p[2], p.length > 3 ? p[3] : 1, kind);
+        return r || m;
+      }).replace(HEX, function (m, hx) {
+        if (hx.length === 3 || hx.length === 4) hx = hx.split('').map(function (c) { return c + c; }).join('');
+        if (hx.length !== 6 && hx.length !== 8) return m;
+        var c = rgb(hx), a = hx.length === 8 ? parseInt(hx.substr(6, 2), 16) / 255 : 1;
+        return mapRgba(c[0], c[1], c[2], a, kind) || m;
+      }).replace(KW, function (m) {
+        var w = m.toLowerCase() === 'white';
+        return mapRgba(w ? 255 : 0, w ? 255 : 0, w ? 255 : 0, 1, kind) || m;
+      });
+      return out;
+    }
+
+    // لون الثيم في الخلفيات تعبئةٌ لنصٍّ أبيض ⇒ لونا الثيم الأصليّان
+    function subVars(v) {
+      return v.replace(/var\(--primary-dark(\s*,[^)]*)?\)/g, 'var(--primary-fill-2)')
+              .replace(/var\(--primary(\s*,[^)]*)?\)/g, 'var(--primary-fill)')
+              .replace(/var\(--ink\)/g, 'var(--ink-fill)');
+    }
+
+    // متغيّرٌ قيمته لونٌ صريح (--c:#1D5F8A;--s:#EFF6FF): الفاتح سطحٌ والداكن نصّ
+    var ONE_COLOR = /^\s*(#[0-9a-f]{3,8}|rgba?\([^)]*\))\s*$/i;
+    function mapVarColor(v) {
+      var m = ONE_COLOR.exec(v);
+      if (!m) return v;
+      var c = m[1], r, g, b;
+      if (c[0] === '#') {
+        var hx = c.slice(1);
+        if (hx.length <= 4) hx = hx.split('').map(function (x) { return x + x; }).join('');
+        var q = rgb(hx); r = q[0]; g = q[1]; b = q[2];
+      } else {
+        var p = c.replace(/rgba?\(|\)/g, '').split(/[\s,\/]+/).map(parseFloat); r = p[0]; g = p[1]; b = p[2];
+      }
+      return mapLiterals(c, toHsl(r, g, b)[2] > 0.6 ? 'bg' : 'fg');
+    }
+
+    function kindOf(p) {
+      if (p === 'color' || p === 'fill' || p === 'caret-color' || p === 'text-decoration-color') return 'fg';
+      if (/border|outline|column-rule|stroke/.test(p)) return 'line';
+      return 'bg';
+    }
+
+    // ⚖️ التحويل ثابتٌ على نتيجته (المحوَّل لا يتغيّر ثانيةً) ⇒ إعادة المرور آمنة،
+    //    و force لأنماط عنصرٍ غيّرها JS بعد رسمه
+    function doStyle(st, force) {
+      if (!st || (!force && styles.has(st))) return;
+      styles.add(st);
+      var ops = [], shDone = false;
+      for (var i = 0; i < st.length; i++) {
+        var p = st[i], v = st.getPropertyValue(p);
+        if (v && produced.has(v.trim())) continue;
+        if (p.indexOf('--') === 0) {
+          if (v) ops.push([p, mapVarColor(v), v]);
+          continue;
+        }
+        if (!v) {
+          // longhand لاختصارٍ فيه var(): القيمة في الاختصار نفسه
+          if (!shDone && p.indexOf('background') === 0) {
+            shDone = true;
+            var sv = st.getPropertyValue('background');
+            if (sv) ops.push(['background', sv.indexOf('color-mix') !== -1 ? mapLiterals(subVars(sv), 'bg') : subVars(sv), sv]);
+          }
+          continue;
+        }
+        if (!PROPS.test(p)) continue;
+        var kind = kindOf(p);
+        // color-mix(in srgb, var(--chip-color) 10%, #fff): الصريح فيه يُحوَّل — الأبيض سطحٌ داكن
+        if (v.indexOf('color-mix') !== -1) {
+          ops.push([p, mapLiterals(kind === 'bg' ? subVars(v) : v, kind), v]);
+          continue;
+        }
+        if (v.indexOf('var(') !== -1) {
+          if (kind === 'bg') ops.push([p, subVars(v), v]);
+          continue;
+        }
+        ops.push([p, mapLiterals(v, kind), v]);
+      }
+      ops.forEach(function (o) {
+        if (o[1] === o[2]) return;
+        var pr = st.getPropertyPriority(o[0]);
+        undo.push([st, o[0], o[2], pr]);
+        st.setProperty(o[0], o[1], pr);
+        produced.add(String(st.getPropertyValue(o[0])).trim());
+      });
+    }
+
+    function doRules(rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i];
+        if (r.style) doStyle(r.style);
+        if (r.cssRules) doRules(r.cssRules);
+      }
+    }
+
+    function doSheet(sh) {
+      if (!sh || sheets.has(sh)) return;
+      var n = sh.ownerNode;
+      if ((sh.href && SKIP_HREF.test(sh.href)) || (n && n.hasAttribute && n.hasAttribute('data-no-remap'))) { sheets.add(sh); return; }
+      var rules;
+      try { rules = sh.cssRules; } catch (_) { return; }   // لم يُحمَّل بعد
+      if (!rules) return;
+      sheets.add(sh);
+      doRules(rules);
+    }
+
+    function doInline(e, force) {
+      // ⚠️ لا عنصر الجذر: عليه رموز الثيم (setTokens) — تُحسب لا تُحوَّل
+      if (e === document.documentElement) return;
+      if (!force && styles.has(e.style)) return;
+      var before = e.getAttribute('style');
+      if (force && lastAttr.get(e) === before) return;
+      doStyle(e.style, force);
+      var after = e.getAttribute('style');
+      lastAttr.set(e, after);
+      // الأصل محفوظ لنسخة التصدير (lightClone)
+      if (after !== before && !e.hasAttribute('data-ls')) e.setAttribute('data-ls', before);
+    }
+
+    function doEl(el) {
+      if (!el || el.nodeType !== 1) return;
+      if (el.hasAttribute('style')) doInline(el);
+      if (el.querySelectorAll) [].forEach.call(el.querySelectorAll('[style]'), function (e) { doInline(e); });
+    }
+
+    function sweep() {
+      [].forEach.call(document.styleSheets, doSheet);
+      if (document.body) doEl(document.body);
+    }
+
+    function onMut(muts) {
+      muts.forEach(function (m) {
+        // لونٌ وضعه JS على عنصرٍ قائم (el.style.color = …) — تقييمٌ مختار، حالة تشخيص
+        if (m.type === 'attributes') {
+          if (m.target.nodeType === 1 && m.target.hasAttribute('style')) doInline(m.target, true);
+          return;
+        }
+        [].forEach.call(m.addedNodes, function (n) {
+          if (n.nodeType === 3 && n.parentNode && n.parentNode.tagName === 'STYLE') return doSheet(n.parentNode.sheet);
+          if (n.nodeType !== 1) return;
+          if (n.tagName === 'STYLE') return doSheet(n.sheet);
+          if (n.tagName === 'LINK') { n.addEventListener('load', function () { doSheet(n.sheet); }); return doSheet(n.sheet); }
+          doEl(n);
+        });
+      });
+    }
+
+    function enable() {
+      if (on) return;
+      on = true;
+      sweep();
+      [].forEach.call(document.querySelectorAll('link[rel=stylesheet]'), function (l) {
+        l.addEventListener('load', function () { if (on) doSheet(l.sheet); });
+      });
+      document.addEventListener('DOMContentLoaded', function () { if (on) sweep(); });
+      obs = new MutationObserver(function (m) { if (on) onMut(m); });
+      obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    }
+
+    function disable() {
+      if (!on) return;
+      on = false;
+      if (obs) { obs.disconnect(); obs = null; }
+      for (var i = undo.length - 1; i >= 0; i--) {
+        var u = undo[i];
+        try { u[0].setProperty(u[1], u[2], u[3]); } catch (_) {}
+      }
+      undo = [];
+      sheets = new WeakSet(); styles = new WeakSet(); produced = new Set(); lastAttr = new WeakMap();
+      [].forEach.call(document.querySelectorAll('[data-ls]'), function (e) { e.removeAttribute('data-ls'); });
+    }
+
+    return { enable: enable, disable: disable, isOn: function () { return on; } };
+  })();
+
+  /** onclone لـhtml2canvas: نسخة التصدير فاتحةٌ دائمًا — الصنف والرموز، ونصوص
+   *  <style> الأصلية (html2canvas ينسخها من قواعدها بعد التحويل)، والأنماط المضمّنة */
+  function lightClone(doc) {
+    try {
+      var r = doc && doc.documentElement;
+      if (!r) return;
+      r.classList.remove('qmc-dark');
+      setTokens(r, find(PRESETS, state.theme) || PRESETS[0], false);
+      r.style.colorScheme = 'light';
+      var src = document.querySelectorAll('style'), dst = doc.querySelectorAll('style');
+      if (src.length === dst.length) {
+        for (var i = 0; i < src.length; i++) dst[i].textContent = src[i].textContent;
+      }
+      [].forEach.call(doc.querySelectorAll('[data-ls]'), function (e) { e.setAttribute('style', e.getAttribute('data-ls')); });
+    } catch (_) {}
+  }
+
   // ── التطبيق على الصفحة ──
   function apply() {
     injectCss();
     var root = document.documentElement;
     var p = find(PRESETS, state.theme) || PRESETS[0];
-    root.style.setProperty('--primary', p.p);
-    root.style.setProperty('--primary-dark', p.d);
-    root.style.setProperty('--primary-wash', p.w);
-    root.style.setProperty('--primary-line', p.l);
-    root.style.setProperty('--bs-primary', p.p);
-    root.style.setProperty('--bs-link-color', p.p);
+    var dark = isDark();
+    setTokens(root, p, dark);
 
-    root.classList.toggle('qmc-dark', isDark());
+    root.classList.toggle('qmc-dark', dark);
+    root.style.colorScheme = dark ? 'dark' : '';
+    if (dark) Remap.enable(); else Remap.disable();
 
     var sc = find(SCALES, state.font_scale);
     root.style.zoom = sc && sc.f !== 1 ? String(sc.f) : '';
@@ -126,7 +406,7 @@
           : '');
 
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', isDark() ? '#202124' : p.p);
+    if (meta) meta.setAttribute('content', dark ? '#0f141b' : p.p);
   }
 
   if (media) {
@@ -245,5 +525,6 @@
 
   apply();
 
-  window.QmcAppearance = { apply: apply, render: render, fromServer: fromServer, set: set };
+  window.QmcAppearance = { apply: apply, render: render, fromServer: fromServer, set: set,
+                           lightClone: lightClone, isDark: isDark };
 })();

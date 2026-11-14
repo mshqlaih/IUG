@@ -621,7 +621,8 @@
         margin: [0.6, 0.6, 0.8, 0.6],
         filename: 'مواعيد_حلقاتي.pdf',
         image: { type: 'jpeg', quality: 0.92 },
-        html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+        html2canvas: { scale: 2, backgroundColor: '#ffffff',
+                       onclone: window.QmcAppearance && QmcAppearance.lightClone },   // 🌙 فاتحٌ دائمًا
         jsPDF: { unit: 'cm', format: 'a4', orientation: 'landscape' },
         pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
       }).from(pdfHtml(page.circles), 'string').outputPdf('blob');

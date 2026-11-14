@@ -4025,7 +4025,8 @@ async function exportPDF() {
       image: { type: 'png', quality: 1 },
       html2canvas: {
         scale: 2,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: window.QmcAppearance && QmcAppearance.lightClone   // 🌙 الصادر فاتحٌ دائمًا
       },
       jsPDF: {
         unit: 'cm',
@@ -4065,7 +4066,8 @@ async function exportAndSharePDF() {
       image: { type: 'jpeg', quality: 0.75 },
       html2canvas: {
         scale: 1.5,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: window.QmcAppearance && QmcAppearance.lightClone   // 🌙 الصادر فاتحٌ دائمًا
       },
       jsPDF: {
         unit: 'cm',

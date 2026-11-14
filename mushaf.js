@@ -466,6 +466,8 @@
       'padding:2px 10px;font-size:13px;font-weight:normal;cursor:pointer}';
     var st = document.createElement('style');
     st.id = 'mushafStyle';
+    // 🌙 للمصحف ليليٌّ مصمَّم (.night) — لا يمرّ عليه محوّل ألوان التطبيق (appearance.js)
+    st.setAttribute('data-no-remap', '');
     st.textContent = css;
     document.head.appendChild(st);
   }
@@ -800,6 +802,8 @@
     if (!S.el) build();
     S.el.style.display = 'flex';
     document.documentElement.style.overflow = 'hidden';
+    // 🌙 (2026-11-14) لم يختر في المصحف ليلًا ولا نهارًا ⇒ يتبع وضع التطبيق
+    if (lsGet(LS_NIGHT) == null) S.night = !!(window.QmcAppearance && QmcAppearance.isDark());
     applyLook();
     S.start = null; S.end = null;
     var h = document.getElementById('rangeFrom');

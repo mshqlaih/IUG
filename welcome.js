@@ -878,8 +878,8 @@
       '.wh-prev{margin-top:8px;padding:14px;border-radius:14px;color:#fff;text-align:center;' +
       'background:linear-gradient(90deg,#2F7FA8,#1F6B55)}' +
       '.wh-msgbox{margin-top:12px;padding:10px;border-radius:10px;font-size:13.5px}' +
-      // الليليّ يقلب الصفحة كلّها: السماء والمناسبة تُعادان لألوانهما، والصورة داخلها لا تُقلب ثالثةً
-      'html.qmc-dark .wh-hero img,html.qmc-dark .wh-prev img{filter:none}';
+      // 🌙 (2026-11-14) كانت هنا قاعدةٌ لقلب الليليّ القديم؛ الألوان الآن حقيقية والصور كما هي
+      '';
     var st = document.createElement('style');
     st.id = 'whCss';
     st.textContent = css;
