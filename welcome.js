@@ -857,6 +857,28 @@
       '.wh-clear i{font-size:34px}.wh-clear b{display:block;margin:8px 0 4px;font-size:16px}' +
       '.wh-clear span{color:#6b7280;font-size:13.5px}' +
       '.wh-skel{height:66px;border-radius:14px;background:#f2f2f2}' +
+      // 📊⏱️🏛️ (2026-11-14) المربّعات · مراحل يوم المعلّم · مراكز المؤسسة
+      '.wh-clear1{padding:2px 6px;color:#166534;font-size:14px}' +
+      '.wh-kpi-h{font-size:12.5px;color:#6b7280;margin:0 4px}' +
+      '.wh-kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px}' +
+      '.wh-kt{padding:10px 12px;border-radius:14px;border:1px solid #e0e0e0;background:#fff;cursor:pointer;min-width:0}' +
+      '.wh-kt span{display:block;font-size:12.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.wh-kt b{display:block;font-size:22px;font-weight:800;margin:3px 0}' +
+      '.wh-kt small{display:block;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.wh-ph{display:flex;border:1px solid #cbd5e1;border-radius:20px;overflow:hidden}' +
+      '.wh-ph button{flex:1;min-width:0;border:0;background:#fff;padding:8px 4px;font:inherit;font-size:13px;' +
+      'cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit}' +
+      '.wh-ph button+button{border-inline-start:1px solid #cbd5e1}' +
+      '.wh-ph button.on{background:var(--primary-wash,#EEF4FF);color:var(--primary-dark,var(--primary));font-weight:700}' +
+      '.wh-ctr{border:1px solid #e0e0e0;border-radius:14px;background:#fff;overflow:hidden}' +
+      '.wh-ctr-h{padding:12px 14px 6px}.wh-ctr-h b{display:block;font-size:15.5px;color:var(--primary-dark,var(--primary))}' +
+      '.wh-ctr-h span{font-size:12.5px;color:#6b7280}' +
+      '.wh-ctr-r{padding:10px 14px;border-top:1px solid #f0f0f0}.wh-ctr-r>b{font-size:14px;font-weight:600}' +
+      '.wh-ctr-s{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:4px;font-size:12px;color:#757575}' +
+      '.wh-ctr-s i{font-style:normal;font-weight:700;font-size:13px;color:#212121}' +
+      '.wh-ctr-g{font-size:12.5px;color:#92400E;margin-top:3px}' +
+      '.wh-ctr-more{display:block;width:100%;border:0;border-top:1px solid #f0f0f0;background:none;padding:10px;' +
+      'font:inherit;color:var(--primary);cursor:pointer}' +
       '.wh-inv{padding:16px;border-radius:16px;background:var(--primary-wash,#EEF4FF);border:1px solid var(--primary-line,#C7D7F5)}' +
       '.wh-inv-h{display:flex;align-items:center;gap:12px;margin-bottom:12px}' +
       '.wh-inv-i{width:48px;height:48px;flex:0 0 48px;border-radius:12px;background:#fff;display:flex;' +
@@ -965,6 +987,7 @@
     if (role !== 'teacher' || !todayC.length) return '';
     var b = document.querySelector('.tab-btn[data-tab="studentsTab"]');
     if (!b || b.style.display === 'none') return '';
+    try { if (window.QmcTeacherDay && QmcTeacherDay.absentAllToday()) return ''; } catch (_) {}
     var started = false;
     try {
       var d = ymdLocal(new Date());
@@ -1080,9 +1103,106 @@
     ok: { rank: 4, c: '#166534', s: '#F0FDF4' }
   };
   function sevOf(x) { return SEV[x] || SEV.info; }
+
+  // ⏱️ (2026-11-14) مراحل يوم المعلّم — lib/models/insight_phase.dart حرفًا.
+  //    «قبل الحلقة» لا «صباحًا»: من الحلقات ما ينعقد فجرًا.
+  var PHASES = ['before', 'during', 'after'];
+  var PHASE_LABEL = { before: 'قبل الحلقة', during: 'أثناء الحلقة', after: 'بعد الحلقة' };
+  function phaseOfCard(code) {
+    if (code === 'T_NOREC' || code === 'PENDING_ACTIVITY_TODAY') return 'during';
+    if (code === 'PARTIAL_DAYS' || code === 'NO_ACTIVITY' || code === 'CT_NOREC') return 'after';
+    if (['T_ABSENT', 'T_RISK', 'T_READY', 'T_SELF_ABSENT', 'T_EXAMS',
+         'OLD_NOMINATIONS', 'GUARDIAN_ABSENCE_NOTICES'].indexOf(code) >= 0) return 'before';
+    return null;
+  }
+  /* بالساعة: منعقدةٌ ⇒ أثناء · قادمةٌ ⇒ قبل · انقضت ⇒ بعد. وبلا ساعة (صلاةٌ أو لا
+     وقت): رُصد اليوم ⇒ أثناء، وإلّا قبل — لا وقتَ يُشتقّ من الصلاة */
+  function phaseNow(today, nowMin, recorded) {
+    var timed = today.filter(function (c) { return c.start != null; });
+    if (timed.length) {
+      if (timed.some(function (c) { return c.start <= nowMin && nowMin < (c.end != null ? c.end : c.start + 120); })) return 'during';
+      if (timed.some(function (c) { return c.start > nowMin; })) return 'before';
+      return 'after';
+    }
+    return recorded ? 'during' : 'before';
+  }
+  function recordedToday() {
+    try {
+      var d = ymdLocal(new Date());
+      return _recordsCache.some(function (r) { return String(r.date) === d; });
+    } catch (_) { return false; }
+  }
+
+  // 📊 الفرق عن الشهر الماضي: النسب بالنقاط، والصفحات بالنسبة، والاختبارات بالعدد
+  function tileDelta(t) {
+    var v = num(t.value), p = num(t.prev);
+    if (v == null || p == null) return { text: 'لا مقارنة', up: null };
+    var d;
+    if (t.unit === '%') {
+      d = v - p;
+      if (!d) return { text: 'كالشهر الماضي', up: null };
+      var n = Math.abs(d);
+      var pts = n === 1 ? 'نقطة واحدة' : n === 2 ? 'نقطتان' : n <= 10 ? n + ' نقاط' : n + ' نقطة';
+      return { text: pts + ' عن الشهر الماضي', up: d > 0 };
+    }
+    if (t.code === 'PAGES') {
+      if (!p) return { text: v ? 'لا صفحات قبله' : 'كالشهر الماضي', up: null };
+      var pc = Math.round((v - p) * 100 / p);
+      if (!pc) return { text: 'كالشهر الماضي', up: null };
+      return { text: Math.abs(pc) + '٪ عن الشهر الماضي', up: pc > 0 };
+    }
+    d = v - p;
+    if (!d) return { text: 'كالشهر الماضي', up: null };
+    return { text: Math.abs(d) + ' عن الشهر الماضي', up: d > 0 };
+  }
+  function thousands(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  function kpiHtml(k) {
+    var tiles = Array.isArray(k.tiles) ? k.tiles : [];
+    if (!tiles.length) return '';
+    var h = '<div class="wh-kpi-h">' + esc(s(k.scope) || '') + ' · ' + (num(k.circles) || 0) + ' حلقة — ' +
+      esc(s(k.period) || '') + ' مقارنةً بـ' + esc(s(k.prev_period) || '') + '</div><div class="wh-kpi">';
+    tiles.forEach(function (t) {
+      var dl = tileDelta(t);
+      var v = num(t.value);
+      var col = dl.up == null ? '#6b7280' : dl.up ? '#2E7D32' : '#C62828';
+      h += '<div class="wh-kt" title="' + esc(s(t.why) || '') + '" data-act="why" data-why="' + esc(s(t.why) || '') + '">' +
+        '<span>' + esc(t.label) + '</span>' +
+        '<b>' + (v == null ? '—' : t.unit === '%' ? v + '٪' : thousands(v)) + '</b>' +
+        '<small style="color:' + col + '">' + (dl.up == null ? '' : (dl.up ? '↑ ' : '↓ ')) + esc(dl.text) + '</small></div>';
+    });
+    return h + '</div>';
+  }
+
+  function centersHtml(list) {
+    var shown = state.allCenters ? list : list.slice(0, 5);
+    var h = '<div class="wh-ctr"><div class="wh-ctr-h"><b>مراكز المؤسسة</b>' +
+      '<span>الأضعف انعقادًا أوّلًا — هذا الشهر حتى أمس</span></div>';
+    shown.forEach(function (c) {
+      var held = num(c.held), hp = num(c.held_prev), att = num(c.att);
+      var down = held != null && hp != null && held < hp;
+      var gaps = [];
+      if (num(c.no_days) > 0) gaps.push(num(c.no_days) + ' بلا أيام دوام');
+      if (num(c.no_time) > 0) gaps.push(num(c.no_time) + ' بلا موعد');
+      h += '<div class="wh-ctr-r"><b>' + esc(c.name) + (s(c.root) ? ' · ' + esc(c.root) : '') + ' · ' + (num(c.circles) || 0) + ' حلقة</b>' +
+        '<div class="wh-ctr-s"><span>انعقاد <i' + (down ? ' style="color:#C62828"' : '') + '>' +
+        (held == null ? '—' : held + '٪' + (hp == null ? '' : ' (' + hp + '٪)')) + '</i></span>' +
+        '<span>حضور <i>' + (att == null ? '—' : att + '٪') + '</i></span>' +
+        '<span>صفحات <i>' + thousands(num(c.pages) || 0) + '</i></span>' +
+        '<span>اختبارات <i>' + (num(c.exams) || 0) + '</i></span></div>' +
+        (gaps.length ? '<div class="wh-ctr-g">⚠️ ' + esc(gaps.join(' · ')) + '</div>' : '') + '</div>';
+    });
+    if (list.length > 5) {
+      h += '<button type="button" class="wh-ctr-more" data-act="allcenters">' +
+        (state.allCenters ? 'أقلّ' : 'كلّ المراكز (' + list.length + ')') + '</button>';
+    }
+    return h + '</div>';
+  }
   // ما يُفتح هنا — والباقي (لوحة المؤشّرات، الإعداد…) في أندرويد
   // ACTIVITY ⇒ «الحلقة» (2026-11-14): النشاط صار لوحةً من صفّ الطالب
-  var TARGET = { ACTIVITY: ['studentsTab', 'افتح الحلقة'], MY_COURSES: ['myCoursesTab', 'دوراتي'], INBOX: ['inbox', 'صندوق الرسائل'] };
+  var TARGET = { ACTIVITY: ['studentsTab', 'افتح الحلقة'], MY_COURSES: ['myCoursesTab', 'دوراتي'], INBOX: ['inbox', 'صندوق الرسائل'],
+                 // 🎯 جاهزون للترشيح ⇒ الطلبات (2026-11-14)
+                 NOMINATE: ['requestsTab', 'طلبات الاختبار'] };
   function targetOf(c) {
     var t = TARGET[c.open];
     if (!t) return null;
@@ -1095,14 +1215,17 @@
     var d = state.insights && state.insights.data;
     if (!d) return false;
     var r = d.roles || {};
+    // 📊 من له المربّعات وحدها (يدير الحلقات بقدرة) تظهر له اللوحة أيضًا
     return ['teacher', 'supervisor', 'org_admin', 'course_teacher', 'course_sup']
-      .some(function (k) { return r[k] === 'Y'; });
+      .some(function (k) { return r[k] === 'Y'; }) ||
+      !!d.kpi || (Array.isArray(d.centers) && d.centers.length > 0);
   }
 
   function insightsInner() {
     var ins = state.insights;
     var d = ins && ins.data;
-    var h = '<div class="wh-sec"><h3>يحتاج تدخّلك</h3>' +
+    // 📊 مربّعات المدير أعلى اللوحة (2026-11-14)
+    var h = (d && d.kpi ? kpiHtml(d.kpi) : '') + '<div class="wh-sec"><h3>يحتاج تدخّلك</h3>' +
       (d && d.at && !state.insightsBusy ? '<small class="wh-muted" style="font-size:12px">حُدّث ' + esc(String(d.at).substring(11, 16)) + '</small>' : '') +
       '<button type="button" class="wh-ib" data-act="refresh" title="تحديث" aria-label="تحديث">' +
       '<i class="fas fa-rotate' + (state.insightsBusy ? ' fa-spin' : '') + '"></i></button></div>';
@@ -1122,10 +1245,32 @@
     }).sort(function (a, b) {
       return sevOf(a.sev).rank - sevOf(b.sev).rank;
     });
-    if (!cards.length && emptyCircles().length) return h;
+    var centers = Array.isArray(d.centers) ? d.centers : [];
+    var tail = centers.length ? centersHtml(centers) : '';
+    if (!cards.length && emptyCircles().length) return h + tail;
     if (!cards.length) {
-      return h + '<div class="wh-clear"><i class="fas fa-circle-check"></i><b>لا شيء يحتاج تدخّلك الآن</b>' +
-        '<span>حين يغيب طالبٌ أو تنقطع حلقةٌ أو يهبط حفظٌ تظهر هنا بطاقةٌ بسببها.</span></div>';
+      // أعلى الرئيسية ⇒ سطرٌ هادئ لا صندوقٌ كبير
+      return h + '<div class="wh-clear1"><i class="fas fa-circle-check"></i> لا شيء يحتاج تدخّلك الآن</div>' + tail;
+    }
+    // ⏱️ يوم المعلّم مراحل — بطاقاته على «قبل · أثناء · بعد»، وما سواها ظاهرٌ دائمًا
+    var today = todayCircles();
+    var phased = (d.roles || {}).teacher === 'Y' && today.length > 0 &&
+      cards.some(function (c) { return phaseOfCard(c.code) != null; });
+    if (phased) {
+      var nw = new Date();
+      var ph = state.phase || phaseNow(today, nw.getHours() * 60 + nw.getMinutes(), recordedToday());
+      h += '<div class="wh-ph">';
+      PHASES.forEach(function (p) {
+        var n = cards.filter(function (c) { return phaseOfCard(c.code) === p; }).length;
+        h += '<button type="button" class="' + (p === ph ? 'on' : '') + '" data-act="phase" data-phase="' + p + '">' +
+          PHASE_LABEL[p] + (n ? ' (' + n + ')' : '') + '</button>';
+      });
+      h += '</div>';
+      cards = cards.filter(function (c) { var q = phaseOfCard(c.code); return q == null || q === ph; });
+      if (!cards.some(function (c) { return phaseOfCard(c.code) != null; })) {
+        h += '<div class="wh-muted" style="padding:0 6px">لا شيء لك ' + PHASE_LABEL[ph] +
+          ' الآن — المراحل الأخرى فيها ما يلزم</div>';
+      }
     }
     cards.forEach(function (c, idx) {
       var sv = sevOf(c.sev);
@@ -1158,7 +1303,7 @@
       }
       h += '</div>';
     });
-    return h;
+    return h + tail;
   }
 
   function paintInsights() {
@@ -1186,14 +1331,16 @@
       heroHtml(role, w) +
       occasionHtml(w) +
       inviteHtml() +
+      // 🧭 (2026-11-14) «يحتاج تدخّلك» أوّلَ ما بعد التحية كأندرويد — العرض المعتمد:
+      //    «ما يراه كلّ مستخدمٍ أوّل ما يفتح التطبيق». كانت آخر الصفحة.
+      //    🌾 حصاد الشهر (harvest.js) أعلاها كما كان.
+      '<div id="whHarvest"></div>' +
+      '<div id="whIns" class="wh-ins" style="display:none"></div>' +
       agendaHtml() +
       // 🧑‍🏫 يوم المحفّظ (2026-11-13، teacher_day.js): نيابتي · حلقاتي «لن أحضر» ·
       //    «المحفّظون اليوم» — يغيب لمن لا شيء له فيه
       '<div id="whTday" style="display:none"></div>' +
       shortcutsHtml() +
-      // 🌾 حصاد الشهر (harvest.js) — أعلى «يحتاج تدخّلك» كأندرويد (2026-11-13)
-      '<div id="whHarvest"></div>' +
-      '<div id="whIns" class="wh-ins" style="display:none"></div>' +
       '</div>';
     paintInsights();
     if (window.QmcTeacherDay) { try { QmcTeacherDay.paintHome(); } catch (_) {} }
@@ -1222,6 +1369,15 @@
       var c = el.dataset.code;
       state.open[c] = !state.open[c];
       paintInsights();
+    } else if (act === 'phase') {
+      state.phase = el.dataset.phase;
+      paintInsights();
+    } else if (act === 'allcenters') {
+      state.allCenters = !state.allCenters;
+      paintInsights();
+    } else if (act === 'why') {
+      // 📊 تعريف الرقم — لا رقمٌ بلا سبب
+      if (el.dataset.why) { try { showToast(el.dataset.why); } catch (_) { alert(el.dataset.why); } }
     } else if (act === 'go') {
       var t = el.dataset.target;
       if (t === 'inbox') { if (typeof openInbox === 'function') openInbox(); }

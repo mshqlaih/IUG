@@ -53,6 +53,12 @@
   /** «↑ 9٪ عن سبتمبر» — نسبة التغيّر؛ [null, null] إن لا أساس للمقارنة */
   function pct(cur, prev) {
     if (cur == null || prev == null || prev <= 0) return [null, null];
+    // (2026-11-14، كأندرويد _pct) الأساس الصغير يضخّم النسبة (من 4 إلى 9 = ↑ 125٪) ⇒ الفرق بالعدد تحت 20
+    if (prev < 20) {
+      var a = Math.round(cur - prev);
+      if (a === 0) return ['كما في ' + hv.prevMonth, null];
+      return [(a > 0 ? '↑' : '↓') + ' ' + Math.abs(a) + ' عن ' + hv.prevMonth, a > 0];
+    }
     var d = Math.round((cur - prev) / prev * 100);
     if (d === 0) return ['كما في ' + hv.prevMonth, null];
     return [(d > 0 ? '↑' : '↓') + ' ' + Math.abs(d) + '٪ عن ' + hv.prevMonth, d > 0];
@@ -242,6 +248,18 @@
     return [(cur > prev ? '↑' : '↓') + ' ' + Math.abs(cur - prev) + ' عن ' + hv.prevMonth, cur > prev];
   }
 
+  /* 📝 المسجّل والمحتسب — نسخة _raw/_rawOf/_review/_rawFoot في harvest_screen.dart:
+     الحصاد يعدّ الصفحة مرّةً، والمسجّل يُذكر بجانبه متى زاد عليه. حصادٌ بلا rnew/rprev لا يعرض شيئًا */
+  function isRaw(i) {
+    return (n(i, 'rnew') || 0) > (n(i, 'pnew') || 0) + 0.5 || (n(i, 'rprev') || 0) > (n(i, 'prev') || 0) + 0.5;
+  }
+  function rawOf(counted, raw) { return raw != null && raw > counted + 0.5 ? 'من ' + f(raw) + ' مسجّلة' : null; }
+  function review(prev, raw) {
+    var r = rawOf(prev, raw);
+    return r == null ? 'ومراجعة ' + f(prev) + ' صفحة' : 'ومراجعة ' + f(prev) + ' محتسبة ' + r;
+  }
+  function rawFoot(i) { return isRaw(i) ? 'الصفحة تُحتسب أوّل مرّة، وتكرارها مسجّلٌ ولا يُحتسب ثانيةً' : null; }
+
   // نسخة _circleSlides + _circlePoints
   function circleSlides(i) {
     var out = [];
@@ -250,11 +268,17 @@
     var prevPages = i.prev ? (p(i, 'pnew') || 0) + (p(i, 'prev') || 0) : null;
     var dp = pct(pages, prevPages);
     var days = n(i, 'days') || 0;
+    // (2026-11-14، كأندرويد منذ 11-02) «تسميعٍ وسرد» لا «حفظٍ جديد»: الرقم يجمع النوعين 1 و7،
+    // والمسجّل بجانب المحتسب متى زاد عليه (rnew/rprev)
+    var raw = isRaw(i), dl = days + ' يومًا فيها نشاط';
     out.push(pnew > 0
-      ? { kicker: 'حصاد ' + hv.month, big: f(pnew), unit: 'صفحة حفظٍ جديد',
-          sub: 'ومراجعة ' + f(prev) + ' صفحة · ' + days + ' يومًا فيها نشاط', delta: dp[0], up: dp[1] }
-      : { kicker: 'حصاد ' + hv.month, big: f(prev), unit: 'صفحة مراجعة',
-          sub: days + ' يومًا فيها نشاط', delta: dp[0], up: dp[1] });
+      ? { kicker: 'حصاد ' + hv.month, big: f(pnew), unit: 'صفحة تسميعٍ وسرد' + (raw ? ' محتسبة' : ''),
+          sub: raw ? [rawOf(pnew, n(i, 'rnew')), review(prev, n(i, 'rprev')), dl].filter(Boolean).join('\n')
+            : 'ومراجعة ' + f(prev) + ' صفحة · ' + dl,
+          delta: dp[0], up: dp[1], foot: rawFoot(i) }
+      : { kicker: 'حصاد ' + hv.month, big: f(prev), unit: 'صفحة مراجعة' + (raw ? ' محتسبة' : ''),
+          sub: [rawOf(prev, n(i, 'rprev')), dl].filter(Boolean).join('\n'),
+          delta: dp[0], up: dp[1], foot: rawFoot(i) });
 
     var att = n(i, 'att') || 0;
     var da = pts(n(i, 'att'), p(i, 'att'));
@@ -274,7 +298,7 @@
           sub: 'الشهر الجديد فرصةٌ لترشيح من أتمّ جزءه' });
 
     var topOk = i.cur.top_name != null && (n(i, 'top_pnew') || 0) > 0;
-    if (topOk) out.push({ kicker: 'الأكثر حفظًا', big: f(n(i, 'top_pnew')), unit: 'صفحة حفظٍ جديد', sub: String(i.cur.top_name) });
+    if (topOk) out.push({ kicker: 'الأكثر تسميعًا وسردًا', big: f(n(i, 'top_pnew')), unit: 'صفحة تسميعٍ وسرد', sub: String(i.cur.top_name) });
 
     var rank = n(i, 'rank'), ofN = n(i, 'of_n');
     var ranked = rank != null && ofN != null && ofN >= 3;
@@ -295,7 +319,9 @@
     // الخلاصة نقاطًا
     var pd = pct(pages, prevPages);
     var points = [[pd[1] === true ? 'up' : pd[1] === false ? 'down' : 'info',
-      f(pages) + ' صفحة حفظٍ ومراجعة', pd[0] || 'أوّل شهرٍ للحلقة في الحصاد']];
+      f(pages) + ' صفحة تسميعٍ وسردٍ ومراجعة', pd[0] || 'أوّل شهرٍ للحلقة في الحصاد']];
+    if (raw) points.push(['info', 'المسجّل ' + f((n(i, 'rnew') || 0) + (n(i, 'rprev') || 0)) + ' صفحة',
+      'تُحتسب الصفحة أوّل مرّة، وتكرارها مسجّلٌ ولا يُحتسب ثانيةً']);
     var pa = pts(att, p(i, 'att'))[0];
     points.push(att >= 90 ? ['star', 'حضورٌ ممتاز ' + att + '٪', pa]
       : att >= 75 ? ['info', 'الحضور ' + att + '٪', 'يرتفع بمتابعة الغائبين' + (pa ? ' · ' + pa : '')]
@@ -305,7 +331,7 @@
           : passed <= 10 ? passed + ' اختباراتٍ ناجحة أمام اللجنة' : passed + ' اختبارًا ناجحًا أمام اللجنة',
           i.cur.best_name != null ? 'أعلاها ' + f(n(i, 'best')) + ' لـ' + i.cur.best_name : null]
       : ['warn', 'لا اختبار ناجح هذا الشهر', 'رشّح من أتمّ جزءه']);
-    if (topOk) points.push(['star', 'الأكثر حفظًا: ' + i.cur.top_name, f(n(i, 'top_pnew')) + ' صفحة']);
+    if (topOk) points.push(['star', 'الأكثر تسميعًا وسردًا: ' + i.cur.top_name, f(n(i, 'top_pnew')) + ' صفحة']);
     if (ranked) points.push([rank <= 3 ? 'star' : 'info', 'المرتبة ' + Math.round(rank) + ' من ' + Math.round(ofN), 'في ' + (i.cur.center || 'المركز')]);
     out.push({ kicker: 'خلاصة ' + hv.month, points: points, foot: 'بارك الله في الجهد' });
     return out;
@@ -349,7 +375,8 @@
       h += '<div class="hv-big">' + esc(s.big) + '</div>' +
         (s.unit ? '<div class="hv-unit">' + esc(s.unit) + '</div>' : '') +
         (s.sub ? '<div class="hv-sub">' + esc(s.sub) + '</div>' : '') +
-        (s.delta ? '<div class="hv-delta ' + (s.up == null ? '' : s.up ? 'up' : 'down') + '">' + esc(s.delta) + '</div>' : '');
+        (s.delta ? '<div class="hv-delta ' + (s.up == null ? '' : s.up ? 'up' : 'down') + '">' + esc(s.delta) + '</div>' : '') +
+        (s.foot ? '<div class="hv-foot">' + esc(s.foot) + '</div>' : '');
     }
     return h + '</div><div class="hv-brand">تطبيق الصفوة لمتابعة الحلقات القرآنية</div></div>';
   }

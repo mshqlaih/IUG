@@ -227,22 +227,24 @@
     var today = myToday(d);
     var upcoming = myAbsentDays(d).filter(function (x) { return diffDays(d.today, x) !== 0; });
     var h = '';
-    if (!today.length) h += '<div class="td-line td-muted">لا حلقة لك اليوم</div>';
+    // (2026-11-14، كأندرويد) اسم الحلقة وموعدها اليوم في بطاقة التحية ومعه «ابدأ الرصد»، فلا
+    // يُكرَّران هنا: يُذكر ما له حالٌ جديد (إجازة · غياب · وصول)، والمربّع لـ«لن أحضر»
     today.forEach(function (m) {
-      var t = clockOf(m.startMin), st, col;
+      if (!m.offName && !m.absent && !m.checkedIn) return;
+      var st, col;
       if (m.offName) { st = m.offName; col = '#616161'; }
       else if (m.absent) {
         var cv = coverText(m);
         st = (m.absentSelf ? 'أبلغتَ بغيابك'
           : m.excused === true ? 'سجّلتك الإدارة غائبًا بإذن' : 'سجّلتك الإدارة غائبًا بدون إذن') + (cv ? ' · ' + cv : '');
         col = '#C62828';
-      } else if (m.checkedIn) { st = 'سجّلتَ وصولك'; col = '#2E7D32'; }
-      else { st = t ? 'الساعة ' + t : 'اليوم'; col = '#6b7280'; }
+      } else { st = 'سجّلتَ وصولك'; col = '#2E7D32'; }
       h += '<div class="td-line"><b>' + esc(m.circleName) + '</b> <span style="color:' + col + '">· ' + esc(st) + '</span></div>';
     });
     if (upcoming.length) {
       h += '<div class="td-line td-red">أبلغتَ بغيابك: ' + esc(upcoming.map(function (x) { return dayWord(x, d.today); }).join('، ')) + '</div>';
     }
+    if (!h) h = '<div class="td-line td-muted" style="font-size:12.5px">إن تعذّر حضورك فأبلغ مسبقًا، ويصل إدارةَ المركز إشعار</div>';
     var cancel = [];
     if (today.some(function (m) { return m.absent && m.absentSelf; })) cancel.push(d.today);
     upcoming.forEach(function (x) {
@@ -257,7 +259,7 @@
     });
     h += '</div>';
     if (state.cached) h += '<div class="td-line td-muted" style="font-size:12px">نسخة الجهاز — الإبلاغ يحتاج اتصالًا</div>';
-    return frame('#303F9F', 'fa-calendar-check', 'حلقاتي اليوم', h, null);
+    return frame('#303F9F', 'fa-calendar-check', 'حضوري', h, null);
   }
 
   function manageTile(d) {
@@ -570,6 +572,13 @@
     paintHome: paintHome,
     paintActivity: paintActivity,
     homeHtml: homeHtml,
+    /* (2026-11-14) غائبٌ (أو في إجازة) عن كل حلقات اليوم ⇒ لا «ابدأ الرصد» في التحية */
+    absentAllToday: function () {
+      var d = state.data;
+      if (!d) return false;
+      var t = myToday(d);
+      return t.length > 0 && t.every(function (m) { return m.absent || !!m.offName; });
+    },
     /* تكليفي الساري لهذه الحلقة — لوسم «نيابةً عن …» */
     activeSubFor: function (circleNo) {
       return activeSubs(state.data).filter(function (s) { return s.circleNo === Number(circleNo); })[0] || null;
