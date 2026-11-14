@@ -323,7 +323,9 @@ body.sheet-open { overflow: hidden; }
 #settingsTab[data-page="sync"] [data-page="sync"],
 #settingsTab[data-page="appearance"] [data-page="appearance"],
 #settingsTab[data-page="about"] [data-page="about"],
-#settingsTab[data-page="advanced"] [data-page="advanced"] { display: block; }
+#settingsTab[data-page="advanced"] [data-page="advanced"],
+#settingsTab[data-page="access"] [data-page="access"],
+#settingsTab[data-page="claims"] [data-page="claims"] { display: block; }
 /* في صفحته: لا عنوانَ مكرّر (عنوان الشاشة يكفي) ولا مقبضَ طيٍّ */
 #settingsTab[data-page] [data-page] > h3,
 #settingsTab[data-page="advanced"] .settings-advanced > summary { display: none; }

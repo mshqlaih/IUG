@@ -1015,9 +1015,19 @@
                 <button type="button" onclick="openAdmRecord()">
                     <span class="more-ic mute"><i class="fas fa-folder-open"></i></span>
                     <span class="more-t"><b>سجلّي الإداريّ</b><small>الشكر والإجراءات الإدارية الموجّهة إليك</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <!-- 🚌 لمن يملك LEDGER_CLAIM وحده — renderMoreMenu -->
+                <button type="button" id="moreClaims" style="display:none" onclick="openSettingsPage('claims')">
+                    <span class="more-ic ok"><i class="fas fa-bus"></i></span>
+                    <span class="more-t"><b>مصروفاتي</b><small id="moreClaimsSub">المواصلات والاتصالات التي دفعتها للعمل</small></span><i class="fas fa-chevron-left more-go"></i></button>
                 <button type="button" onclick="openEmailSettings()">
                     <span class="more-ic ok"><i class="fas fa-at"></i></span>
                     <span class="more-t"><b>البريد الإلكتروني</b><small id="moreEmailSub">تأكيده يتيح استعادة كلمة المرور</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openSettingsPage('access')">
+                    <span class="more-ic"><i class="fas fa-user-shield"></i></span>
+                    <span class="more-t"><b>صلاحياتي</b><small>ماذا أملك، ومن أين</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openChangePassword()">
+                    <span class="more-ic"><i class="fas fa-key"></i></span>
+                    <span class="more-t"><b>تغيير كلمة المرور</b><small>لحسابك أنت</small></span><i class="fas fa-chevron-left more-go"></i></button>
                 <button type="button" onclick="handleLogout()">
                     <span class="more-ic bad"><i class="fas fa-right-from-bracket"></i></span>
                     <span class="more-t"><b>تسجيل الخروج</b><small>يُنبّهك إن بقي ما لم يُرفع</small></span></button>
@@ -1103,6 +1113,12 @@
                     <button id="settingsPullBtn" class="btn-pull"><i class="fas fa-cloud-download-alt"></i> <span class="btn-text">سحب البيانات</span></button>
                 </div>
             </div>
+
+            <!-- 🛡 صلاحياتي (2026-11-14) — account.js: QmcAccount.loadAccess -->
+            <div class="card" data-page="access"><div id="accessBody"></div></div>
+
+            <!-- 🚌 مصروفاتي (2026-11-14) — claims.js: QmcClaims.open -->
+            <div data-page="claims"><div id="claimsBody"></div></div>
 
             <!-- 🎨 المظهر (appearance.js يملأ اللوحة) -->
             <div class="card" id="appearanceCard" data-page="appearance">
@@ -1441,6 +1457,8 @@
     <script src="help.js"></script>
     <!-- ✉️ البريد الإلكتروني: تأكيده وتغييره (بعد app.js وinbox.js: showToast وQMC_INBOX) -->
     <script src="account.js"></script>
+    <!-- 🚌 مصروفاتي (بعد account.js وapp.js: showConfirm وshowToast) -->
+    <script src="claims.js"></script>
     <script src="schedule.js"></script>
     <script src="harvest.js"></script>
     <!-- 🗂 سجلّي الإداريّ والردّ على الإجراءات (بعد inbox.js: زرّ «ردّك» في الرسالة) -->

@@ -517,6 +517,11 @@ function renderMoreMenu() {
     show('moreStatus', circle);
     show('moreReport', circle);
     show('moreCircleGroup', circle || tabAllowed('requestsTab'));
+    // 🚌 مصروفاتي لمن يملك LEDGER_CLAIM — ومن له مطالباتٌ لم تُرسل يراها ولو سُحبت القدرة
+    const pendClaims = window.QmcClaims ? QmcClaims.pendingCount() : 0;
+    show('moreClaims', hasCapability('LEDGER_CLAIM') || pendClaims > 0);
+    const cs = document.getElementById('moreClaimsSub');
+    if (cs) cs.textContent = pendClaims ? pendClaims + ' لم تُرسل بعد' : 'المواصلات والاتصالات التي دفعتها للعمل';
     const who = document.getElementById('moreWho');
     if (who) {
         const nm = (USER_ACCESS && USER_ACCESS.name_ar) || getCurrentUser() || '';
@@ -541,7 +546,11 @@ function renderMoreMenu() {
 const SETTINGS_PAGES = {
     account: 'حسابي وحلقاتي', sync: 'المزامنة', appearance: 'المظهر',
     about: 'عن التطبيق', advanced: 'الدعم الفنّي',
+    access: 'صلاحياتي', claims: 'مصروفاتي',          // (2026-11-14) account.js · claims.js
 };
+// شرح ❔ لكل صفحة (help.js) — وما لا موضوع له يأخذ شرح الإعدادات العامّ
+const SETTINGS_HELP = { access: 'access', claims: 'claims' };
+
 function openSettingsPage(page) {
     if (!SETTINGS_PAGES[page]) page = 'account';
     const tab = document.getElementById('settingsTab');
@@ -549,10 +558,22 @@ function openSettingsPage(page) {
     tab.dataset.page = page;
     const t = document.getElementById('settingsTitle');
     if (t) t.textContent = SETTINGS_PAGES[page];
+    const hb = tab.querySelector('.section-head .help-btn');
+    if (hb) hb.dataset.help = SETTINGS_HELP[page] || 'settings';
     // الدعم الفنّي صفحتُه: تُفتح مبسوطة (كانت مطويّةً أسفل الإعدادات كي لا تُضغط خطأً)
     const adv = tab.querySelector('.settings-advanced');
     if (adv) adv.open = (page === 'advanced');
     openTab('settingsTab', document.querySelector('.tab-btn[data-tab="settingsTab"]'));
+    if (typeof _helpMarkDots === 'function') { try { _helpMarkDots(); } catch (_) {} }
+    // الصفحات الحيّة تُجلب عند فتحها
+    if (page === 'access' && window.QmcAccount) QmcAccount.loadAccess();
+    if (page === 'claims' && window.QmcClaims) QmcClaims.open();
+}
+
+// قدرةٌ من getUserAccess (QMC_CAN على السيرفر) — والسيرفر هو الحارس
+function hasCapability(code) {
+    const caps = (USER_ACCESS && Array.isArray(USER_ACCESS.capabilities)) ? USER_ACCESS.capabilities : [];
+    return caps.some(x => String(x).toUpperCase() === code);
 }
 
 // إجراءات الحلقة (من رأس «الحلقة»): موعدها · حالات طلابها · تقرير الأنشطة
@@ -5591,8 +5612,10 @@ async function handleLogout() {
     const pendingCourse = (typeof countPendingCourseResults === 'function')
         ? await countPendingCourseResults() : 0;
 
+    const pendingClaims = window.QmcClaims ? QmcClaims.pendingCount() : 0;
     const bits = [];
     if (pending) bits.push(`${pending} سجل نشاط`);
+    if (pendingClaims) bits.push(`${pendingClaims} مطالبة مصروفات`);
     if (pendingReq) bits.push(`${pendingReq} ترشيح اختبار`);
     if (pendingCourse) bits.push(`${pendingCourse} نتيجة دورة`);
     const warn = bits.length
