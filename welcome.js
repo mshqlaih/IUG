@@ -952,11 +952,27 @@
         h += '<div class="wh-quote">' + esc(base.quote.text) + '</div>' +
           '<div class="wh-qsrc">' + esc(base.quote.source) + '</div><div class="wh-sep"></div>';
       }
-      h += '<div class="wh-line">' + esc(line) + '</div></div>';
+      h += '<div class="wh-line">' + esc(line) + '</div>' + goHtml(role, todayC) + '</div>';
     } else {
-      h += '<div class="wh-cline">' + esc(line) + '</div>';
+      h += '<div class="wh-cline">' + esc(line) + '</div>' + goHtml(role, todayC);
     }
     return h + '</div>';
+  }
+
+  /* ▶️ (2026-11-14) رسالة الحلقة في التحية صارت تُفتح: زرّ «ابدأ الرصد» لمعلّمٍ له اليوم
+     حلقة — وبه يُستغنى عن تكرار خبرها في «مواعيدي» ولافتة «اليوم يوم حلقة». */
+  function goHtml(role, todayC) {
+    if (role !== 'teacher' || !todayC.length) return '';
+    var b = document.querySelector('.tab-btn[data-tab="studentsTab"]');
+    if (!b || b.style.display === 'none') return '';
+    var started = false;
+    try {
+      var d = ymdLocal(new Date());
+      started = _recordsCache.some(function (r) { return String(r.date) === d; });
+    } catch (_) {}
+    return '<button type="button" class="wh-go" data-act="tab" data-tab="studentsTab">' +
+      '<i class="fas ' + (started ? 'fa-list-check' : 'fa-play') + '"></i> ' +
+      (started ? 'أكمل الرصد' : 'ابدأ الرصد') + '</button>';
   }
 
   function occasionHtml(w) {
@@ -976,13 +992,21 @@
   function agendaHtml() {
     var list = upcoming();
     var today = new Date(); today.setHours(0, 0, 0, 0);
+    // (2026-11-14) حلقة اليوم للمعلّم خبرُها في بطاقة التحية (وزرّها)، فلا تُكرَّر هنا:
+    // البطاقة تعرض ما سواها، والقائمة الكاملة عند فتحها كما هي
+    var heroHas = false;
+    if (list && roleOf() === 'teacher' && todayCircles().length) {
+      var rest = list.filter(function (e) { return !(e.kind === 'CIRCLE' && daysBetween(today, e.day) === 0); });
+      heroHas = rest.length !== list.length;
+      list = rest;
+    }
     var todayN = list ? list.filter(function (e) { return daysBetween(today, e.day) === 0; }).length : 0;
     var next = list && list[0];
     var body;
     if (!list) {
       body = '<div class="wh-muted">' + (navigator.onLine ? '…' : 'تظهر مواعيدك هنا متى اتّصلت') + '</div>';
     } else if (!next) {
-      body = '<div class="wh-muted">لا مواعيد في الأسبوعين القادمين</div>';
+      body = '<div class="wh-muted">' + (heroHas ? 'لا مواعيد أخرى في الأسبوعين القادمين' : 'لا مواعيد في الأسبوعين القادمين') + '</div>';
     } else {
       var k = kindOf(next.kind);
       var more = todayN - (daysBetween(today, next.day) === 0 ? 1 : 0);
@@ -1013,7 +1037,14 @@
       });
   }
 
+  /* (2026-11-14) بلاطات «إلى أين اليوم؟» كانت تكرّر شريط التبويب نفسه (وهو الآن أربعة
+     أزرار ثابتة)، فأُزيلت؛ وبقي زرّ ❔ شرح الشاشة في سطرٍ هادئ. */
   function shortcutsHtml() {
+    return '<div class="wh-sec" style="justify-content:flex-end;margin:2px 0">' +
+      '<button type="button" class="help-btn" data-help="home" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>' +
+      '</div>';
+  }
+  function shortcutsHtmlOld() {
     var tabs = visibleTabs();
     if (!tabs.length) return '';
     var use = tabUse(state.user);
@@ -1050,7 +1081,8 @@
   };
   function sevOf(x) { return SEV[x] || SEV.info; }
   // ما يُفتح هنا — والباقي (لوحة المؤشّرات، الإعداد…) في أندرويد
-  var TARGET = { ACTIVITY: ['activityTab', 'سجّل النشاط'], MY_COURSES: ['myCoursesTab', 'دوراتي'], INBOX: ['inbox', 'صندوق الرسائل'] };
+  // ACTIVITY ⇒ «الحلقة» (2026-11-14): النشاط صار لوحةً من صفّ الطالب
+  var TARGET = { ACTIVITY: ['studentsTab', 'افتح الحلقة'], MY_COURSES: ['myCoursesTab', 'دوراتي'], INBOX: ['inbox', 'صندوق الرسائل'] };
   function targetOf(c) {
     var t = TARGET[c.open];
     if (!t) return null;

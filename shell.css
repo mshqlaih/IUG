@@ -1,0 +1,344 @@
+/* 🧭 (2026-11-14) طبقة الشكل الثالثة بعد app.css وsafwa.css:
+ * الشريط الرباعيّ · شارة ما لم يُرفع · صفّ الطالب · شريط التقدّم والمرشّح ·
+ * لوحة الرصد (نموذج النشاط لوحةً سفلية) · تبويب «المزيد».
+ * الألوان من --primary* و--gold و--line-soft و--surface (safwa.css) حيث وُجدت.
+ */
+
+/* ===== الشريط: أزرارٌ باقية في DOM وخارجة من الشريط ===== */
+.tab-btn.nav-secondary { display: none !important; }
+
+/* ===== الترويسة: شارة «N للرفع» ===== */
+.header-actions .pend-pill {
+  width: auto;
+  height: 36px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fde9b0;
+  border-color: transparent;
+  color: #6b4500;
+  font-size: 12.5px;
+  font-weight: 800;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.header-actions .pend-pill:hover { background: #fbdc8a; }
+
+/* ===== رأس «الحلقة» ===== */
+.circle-acts-btn { margin-inline-start: auto; white-space: nowrap; }
+#studentsTab .section-head, #logsTab .section-head { flex-wrap: wrap; }
+
+/* ===== سطر نشاط اليوم: التقدّم والمرشّح ===== */
+.day-prog {
+  height: 7px;
+  border-radius: 99px;
+  background: #e8ecf1;
+  overflow: hidden;
+  margin: 8px 0 8px;
+}
+.day-prog i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #1b8a5a, #2bb673);
+  transition: width .3s ease;
+}
+.day-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+.day-filter button {
+  background: #fff;
+  border: 1px solid #dfe5ec;
+  color: #5b6676;
+  border-radius: 999px;
+  padding: 7px 12px;
+  min-height: 34px;
+  font-size: 12.5px;
+  font-weight: 700;
+  width: auto;
+}
+.day-filter button.on { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
+
+/* ===== صفّ الطالب ===== */
+#studentsCards {
+  display: block;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line-soft, #e6eaef);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+}
+#studentsCards:empty { display: none; }
+.st-row + .st-row { border-top: 1px solid var(--line-soft, #e6eaef); }
+.st-row.open { background: #fafbfd; }
+.st-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+.st-main:hover { background: transparent; }
+.st-av {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primary-wash);
+  color: var(--primary);
+  font-weight: 800;
+  font-size: 16px;
+}
+.st-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.st-name { font-weight: 700; font-size: 15px; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-sub { font-size: 12.5px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-row.open .st-sub { white-space: normal; }
+.st-pill {
+  flex: none;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.st-pill.mute { background: #f1f3f6; color: #6b7280; }
+.st-pill.ok { background: #e1f3e9; color: #17764a; }
+.st-pill.brand { background: var(--primary-wash); color: var(--primary); }
+.st-pill.warn { background: #fcefd9; color: #9a5600; }
+.st-pill.bad { background: #fbe6e9; color: #a3263a; }
+
+.st-acts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 2px 12px 10px; }
+.st-act {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 60px;
+  padding: 8px 2px;
+  margin: 0;
+  border: 0;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: none;
+  width: auto;
+}
+.st-act i { font-size: 17px; }
+.st-act.rec { background: var(--primary-wash); color: var(--primary); }
+.st-act.ok { background: #e1f3e9; color: #17764a; }
+.st-act.warn { background: #fcefd9; color: #9a5600; }
+.st-act.bad { background: #fbe6e9; color: #a3263a; }
+.st-act:active { transform: scale(.97); }
+
+.st-more { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 12px 12px; }
+.st-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  margin: 0;
+  background: #fff;
+  border: 1px solid #dfe5ec;
+  color: #374151;
+  border-radius: 999px;
+  padding: 6px 11px;
+  min-height: 34px;
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.st-chip i { color: var(--gold, #b38b2c); }
+.st-ids { flex-basis: 100%; font-size: 12px; color: #8a94a3; padding-top: 2px; }
+
+/* ===== لوحة الرصد: #activityTab لوحةً سفلية فوق القائمة ===== */
+.sheet-head { display: none; }
+body.sheet-open { overflow: hidden; }
+#activityTab.as-sheet {
+  display: block;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1500;
+  margin: 0;
+  padding: 0;
+  background: rgba(10, 20, 30, .5);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+#activityTab.as-sheet > .card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  max-width: 640px;
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 26px 26px 0 0;
+  border-top: 4px solid var(--gold, #b38b2c);
+  padding: 12px 16px 0;
+  animation: safwaSheetUp .28s cubic-bezier(.2, .8, .2, 1);
+}
+#activityTab.as-sheet #actHead,
+#activityTab.as-sheet #actStudentField,
+#activityTab.as-sheet .icons-full-width,
+#activityTab.as-sheet .btn-clear-form { display: none !important; }
+#activityTab.as-sheet .sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.sheet-head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sheet-head-text b { font-size: 16px; color: #111827; }
+.sheet-head-text span { font-size: 12.5px; color: #6b7280; }
+.sheet-close {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f3f6;
+  color: #374151;
+  font-size: 16px;
+  box-shadow: none;
+}
+#activityTab.as-sheet .activity-actions {
+  position: sticky;
+  bottom: 0;
+  margin: 12px -16px 0;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  background: var(--surface, #fff);
+  border-top: 1px solid var(--line-soft, #e6eaef);
+}
+#activityTab.as-sheet .activity-actions { display: block; }
+#activityTab.as-sheet .activity-actions .btn-save { width: 100%; }
+
+/* ===== التنبيه العابر: زرّ «تراجع» ===== */
+#toast { display: inline-flex; align-items: center; gap: 14px; }
+#toast.toast-hidden { pointer-events: none; }
+.toast-action {
+  width: auto;
+  margin: 0;
+  padding: 2px 4px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #f3d27a;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ===== المزيد ===== */
+.more-h { font-size: 13px; font-weight: 800; color: #6b7280; margin: 14px 6px 6px; }
+.card.more-menu { padding: 2px 14px; margin: 0; }
+.more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+.more-menu button:hover { background: transparent; }
+.more-menu button + button { border-top: 1px solid var(--line-soft, #e6eaef); }
+.more-ic {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--primary-wash);
+  color: var(--primary);
+  font-size: 16px;
+}
+.more-ic.warn { background: #fcefd9; color: #9a5600; }
+.more-ic.ok { background: #e1f3e9; color: #17764a; }
+.more-ic.bad { background: #fbe6e9; color: #a3263a; }
+.more-ic.mute { background: #f1f3f6; color: #5b6676; }
+.more-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.more-t b { font-size: 15px; color: #111827; }
+.more-t small { font-size: 12.5px; color: #6b7280; }
+.more-go { color: #9aa3af; font-size: 13px; }
+
+/* ===== الدورات: الزرّ الرئيسيّ في بطاقة المعلّم · أيقونات السطور · «بانتظارك» ===== */
+.cr-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin: 10px 0 8px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 15px;
+  box-shadow: 0 8px 18px -10px var(--primary-dark);
+}
+.cr-main.ok { background: linear-gradient(135deg, #1b8a5a, #166534); box-shadow: 0 8px 18px -10px #166534; }
+.cr-ic { color: var(--primary); opacity: .75; width: 16px; text-align: center; font-size: 12.5px; }
+.svq { margin-bottom: 14px; }
+.svq-list { padding: 0 0 6px; }
+.svq-list button { min-height: 50px; padding: 8px 12px; background: #f7f9fb; border-radius: 12px; margin: 0 0 6px; border: 0 !important; }
+.svq-loading, .svq-ok { font-size: 13px; color: #6b7280; padding: 4px 6px 12px; }
+.svq-ok i { color: #17764a; }
+
+/* ===== مفتاح «دوراتي | الاختبارات والإشراف» ===== */
+.courses-role-bar { margin-bottom: 14px; }
+
+/* ===== الرئيسية: خبر الحلقة مرّةً واحدة (في التحية) ===== */
+body.on-home .inbox-banner[data-dup="circle-today"] { display: none; }
+
+/* ===== الرئيسية: زرّ الرصد داخل رسالة التحية ===== */
+.wh-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin: 10px 0 0;
+  border: 0;
+  border-radius: 13px;
+  background: #fff;
+  color: #14543f;
+  font: inherit;
+  font-weight: 800;
+  font-size: 15px;
+  box-shadow: none;
+  cursor: pointer;
+}

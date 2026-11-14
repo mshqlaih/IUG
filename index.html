@@ -101,6 +101,8 @@
 </style>
 <!-- 🎨 تصميم «الصفوة» (2026-10-28): بعد الأنماط كلّها كي يغلبها — حذفه يعيد الشكل السابق -->
 <link rel="stylesheet" href="safwa.css">
+<!-- 🧭 (2026-11-14) الشريط الرباعيّ · صفّ الطالب · لوحة الرصد · «المزيد» -->
+<link rel="stylesheet" href="shell.css">
 <meta name="theme-color" content="#0d47a1">
 
 <!-- ===== وضع التشخيص =====
@@ -169,7 +171,7 @@
     })();
 </script>
 
-<body>
+<body class="on-home">
     <header class="app-header">
         <!-- الاسم الكامل والإصدار في الإعدادات؛ هنا القصير وحالة الاتصال (2026-10-27):
              كان شريط «متّصل» سطرًا كاملًا تحت الترويسة في كل شاشة -->
@@ -181,18 +183,24 @@
         </div>
         <div class="header-actions">
             <button id="installBtn" class="install-btn" style="display:none;"><i class="fas fa-download"></i> <span class="btn-text">تثبيت</span></button>
+            <button type="button" id="pendPill" class="pend-pill" style="display:none" onclick="uploadUnsyncedFromStudents()" title="سجلّات لم تُرفع — المس للرفع">
+                <i class="fas fa-cloud-arrow-up"></i> <span id="pendPillText"></span>
+            </button>
             <!-- 🔔 الرسائل والإشعارات (inbox.js) — الشارة = ما لم يُقرأ + التنبيهات -->
             <button class="inbox-btn" onclick="openInbox()" title="الرسائل والإشعارات">
                 <i class="fas fa-bell"></i> <span class="btn-text">الرسائل</span><span id="inboxBadge" class="inbox-badge"></span>
             </button>
-            <button class="settings-btn" onclick="openSettings()" title="بيانات المستخدم والإعدادات">
-                <i class="fas fa-circle-user"></i> <span class="btn-text">حسابي</span>
-            </button>
-            <button class="logout-btn" onclick="handleLogout()" title="تسجيل الخروج">
-                <i class="fas fa-sign-out-alt"></i> <span class="btn-text">خروج</span>
-            </button>
+            <!-- (2026-11-14) «حسابي» و«خروج» انتقلا إلى «المزيد»: الخروج أندر زرٍّ وأخطره،
+                 وكان بجوار الجرس في كل شاشة. مكانهما شارة ما لم يُرفع (تختفي حين لا شيء). -->
         </div>
     </header>
+
+    <!-- 🔐 جلسة الجهاز لم تعد فعّالة (401) — app.js: qmc:unauthorized -->
+    <div id="sessionBanner" class="sw-error-banner" style="display:none;">
+        <i class="fas fa-lock"></i>
+        <span>انتهت جلستك على هذا الجهاز. سجّل الدخول من جديد ليُرفع عملك؛ ما سجّلتَه محفوظٌ هنا.</span>
+        <button type="button" class="update-reload-btn" onclick="handleLogout()">تسجيل الدخول</button>
+    </div>
 
     <!-- لافتة تعذُّر العمل دون اتصال (فشل تسجيل Service Worker) -->
     <div id="offlineUnavailableBanner" class="sw-error-banner" style="display:none;">
@@ -225,14 +233,17 @@
         <!-- 🏠 الرئيسية (welcome.js، 2026-11-09) — أوّل ما يراه كل مستخدم، ظاهرةٌ دائمًا -->
         <button class="tab-btn active" data-tab="homeTab" onclick="openTab('homeTab', this)"><i class="fas fa-house"></i><span>الرئيسية</span></button>
         <!-- «دوراتي» لمعلّم الدورة وحده (is_course_teacher) — يُظهره applyAccessToTabs -->
-        <button class="tab-btn" data-tab="myCoursesTab" style="display:none" onclick="openTab('myCoursesTab', this)"><i class="fas fa-chalkboard-user"></i><span>دوراتي</span></button>
-        <button class="tab-btn" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-calendar-check"></i><span>النشاط</span></button>
-        <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الطلبة</span></button>
+        <!-- 🧭 (2026-11-14) الشريط أربعة: الرئيسية · الحلقة · الدورات · المزيد. الأزرار الأخرى
+             باقيةٌ هنا (عليها الصلاحيات والتنبيهات) ويُخرجها من الشريط الصنف nav-secondary — applyNavLayout -->
+        <button class="tab-btn nav-secondary" data-tab="activityTab" onclick="openTab('activityTab', this)"><i class="fas fa-calendar-check"></i><span>النشاط</span></button>
+        <button class="tab-btn" data-tab="studentsTab" onclick="openTab('studentsTab', this)"><i class="fas fa-users"></i><span>الحلقة</span></button>
+        <button class="tab-btn" data-tab="myCoursesTab" style="display:none" onclick="openTab('myCoursesTab', this)"><i class="fas fa-graduation-cap"></i><span>الدورات</span></button>
         <!-- 📊 مُخفى (2026-11-13): بديله سطر «نشاط اليوم» في الطلبة — applyAccessToTabs -->
         <button class="tab-btn" data-tab="logsTab" style="display:none" onclick="openTab('logsTab', this)"><i class="fas fa-chart-simple"></i><span>التقارير</span></button>
-        <button class="tab-btn" data-tab="requestsTab" onclick="openTab('requestsTab', this)"><i class="fas fa-clipboard-check"></i><span>الطلبات</span></button>
+        <button class="tab-btn nav-secondary" data-tab="requestsTab" onclick="openTab('requestsTab', this)"><i class="fas fa-clipboard-check"></i><span>الطلبات</span></button>
         <button class="tab-btn" data-tab="coursesTab" onclick="openTab('coursesTab', this)"><i class="fas fa-graduation-cap"></i><span>الدورات</span></button>
-        <button class="tab-btn" data-tab="settingsTab" onclick="openTab('settingsTab', this)"><i class="fas fa-gear"></i><span>الإعدادات</span></button>
+        <button class="tab-btn nav-secondary" data-tab="settingsTab" onclick="openTab('settingsTab', this)"><i class="fas fa-gear"></i><span>الإعدادات</span></button>
+        <button class="tab-btn" data-tab="moreTab" onclick="openTab('moreTab', this)"><i class="fas fa-bars"></i><span>المزيد</span></button>
     </div>
 
     <div class="container">
@@ -244,7 +255,9 @@
         <div id="activityTab" class="tab-content">
             <!-- شريط المسمّع أُزيل (2026-10-24): الاسم والحلقة في الإعدادات، و«حسابي» في الترويسة -->
       <div class="card">
-        <div class="section-head" style="grid-column: 1 / -1">
+        <!-- 📥 (2026-11-14) رأس لوحة الرصد: الطالب والنوع — يظهر حين يُفتح النموذج لوحةً (as-sheet) -->
+        <div id="sheetHead" class="sheet-head"></div>
+        <div class="section-head" id="actHead" style="grid-column: 1 / -1">
             <div class="section-title">تفاصيل النشاط</div>
             <button type="button" class="help-btn" data-help="activity" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
         </div>
@@ -252,7 +265,7 @@
         <div id="subBanner" style="display:none"></div>
     <div class="grid">
         <!-- الحقول العلوية -->
-                <div class="field">
+                <div class="field" id="actStudentField">
                     <label>اسم الطالب</label>
                     <div class="input-with-clear">
                         <input list="studentsDataList" id="studentPicker" autocomplete="off"
@@ -413,14 +426,11 @@
         <!-- شاشة إدارة الطلاب -->
         <div id="studentsTab" class="tab-content">
             <div class="section-head">
-                <div class="section-title">طلابي</div>
+                <div class="section-title">الحلقة</div>
                 <button type="button" class="help-btn" data-help="students" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
-                <!-- 🕓 (2026-11-02) موعد الحلقة + الوصول والانصراف + PDF — schedule.js -->
-                <button type="button" class="sched-open-btn" onclick="openCircleSchedule()"><i class="fas fa-calendar-days"></i> موعد الحلقة</button>
-                <!-- 📝 (2026-11-13) طلب «منقطع» ومعتمد ⇄ إضافي بموافقة المدير — status_req.js -->
-                <button type="button" class="status-open-btn" onclick="openCircleStatus()"><i class="fas fa-id-card"></i> حالات الطلاب</button>
-                <!-- 📊 (2026-11-13) تقرير الأنشطة صفحةً من هنا كأندرويد (أيقونة شريط الطلبة) — لا تبويب -->
-                <button type="button" class="status-open-btn" onclick="openActivityReport()" title="تقرير الأنشطة: Excel · PDF · مشاركة" aria-label="تقرير الأنشطة"><i class="fas fa-chart-simple"></i></button>
+                <!-- (2026-11-14) موعد الحلقة · حالات الطلاب · تقرير الأنشطة في زرٍّ واحد: الثلاثة مع العنوان
+                     كانت تتجاوز عرض 390 بكسل فتنزاح الصفحة أفقيًّا — openCircleActions (وهي في «المزيد» أيضًا) -->
+                <button type="button" class="status-open-btn circle-acts-btn" onclick="openCircleActions()"><i class="fas fa-ellipsis"></i> إجراءات الحلقة</button>
             </div>
             <!-- 🌾 حصاد الشهر انتقل إلى الرئيسية (2026-11-13، كأندرويد) — #whHarvest -->
 
@@ -653,6 +663,12 @@
 
         <!-- شاشة الدورات: القائمة ← النموذج ← الكشف -->
         <div id="coursesTab" class="tab-content">
+            <!-- (2026-11-14) لمن هو معلّم دورةٍ وله إشرافٌ أو رصد: زرٌّ واحد في الشريط ومفتاحٌ هنا — applyNavLayout -->
+            <div class="courses-role-bar cr-mode-bar" style="display:none">
+                <button type="button" onclick="openTab('myCoursesTab', document.querySelector('.tab-btn[data-tab=myCoursesTab]'))">
+                    <i class="fas fa-chalkboard-user"></i> دوراتي</button>
+                <button type="button" class="active"><i class="fas fa-building-columns"></i> الاختبارات والإشراف</button>
+            </div>
 
             <!-- يظهر لمن يُشرف على الدورات وحده (canSuperviseCourses) — يضبطه showCoursesView -->
             <div id="coursesModeBar" class="cr-mode-bar" style="display:none">
@@ -810,6 +826,8 @@
                         <i class="fas fa-rotate"></i> <span>تحديث</span>
                     </button>
                 </div>
+                <!-- 🧭 (2026-11-14) ما ينتظر المشرف من كل المواضع — course_roles.js: renderSvQueue -->
+                <div id="svQueue"></div>
                 <div id="svCentersBanner"></div>
                 <div id="svCentersList" class="students-cards"></div>
             </div>
@@ -884,6 +902,11 @@
         <!-- «دوراتي» — مسار معلّم الدورة: رصد الحضور وإضافة الطلاب ونتائجهم بعد الاعتماد.
              ⚠️ لا درجة هنا قبل اعتماد المشرف: مسارات Courses/my* بلا درجات أصلاً. -->
         <div id="myCoursesTab" class="tab-content">
+            <div class="courses-role-bar cr-mode-bar" style="display:none">
+                <button type="button" class="active"><i class="fas fa-chalkboard-user"></i> دوراتي</button>
+                <button type="button" onclick="openTab('coursesTab', document.querySelector('.tab-btn[data-tab=coursesTab]'))">
+                    <i class="fas fa-building-columns"></i> الاختبارات والإشراف</button>
+            </div>
             <div id="ctListView">
                 <div class="section-head">
                     <div class="section-title">دوراتي</div>
@@ -930,9 +953,58 @@
             </div>
         </div>
 
+        <!-- ☰ المزيد (2026-11-14): كل ما ليس يوميًّا — كان تبويبان دائمان (الطلبات والإعدادات)
+             وزرّا «حسابي» و«خروج» في الترويسة. البنود تتبع الصلاحيات — renderMoreMenu -->
+        <div id="moreTab" class="tab-content">
+            <div class="section-head"><div class="section-title">المزيد</div></div>
+
+            <div id="moreCircleGroup">
+                <div class="more-h">حلقتي</div>
+                <div class="card more-menu">
+                    <button type="button" id="moreRequests" onclick="openTab('requestsTab', document.querySelector('.tab-btn[data-tab=requestsTab]'))">
+                        <span class="more-ic warn"><i class="fas fa-clipboard-check"></i></span>
+                        <span class="more-t"><b>ترشيحات الاختبار</b><small>رشّح طالبًا وتابع طلباتك</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                    <button type="button" id="moreSchedule" onclick="openCircleSchedule()">
+                        <span class="more-ic"><i class="fas fa-calendar-days"></i></span>
+                        <span class="more-t"><b>موعد الحلقة</b><small>وصلتُ · انصرفتُ · مواعيد الأسبوع</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                    <button type="button" id="moreStatus" onclick="openCircleStatus()">
+                        <span class="more-ic"><i class="fas fa-id-card"></i></span>
+                        <span class="more-t"><b>حالات الطلاب</b><small>طلب «منقطع» أو تغيير التصنيف</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                    <button type="button" id="moreReport" onclick="openActivityReport()">
+                        <span class="more-ic"><i class="fas fa-chart-simple"></i></span>
+                        <span class="more-t"><b>تقرير الأنشطة</b><small>Excel · PDF · مشاركة</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                </div>
+            </div>
+
+            <div class="more-h">المتابعة</div>
+            <div class="card more-menu">
+                <button type="button" onclick="openInbox()">
+                    <span class="more-ic bad"><i class="fas fa-bell"></i></span>
+                    <span class="more-t"><b>الرسائل والإشعارات</b><small>رسائل الإدارة وإشعارات الجوال</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openSettings()">
+                    <span class="more-ic ok"><i class="fas fa-cloud"></i></span>
+                    <span class="more-t"><b>المزامنة والإعدادات</b><small id="moreSyncSub">الرفع والسحب · المظهر · أدوات متقدّمة</small></span><i class="fas fa-chevron-left more-go"></i></button>
+            </div>
+
+            <div class="more-h">حسابي</div>
+            <div class="card more-menu">
+                <button type="button" onclick="openSettings()">
+                    <span class="more-ic mute"><i class="fas fa-circle-user"></i></span>
+                    <span class="more-t"><b>حسابي وحلقاتي</b><small id="moreWho"></small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openAdmRecord()">
+                    <span class="more-ic mute"><i class="fas fa-folder-open"></i></span>
+                    <span class="more-t"><b>سجلّي الإداريّ</b><small>الإجراءات والشكر والردّ عليها</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="handleLogout()">
+                    <span class="more-ic bad"><i class="fas fa-right-from-bracket"></i></span>
+                    <span class="more-t"><b>تسجيل الخروج</b><small>يُنبّهك إن بقي ما لم يُرفع</small></span></button>
+            </div>
+        </div>
+
         <!-- شاشة الإعدادات -->
         <div id="settingsTab" class="tab-content">
             <div class="section-head">
+                <!-- تُفتح من «المزيد» ⇒ الرجوع إليها -->
+                <button type="button" class="report-back-btn" onclick="openTab('moreTab', document.querySelector('.tab-btn[data-tab=moreTab]'))" title="رجوع" aria-label="رجوع"><i class="fas fa-arrow-right"></i></button>
                 <div class="section-title">الإعدادات</div>
                 <button type="button" class="help-btn" data-help="settings" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
             </div>
@@ -1287,6 +1359,15 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             if (btn) btn.classList.add('active');
+            // 🧭 (2026-11-14) تبويبٌ خرج زرّه من الشريط يُضيء الزرّ الذي يُوصل إليه (المزيد · الحلقة · الدورات)
+            if (typeof navProxyFor === "function") {
+                var proxy = navProxyFor(tabId);
+                if (proxy) proxy.classList.add('active');
+            }
+            // لوحة الرصد لا تبقى فوق شاشةٍ أخرى
+            if (typeof closeActivitySheet === "function") closeActivitySheet();
+            if (tabId === "moreTab" && typeof renderMoreMenu === "function") renderMoreMenu();
+            document.body.classList.toggle('on-home', tabId === "homeTab");
             window.scrollTo(0,0);
             // 🏠 الرئيسية تُرسم عند فتحها، وغيرها يُعدّ لترتيب اختصاراتها و«أكمل من حيث توقّفت»
             if (window.QmcWelcome) {

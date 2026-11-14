@@ -43,16 +43,26 @@ window.QMC = (function () {
     const url = `${BASE}/${path}`;
     const init = { method: method, headers: headers, body: payload };
 
+    // 🔐 (2026-11-14) 401 = جلسة الجهاز لم تعد فعّالة (التوكن ليس ACTIVE). كانت كل
+    //    شاشةٍ تفشل برسالتها أو بصمت؛ الآن حدثٌ واحد تعرض به الصفحة لافتة «سجّل الدخول».
+    //    لا خروج تلقائيّ: قد يكون على الجهاز ما لم يُرفع.
+    const watch = (res) => {
+      if (res && res.status === 401 && did && path.indexOf("device/first-login") !== 0) {
+        try { window.dispatchEvent(new Event("qmc:unauthorized")); } catch (_) {}
+      }
+      return res;
+    };
+
     // AbortController غير متوفّر في متصفحات أندرويد القديمة — عندها نُرسل بلا مهلة
     if (typeof AbortController === "undefined") {
-      return fetch(url, init);
+      return fetch(url, init).then(watch);
     }
 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     init.signal = ctrl.signal;
     try {
-      return await fetch(url, init);
+      return watch(await fetch(url, init));
     } finally {
       clearTimeout(timer);
     }

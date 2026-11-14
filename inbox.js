@@ -256,7 +256,10 @@
     if (!host) return;
     host.innerHTML = banners().map(function (m) {
       var sev = esc(m.severity);
-      return '<div class="inbox-banner sev-' + sev + '" data-key="' + esc(m.key) + '">' +
+      // (2026-11-14) «اليوم يوم حلقة»: خبرها في بطاقة التحية وزرّها، فتُطوى في الرئيسية وحدها
+      //    (body.on-home — openTab)، وتبقى في الجرس وباقي الشاشات
+      var dup = /يوم حلقة/.test(m.title) ? ' data-dup="circle-today"' : '';
+      return '<div class="inbox-banner sev-' + sev + '" data-key="' + esc(m.key) + '"' + dup + '>' +
         '<i class="fas fa-bullhorn" style="margin-top:4px"></i>' +
         '<div class="ib-text"><b>' + esc(m.title) + '</b>' +
         (m.body ? '<div>' + esc(m.body.length > 160 ? m.body.substring(0, 160) + '…' : m.body) + '</div>' : '') +

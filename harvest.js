@@ -5,7 +5,8 @@
  * النقطة نفسها (QMC_HARVEST_PKG — docs/harvest/):
  *   GET org/harvest?ym=YYYY-MM   ⇒ { ym, prev_ym, items: [{kind, no, cur, prev}] }
  * الاسم من التوكن (X-Device-Id يحقنه QMC.apiFetch). هنا بنود CIRCLE وCOURSE
- * (حصاد المركز للمدير لم يُنقل).
+ * ودائرة التجويد (CENTER نوعه TAJW — لمشرف الدورات، 2026-11-14).
+ * حصاد المركز للمدير ومساعده ومشرف الحلقات لم يُنقل (قرار المستخدم 11-14: يبقى في أندرويد).
  *
  * · بطاقةٌ ذهبية «حصاد <الشهر>» في الرئيسية أعلى «يحتاج تدخّلك» (#whHarvest، كأندرويد
  *   منذ 2026-11-13؛ كانت أعلى «طلابي» و«دوراتي»).
@@ -84,10 +85,13 @@
     }
     if (!data) return null;
     var items = (Array.isArray(data.items) ? data.items : []).filter(function (x) {
-      return x && (x.kind === 'CIRCLE' || x.kind === 'COURSE') && x.cur && typeof x.cur === 'object';
+      // 📚 (2026-11-14) دائرة التجويد لمشرف الدورات: CENTER نوعه TAJW (من الدورات لا الحلقات).
+      //    حصاد المركز (CENTER غير TAJW) للمدير ومشرف الحلقات يبقى في أندرويد.
+      return x && x.cur && typeof x.cur === 'object' &&
+        (x.kind === 'CIRCLE' || x.kind === 'COURSE' || (x.kind === 'CENTER' && x.cur.type === 'TAJW' && x.own !== true));
     }).map(function (x) {
       return {
-        kind: x.kind, no: x.no, cur: x.cur, prev: x.prev && typeof x.prev === 'object' ? x.prev : null,
+        kind: x.kind === 'CENTER' ? 'TAJW' : x.kind, no: x.no, cur: x.cur, prev: x.prev && typeof x.prev === 'object' ? x.prev : null,
         name: x.kind === 'CIRCLE' ? circleName(x.cur.name) : String(x.cur.name || '')
       };
     });
@@ -113,13 +117,20 @@
     var mine = h ? h.items.filter(function (i) { return !kind || i.kind === kind; }) : [];
     if (!mine.length) { box.innerHTML = ''; return; }
     var names = mine.map(function (i) { return i.name; });
+    // 🔢 (2026-11-14) الرقم الأبرز على البطاقة نفسها — شريحةُ البند الأولى — لا الاسم وحده
+    var lead = null;
+    try { lead = slidesOf(mine[0])[0]; } catch (_) { lead = null; }
+    var headline = lead && lead.big != null
+      ? lead.big + ' ' + (lead.unit || '') + (lead.delta ? ' · ' + lead.delta : '') : '';
     var what = names.length > 1
       ? names.length + ' بطاقات: ' + names.slice(0, 2).join(' · ') + (names.length > 2 ? ' …' : '')
       : names[0];
+    var single = names.length === 1 && headline;
     box.innerHTML = '<button type="button" class="hv-entry" onclick="QmcHarvest.open(' + (kind ? '\'' + kind + '\'' : '') + ')">' +
       '<span class="hv-entry-icon"><i class="fas fa-wand-magic-sparkles"></i></span>' +
-      '<span class="hv-entry-text"><b>حصاد ' + esc(h.month) + '</b><span>' + esc(what) + '</span></span>' +
-      '<i class="fas fa-chevron-left hv-entry-go"></i></button>';
+      '<span class="hv-entry-text"><b>حصاد ' + esc(h.month) + (single ? ' · ' + esc(what) : '') + '</b><span>' +
+      esc(single ? headline : what) + '</span></span>' +
+      (single ? '<span class="hv-entry-big">' + esc(lead.big) + '</span>' : '<i class="fas fa-chevron-left hv-entry-go"></i>') + '</button>';
   }
 
   /** البطاقة في الرئيسية من المحفوظ — بلا جلب (الرئيسية تعيد رسمها كثيرًا) */
@@ -141,7 +152,89 @@
   }
 
   /* ---------- الشرائح ---------- */
-  function slidesOf(i) { return i.kind === 'CIRCLE' ? circleSlides(i) : courseSlides(i); }
+  function slidesOf(i) {
+    return i.kind === 'CIRCLE' ? circleSlides(i) : i.kind === 'TAJW' ? tajwSlides(i) : courseSlides(i);
+  }
+
+  /* 📚 دائرة التجويد وحدها — نسخة _tajwSlides/_tajw(inOrg:false)/_tajwPoints في
+     harvest_screen.dart (أيّ تغييرٍ هناك يُنقل). لوحة «الدوائر واحدةً واحدة» تخصّ حصاد
+     المؤسسة (inOrg) فلم تُنقل. */
+  // المعدود تحت رقمٍ كبير: «دورةٌ انعقدت · دورتان انعقدتا · دورات · دورةً»
+  function cw(c, v, v2) { return c === 1 ? 'دورةٌ' + v : c === 2 ? 'دورتان' + v2 : c <= 10 ? 'دورات' + v : 'دورةً' + v; }
+  // «دورةٌ واحدة انعقدت · دورتان انعقدتا · 5 دورات انعقدت»
+  function crs(c, v, v2) {
+    v = v || '';
+    return c === 1 ? 'دورةٌ واحدة' + v : c === 2 ? 'دورتان' + (v2 == null ? v : v2) : c + ' ' + cw(c, v, v);
+  }
+  function tajwSlides(i) {
+    var s = function (k) { return n(i, k) || 0; };
+    var pv = function (k) { return i.prev ? (p(i, k) || 0) : null; };
+    var courses = Math.round(s('courses')), idle = Math.round(s('idle')), visits = Math.round(s('visits'));
+    var visited = Math.round(s('visited')), ended = Math.round(s('ended'));
+    // حضور المعتمدين ٪ من مجموع السجلّات
+    var att = s('recs') > 0 ? Math.round(100 * s('pres') / s('recs')) : null;
+    var pr = pv('recs');
+    var prevAtt = pr != null && pr > 0 ? Math.round(100 * pv('pres') / pr) : null;
+    var out = [];
+
+    var dc = pct(courses, pv('courses'));
+    out.push(courses > 0
+      ? { kicker: 'حصاد ' + hv.month, big: String(courses), unit: cw(courses, ' انعقدت', ' انعقدتا'),
+          sub: f(s('sessions')) + ' جلسة · ' + f(s('students')) + ' متدرّبًا معتمدًا', delta: dc[0], up: dc[1] }
+      : { kicker: 'حصاد ' + hv.month, big: '0', unit: 'دورة رُصد حضورها هذا الشهر',
+          sub: idle > 0 ? crs(idle, ' مفتوحة', ' مفتوحتان') + ' بلا رصد' : null });
+
+    var da = pts(att, prevAtt);
+    if (att != null) {
+      out.push({ kicker: 'الحضور', big: att + '٪', unit: 'حضور المتدرّبين المعتمدين',
+        sub: f(s('pres')) + ' حضورًا من ' + f(s('recs')) + ' سجلًّا', delta: da[0], up: da[1] });
+    }
+
+    if (courses > 0) {
+      var dv = pct(visits, pv('visits'));
+      out.push({ kicker: 'الإشراف الميداني', big: String(visits),
+        unit: visits === 1 ? 'زيارةٌ ميدانية' : visits === 2 ? 'زيارتان ميدانيّتان'
+          : visits >= 3 && visits <= 10 ? 'زيارات ميدانية' : 'زيارةً ميدانية',
+        sub: 'زِيرت ' + visited + ' من ' + courses + ' دورة منعقدة' +
+          (idle > 0 ? '\n' + crs(idle, ' مفتوحة', ' مفتوحتان') + ' لم يُرصد حضورها' : ''),
+        delta: dv[0], up: dv[1] });
+    }
+
+    if (i.cur.top_name != null) {
+      out.push({ kicker: 'أعلى دورةٍ تقييمًا', big: f(n(i, 'top_eval')), unit: String(i.cur.top_name),
+        sub: (i.cur.top_teacher || '') + '\nبالتقييم الجاري: الزيارات ورصد المعلّم والحضور وعدد المعتمدين' });
+    }
+
+    var ready = Math.round(s('ready'));
+    if (ended > 0) {
+      out.push({ kicker: 'الدورات المنتهية', big: String(ended), unit: cw(ended, ' انتهت', ' انتهتا') + ' هذا الشهر',
+        sub: ready > 0 ? ready + ' منها مؤهّلة للكفالة'
+          : 'تُحسم أهليّتها للكفالة باعتماد النتائج و«المتابعة من البداية»' });
+    }
+
+    // الخلاصة نقاطًا
+    var points = [];
+    if (courses === 0) points.push(['warn', 'لم يُرصد حضورٌ لأيّ دورة', 'في ' + hv.month]);
+    else {
+      points.push([dc[1] === false ? 'down' : dc[1] === true ? 'up' : 'info', crs(courses, ' انعقدت', ' انعقدتا'),
+        f(s('sessions')) + ' جلسة' + (dc[0] ? ' · ' + dc[0] : '')]);
+      if (att != null) {
+        points.push([att >= 90 ? 'star' : da[1] === false ? 'down' : att < 75 ? 'warn' : 'info',
+          'حضور المعتمدين ' + att + '٪', da[0]]);
+      }
+      var left = courses - visited;
+      points.push(left > 0
+        ? ['warn', crs(left, '') + ' بلا زيارة هذا الشهر', 'زِيرت ' + visited + ' من ' + courses]
+        : ['star', 'زِيرت الدورات المنعقدة كلّها', null]);
+    }
+    if (idle > 0) points.push(['warn', crs(idle, ' مفتوحة', ' مفتوحتان') + ' بلا رصد', 'تُغلق بتاريخ انتهاء أو يُستأنف رصدها']);
+    if (ended > 0) {
+      points.push(['info', crs(ended, ' انتهت', ' انتهتا'),
+        ready > 0 ? ready + ' منها مؤهّلة للكفالة' : 'لم تُحسم أهليّتها للكفالة بعد']);
+    }
+    out.push({ kicker: 'خلاصة ' + hv.month, points: points });
+    return out;
+  }
 
   /** «↑ 2 عن سبتمبر» — فرق عددين */
   function diff(cur, prev) {
@@ -173,7 +266,8 @@
     var dx = diff(passed, p(i, 'passed'));
     out.push(passed > 0
       ? { kicker: 'الاختبارات', big: String(passed),
-          unit: passed === 1 ? 'اختبارٌ ناجح أمام اللجنة' : 'اختبارًا ناجحًا أمام اللجنة',
+          unit: passed === 1 ? 'اختبارٌ ناجح أمام اللجنة' : passed === 2 ? 'اختباران ناجحان أمام اللجنة'
+            : passed <= 10 ? 'اختباراتٍ ناجحة أمام اللجنة' : 'اختبارًا ناجحًا أمام اللجنة',
           sub: i.cur.best_name != null ? 'أعلى معدّل ' + f(n(i, 'best')) + ' لـ' + i.cur.best_name : null,
           delta: dx[0], up: dx[1] }
       : { kicker: 'الاختبارات', big: '0', unit: 'اختبار ناجح هذا الشهر',
@@ -207,7 +301,8 @@
       : att >= 75 ? ['info', 'الحضور ' + att + '٪', 'يرتفع بمتابعة الغائبين' + (pa ? ' · ' + pa : '')]
         : ['warn', 'الحضور ' + att + '٪', 'يحتاج تواصلًا مع أولياء الأمور' + (pa ? ' · ' + pa : '')]);
     points.push(passed > 0
-      ? ['star', passed === 1 ? 'اختبارٌ ناجح أمام اللجنة' : passed + ' اختبارًا ناجحًا أمام اللجنة',
+      ? ['star', passed === 1 ? 'اختبارٌ ناجح أمام اللجنة' : passed === 2 ? 'اختباران ناجحان أمام اللجنة'
+          : passed <= 10 ? passed + ' اختباراتٍ ناجحة أمام اللجنة' : passed + ' اختبارًا ناجحًا أمام اللجنة',
           i.cur.best_name != null ? 'أعلاها ' + f(n(i, 'best')) + ' لـ' + i.cur.best_name : null]
       : ['warn', 'لا اختبار ناجح هذا الشهر', 'رشّح من أتمّ جزءه']);
     if (topOk) points.push(['star', 'الأكثر حفظًا: ' + i.cur.top_name, f(n(i, 'top_pnew')) + ' صفحة']);
@@ -416,7 +511,8 @@
     '.hv-entry-icon{width:42px;height:42px;border-radius:11px;background:#fff;color:' + GOLD + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}' +
     '.hv-entry-text{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}' +
     '.hv-entry-text b{font-size:15.5px;color:' + GOLD + '}.hv-entry-text span{font-size:13px;color:#00000089}' +
-    '.hv-entry-go{color:' + GOLD + '}';
+    '.hv-entry-go{color:' + GOLD + '}' +
+    '.hv-entry-big{font-size:26px;font-weight:800;line-height:1;color:' + GOLD + ';direction:ltr;flex-shrink:0}';
   (function injectCss() {
     var s = document.createElement('style');
     s.id = 'harvestStyle';

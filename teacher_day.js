@@ -337,8 +337,9 @@
     var d = state.data;
     if (!d) return;
     if (act === 'activity') {
-      var b = document.querySelector('.tab-btn[data-tab="activityTab"]');
-      if (b && typeof openTab === 'function') openTab('activityTab', b);
+      // (2026-11-14) الرصد من «الحلقة» — النشاط صار لوحةً من صفّ الطالب
+      var b = document.querySelector('.tab-btn[data-tab="studentsTab"]');
+      if (b && typeof openTab === 'function') openTab('studentsTab', b);
     } else if (act === 'absent') openAbsent(d);
     else if (act === 'cancel') cancelAbsent(d, parseDay(el.dataset.date));
   }

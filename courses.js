@@ -1423,7 +1423,7 @@ function openCourseRecord(idNo, scheme) {
     }
 
     const dateEl = document.getElementById('recordDate');
-    if (dateEl) dateEl.value = (existing && existing.examDate) || new Date().toISOString().split('T')[0];
+    if (dateEl) dateEl.value = (existing && existing.examDate) || ymdLocal(new Date());
 
     const notesEl = document.getElementById('recordNotes');
     const noteLabels = criteria.filter(c => c.inputMode === InputMode.NOTE).map(c => c.labelAr);
@@ -1621,7 +1621,7 @@ function openAddCourseStudents(courseNo, onDone) {
     const ta = document.getElementById('courseStudentIds');
     if (ta) ta.value = '';
     const d = document.getElementById('courseRegisterDate');
-    if (d) d.value = new Date().toISOString().split('T')[0];
+    if (d) d.value = ymdLocal(new Date());
     const st = document.getElementById('addStudentsStatus');
     if (st) { st.textContent = ''; st.style.color = ''; }
     box.style.display = 'flex';

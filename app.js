@@ -122,8 +122,16 @@ let _syncInProgress = false;
 function requestSync() {
     if (_syncInProgress || !navigator.onLine) return;   // منع التشغيل المتزامن / لا فائدة بدون اتصال
     if (SUPPORTS_BG_SYNC) {
-        navigator.serviceWorker.ready
+        // ⚠️ (2026-11-14) serviceWorker.ready لا يُحسم أبدًا إن لم يُسجَّل الـSW (شهادةٌ
+        //    مرفوضة، وضعٌ خاصّ) فكان الرفع التلقائيّ لا يقع إطلاقًا ⇒ مهلة 3 ث ثم الصفحة.
+        //    ومع الـSW تُرفع الأنشطة وحدها، فنتائج الدورات والترشيحات تُرفع من الصفحة دائمًا.
+        const ready = Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((_, rej) => setTimeout(() => rej(new Error('لا Service Worker')), 3000)),
+        ]);
+        ready
             .then(reg => reg.sync.register('sync-records'))
+            .then(syncQueuesFromPage)
             .catch(err => {
                 console.warn("⚠️ فشل تسجيل Background Sync، التحويل للمزامنة الصفحية:", err);
                 runPageSync();
@@ -132,6 +140,17 @@ function requestSync() {
         // iOS / متصفحات بلا Background Sync
         runPageSync();
     }
+}
+
+// طابورا الدورات والترشيحات — لا يرفعهما الـSW، فيُرفعان من الصفحة بعد تسجيل مزامنته
+function syncQueuesFromPage() {
+    if (_syncInProgress) return;
+    _syncInProgress = true;
+    Promise.resolve()
+        .then(() => (typeof syncCourseResults === 'function') ? syncCourseResults() : null)
+        .then(() => (typeof syncExamRequests === 'function') ? syncExamRequests() : null)
+        .catch(err => console.warn("تعذّر رفع طوابير الدورات/الترشيحات:", err))
+        .finally(() => { _syncInProgress = false; });
 }
 
 // غلاف يرفع علم التقدّم حول المزامنة الصفحية ثم يُنزله مهما كانت النتيجة
@@ -273,7 +292,9 @@ function getCurrentUser() {
 window.onload = () => {
     fillAyatSearchList();
     initDB();
-    document.getElementById('activityDate').valueAsDate = new Date();
+    // ⚠️ (2026-11-14) valueAsDate وtoISOString بتوقيت UTC: بعد منتصف الليل بتوقيت غزة
+    //    كان التاريخ الافتراضيّ أمس. اليوم المحلّيّ من ymdLocal في كل موضع.
+    document.getElementById('activityDate').value = ymdLocal(new Date());
     requestAppVersion();
     refreshSettingsInfo();
 };
@@ -404,7 +425,8 @@ function applyAccessToTabs() {
     const screenAllows = (tabId) => {
         // الإعدادات دائماً ظاهرة: منها التشخيص والمزامنة وإعادة الضبط
         // والرئيسية (welcome.js) لكل مستخدم كأندرويد
-        if (tabId === 'settingsTab' || tabId === 'homeTab') return true;
+        // و«المزيد» (2026-11-14): منها الإعدادات والخروج
+        if (tabId === 'settingsTab' || tabId === 'homeTab' || tabId === 'moreTab') return true;
 
         // «دوراتي» لا تُصفّى بقائمة الشاشات: إذنُها ملكيّة (roleAllows أعلاه)
         if (tabId === 'myCoursesTab') return true;
@@ -432,12 +454,13 @@ function applyAccessToTabs() {
 
     /* ⚠️ الحارس يقيس شاشات العمل لا العدد الكلي: «الإعدادات» ظاهرة دائماً،
        فقائمة صلاحيات لا تُطابق شيئاً كانت تترك المستخدم أمامها وحدها. */
-    const hasWorkTab = visible.some(b => b.dataset.tab !== 'settingsTab' && b.dataset.tab !== 'homeTab');
+    const hasWorkTab = visible.some(b => ['settingsTab', 'homeTab', 'moreTab'].indexOf(b.dataset.tab) === -1);
     if (!hasWorkTab) visible = byRole;
 
     buttons.forEach(b => {
         b.style.display = (visible.indexOf(b) !== -1) ? '' : 'none';
     });
+    applyNavLayout();
 
     // 🏠 اختصارات الرئيسية والاسم والمسمّى تتبع الصلاحيات
     if (window.QmcWelcome) QmcWelcome.refreshIfActive();
@@ -449,6 +472,100 @@ function applyAccessToTabs() {
         if (first) openTab(first.dataset.tab, first);
     }
 }
+
+/* =========================================================
+   🧭 الشريط الرباعيّ (2026-11-14): الرئيسية · الحلقة · الدورات · المزيد.
+   الأزرار القديمة كلّها باقيةٌ في DOM — عليها تقوم الصلاحيات (style.display أعلاه)
+   والرئيسية والتنبيهات — والصنف `nav-secondary` يُخرج بعضها من الشريط وحده:
+   · النشاط: صار لوحةً من صفّ الطالب (يعود تبويبًا إن حُجبت «الحلقة» عن المستخدم)
+   · الطلبات والإعدادات: من «المزيد»
+   · «الدورات» و«دوراتي» زرٌّ واحد، ولمن له الاثنتان مفتاحٌ أعلى الشاشتين
+   ========================================================= */
+function tabAllowed(tabId) {
+    const b = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
+    return !!(b && b.style.display !== 'none');
+}
+
+function applyNavLayout() {
+    const btn = (id) => document.querySelector('.tab-btn[data-tab="' + id + '"]');
+    const sec = (id, on) => { const b = btn(id); if (b) b.classList.toggle('nav-secondary', !!on); };
+
+    sec('activityTab', tabAllowed('studentsTab'));
+    sec('requestsTab', true);
+    sec('settingsTab', true);
+
+    const both = tabAllowed('myCoursesTab') && tabAllowed('coursesTab');
+    sec('coursesTab', both);
+    document.querySelectorAll('.courses-role-bar').forEach(el => { el.style.display = both ? '' : 'none'; });
+    if (typeof renderMoreMenu === 'function') renderMoreMenu();
+}
+
+// الزرّ الظاهر في الشريط الذي يُضاء لتبويبٍ خرج زرّه منه
+function navProxyFor(tabId) {
+    const b = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
+    if (!b || !b.classList.contains('nav-secondary')) return null;
+    const to = tabId === 'coursesTab' ? 'myCoursesTab' : tabId === 'activityTab' ? 'studentsTab' : 'moreTab';
+    return document.querySelector('.tab-btn[data-tab="' + to + '"]');
+}
+
+// قائمة «المزيد»: كل بندٍ يتبع صلاحية تبويبه
+function renderMoreMenu() {
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+    const circle = tabAllowed('studentsTab');
+    show('moreRequests', tabAllowed('requestsTab'));
+    show('moreSchedule', circle);
+    show('moreStatus', circle);
+    show('moreReport', circle);
+    show('moreCircleGroup', circle || tabAllowed('requestsTab'));
+    const who = document.getElementById('moreWho');
+    if (who) {
+        const nm = (USER_ACCESS && USER_ACCESS.name_ar) || getCurrentUser() || '';
+        who.textContent = String(nm);
+    }
+    countPendingRecords().then(n => {
+        const el = document.getElementById('moreSyncSub');
+        if (el) el.textContent = n ? (n + ' بانتظار الرفع') : 'كل شيءٍ مرفوع';
+    }).catch(() => {});
+}
+
+// إجراءات الحلقة (من رأس «الحلقة»): موعدها · حالات طلابها · تقرير الأنشطة
+function openCircleActions() {
+    const old = document.getElementById('circleActsModal');
+    if (old) old.remove();
+    const o = document.createElement('div');
+    o.id = 'circleActsModal';
+    o.className = 'modal-overlay';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.style.display = 'flex';
+    const row = (act, icon, title, sub) =>
+        `<button type="button" class="act-menu-row" data-do="${act}"><i class="fas ${icon}" style="color:var(--primary)"></i>` +
+        `<span>${title}<small style="color:#6b7280">${sub}</small></span></button>`;
+    o.innerHTML = '<div class="modal-box" style="text-align:start;max-width:440px"><h4 class="modal-title">إجراءات الحلقة</h4>' +
+        row('schedule', 'fa-calendar-days', 'موعد الحلقة', 'وصلتُ · انصرفتُ · مواعيد الأسبوع') +
+        row('status', 'fa-id-card', 'حالات الطلاب', 'طلب «منقطع» أو تغيير التصنيف') +
+        row('report', 'fa-chart-simple', 'تقرير الأنشطة', 'Excel · PDF · مشاركة') +
+        row('add', 'fa-user-plus', 'طالب جديد', 'برقم الهوية ويُجلب الاسم') +
+        '<div class="modal-actions"><button type="button" class="modal-btn modal-cancel" data-close>إغلاق</button></div></div>';
+    o.addEventListener('click', ev => {
+        if (ev.target === o || ev.target.closest('[data-close]')) { o.remove(); return; }
+        const b = ev.target.closest('[data-do]');
+        if (!b) return;
+        o.remove();
+        const d = b.dataset.do;
+        if (d === 'schedule' && typeof openCircleSchedule === 'function') openCircleSchedule();
+        else if (d === 'status' && typeof openCircleStatus === 'function') openCircleStatus();
+        else if (d === 'report') openActivityReport();
+        else if (d === 'add') toggleAddStudentForm();
+    });
+    document.body.appendChild(o);
+}
+
+// 🔐 جلسة الجهاز انتهت (401 من أيّ نداء — api.js): لافتةٌ واحدة، بلا خروجٍ تلقائيّ
+window.addEventListener('qmc:unauthorized', () => {
+    const el = document.getElementById('sessionBanner');
+    if (el) el.style.display = 'flex';
+});
 
 async function loadUserAccess() {
     // المخزون أولاً ليعمل دون اتصال.
@@ -1285,7 +1402,7 @@ async function saveActivity() {
         return showAlert("يجب إدخال تاريخ النشاط");
     }
 
-    const onlyDate = new Date(rawDate).toISOString().split("T")[0];
+    const onlyDate = String(rawDate).slice(0, 10);   // حقل date يعطي YYYY-MM-DD محلّيًّا
 
     // هوية المسمّع تأتي من اسم المستخدم المسجَّل، لا من إدخال يدوي
     const { teacher, teacherName } = await getTeacherIdentity();
@@ -1341,12 +1458,71 @@ async function saveActivity() {
             _editingTagNo = 0;
             setEditingMode(false);
             resetActivityForm();
+            closeActivitySheet();
         });
         return;
     }
 
-    persistRecord(record, resetActivityForm);
+    persistRecord(record, () => {
+        resetActivityForm();
+        // من اللوحة: تُغلق ويُفتح صفّ الطالب التالي الذي لم يُرصد
+        if (activitySheetOpen()) { advanceStudentRow(student); closeActivitySheet(); }
+    });
 }
+
+/* =========================================================
+   📥 لوحة الرصد (2026-11-14): نموذج النشاط نفسه يصعد لوحةً فوق قائمة «الحلقة»
+   بدل الانتقال إلى تبويبٍ آخر — الطالب والنوع من الصفّ، و«من» معبّأة كما كانت.
+   النموذج واحد (حقوله ومنطقه كما هما)، والاختلاف صنف `as-sheet` على #activityTab.
+   ========================================================= */
+function activitySheetOpen() {
+    const t = document.getElementById('activityTab');
+    return !!(t && t.classList.contains('as-sheet'));
+}
+
+function openActivitySheet() {
+    const t = document.getElementById('activityTab');
+    if (!t) return;
+    t.classList.add('as-sheet');
+    document.body.classList.add('sheet-open');
+    const card = t.querySelector('.card');
+    if (card) card.scrollTop = 0;
+    if (window.QmcTeacherDay) { try { QmcTeacherDay.paintActivity(); } catch (_) {} }
+}
+
+function closeActivitySheet() {
+    if (!activitySheetOpen()) return;
+    document.getElementById('activityTab').classList.remove('as-sheet');
+    document.body.classList.remove('sheet-open');
+    if (_editingRecordId) {
+        _editingRecordId = null;
+        _editingTagNo = 0;
+        setEditingMode(false);
+    }
+    resetActivityForm();
+}
+
+// رأس اللوحة: الطالب والنوع وآخر نشاطه — بدل حقل الطالب وبلاطات النوع
+function paintSheetHead(studentId, type) {
+    const el = document.getElementById('sheetHead');
+    if (!el) return;
+    const s = _studentsCache.find(x => Number(x.id) === Number(studentId));
+    const act = _lastActivityByStudent[Number(studentId)];
+    const name = fullStudentName(s) || ('الطالب ' + studentId);
+    el.innerHTML = `<span class="st-av">${escapeHtml(name.charAt(0))}</span>` +
+        `<div class="sheet-head-text"><b>${escapeHtml(activityTypeName(type))} · ${escapeHtml(name)}</b>` +
+        `<span>${escapeHtml(act ? 'آخر نشاط: ' + formatActivitySummary(act) : 'لا يوجد نشاط مسجّل')}</span></div>` +
+        '<button type="button" class="sheet-close" onclick="closeActivitySheet()" aria-label="إغلاق"><i class="fas fa-xmark"></i></button>';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const t = document.getElementById('activityTab');
+    // لمس ما حول اللوحة يغلقها
+    if (t) t.addEventListener('click', (e) => { if (e.target === t) closeActivitySheet(); });
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && activitySheetOpen() && !_modalResolve) closeActivitySheet();
+});
 
 /* =========================================================
    تعديل نشاط مسجَّل: تحميله في شاشة النشاط ثم تحديثه
@@ -1383,7 +1559,7 @@ async function clearActivityForm() {
     handleActivityTypeChange('', { silent: true });
 
     const dateEl = document.getElementById('activityDate');
-    if (dateEl) dateEl.valueAsDate = new Date();
+    if (dateEl) dateEl.value = ymdLocal(new Date());
 
     showToast("تم مسح الحقول");
 }
@@ -1400,7 +1576,9 @@ async function editRecord(id) {
     const rec = await getRecordById(id);
     if (!rec) return showAlert("لم يُعثر على السجل");
 
-    openTab('activityTab', document.querySelector('.tab-btn[data-tab="activityTab"]'));
+    // لوحةٌ فوق الشاشة الحاليّة (الحلقة أو تقرير الأنشطة) — لا انتقال
+    openActivitySheet();
+    paintSheetHead(rec.student, rec.type);
 
     _editingRecordId = Number(id);
     _editingTagNo = Number(rec.tagNo || 0);
@@ -1514,7 +1692,7 @@ function buildActivityRecord(opts) {
         teacher    : 0,
         teacherName: "",
         student    : 0,
-        date       : new Date().toISOString().split("T")[0],
+        date       : ymdLocal(new Date()),
         type       : type,
         fromRange  : "",
         toRange    : "",
@@ -1533,7 +1711,10 @@ function buildActivityRecord(opts) {
 }
 
 // حفظ السجل مع منع التكرار (نفس الطالب/التاريخ/النوع) ثم تحديث الواجهة والمزامنة
-function persistRecord(record, onSaved) {
+// opts (2026-11-14): quiet = بلا رسالة «تم الحفظ» (للمستدعي رسالته)،
+//   deferSyncMs = يؤخّر الرفع (مهلة «تراجع» في التسجيل الفوريّ)
+function persistRecord(record, onSaved, opts) {
+    const o = opts || {};
     const tx = db.transaction("records", "readwrite");
     const store = tx.objectStore("records");
     const check = store.index("student_date_type").get([record.student, record.date, record.type]);
@@ -1547,12 +1728,14 @@ function persistRecord(record, onSaved) {
             showAlert({ title: "نشاط مكرر", message: "هذا النشاط مسجل مسبقًا لهذا الطالب في هذا التاريخ.", icon: "⚠️" });
             return;
         }
-        store.add(record).onsuccess = () => {
+        store.add(record).onsuccess = (ev) => {
+            record.id = ev.target.result;
+            if (typeof onSaved === "function") onSaved(record);   // قبل الرسم: يحدّد الصفّ التالي
             refreshAll();
             refreshSecondReviewCard();   // مراجعةٌ أولى حُفظت ⇒ يظهر زرّ الثانية
-            showToast("تم حفظ النشاط بنجاح");
-            if (typeof onSaved === "function") onSaved();
-            requestSync();
+            if (!o.quiet) showToast("تم حفظ النشاط بنجاح");
+            if (o.deferSyncMs) setTimeout(requestSync, o.deferSyncMs);
+            else requestSync();
         };
     };
 }
@@ -2043,7 +2226,13 @@ function renderDayStrip(students) {
         }
         if (absent) h += `<b style="color:#c62828">غاب ${absent}</b>`;
     }
-    h += '</div><div class="day-strip-acts">';
+    // (2026-11-14) أين وصلتُ؟ شريط تقدّم، وشرائح تُبقي مجموعةً واحدة (لم يُرصد…)
+    const total = students.length, doneN = recited + present, noneN = Math.max(0, total - doneN - absent);
+    h += `</div><div class="day-prog" title="رُصد ${total - noneN} من ${total}"><i style="width:${total ? Math.round((total - noneN) / total * 100) : 0}%"></i></div>` +
+        '<div class="day-filter">' +
+        [['all', 'الكل', total], ['none', 'لم يُرصد', noneN], ['done', 'حضر', doneN], ['abs', 'غاب', absent]].map(f =>
+            `<button type="button" class="${_dayFilter === f[0] ? 'on' : ''}" aria-pressed="${_dayFilter === f[0]}" onclick="setDayFilter('${f[0]}')">${f[1]} ${f[2]}</button>`).join('') +
+        '</div><div class="day-strip-acts">';
     if (!isActToday()) h += '<button type="button" onclick="showActDay(null)"><i class="fas fa-calendar-day"></i> عودة إلى اليوم</button>';
     if (prev) h += `<button type="button" onclick="showActDay('${prev}')"><i class="fas fa-clock-rotate-left"></i> آخر يومٍ مسجَّل: ${escapeHtml(actDayLabel(prev))}</button>`;
     if (unsynced) h += `<button type="button" class="warn" onclick="uploadUnsyncedFromStudents()"><i class="fas fa-cloud-arrow-up"></i> رفع ${unsynced} لم يُرفع</button>`;
@@ -2057,50 +2246,70 @@ function studentCardHtml(s) {
     const act  = _lastActivityByStudent[id];
     const dayActs = (_dayActsCache && _dayActsCache[id]) || [];
 
-    // سُجّل له في اليوم المعروض ⇒ شاراتُ نشاطه (تعديل/حذف/مزامنة)، وإلا آخر نشاطٍ كما كان
-    const lastLine = dayActs.length
-        ? `<div class="act-chips">${dayActs.map(actChipHtml).join('')}</div>`
-        : !isActToday()
-        ? `<div class="student-last"><span class="student-last-text student-last-none">لا نشاط له ${escapeHtml(actDayLabel(actDay()))}</span></div>`
-        : null;
+    /* (2026-11-14) صفٌّ مختصر بدل بطاقةٍ بثماني أيقوناتٍ بلا أسماء (كانت 250px للطالب):
+       الاسم وسطرٌ واحد وحالة اليوم، والأزرار بأسمائها للصفّ المفتوح وحده. */
+    const st = dayStateOf(dayActs);
+    const open = _openStudentRow === id;
+    const name = fullStudentName(s) || ('الطالب ' + id);
+    const sub = dayActs.length ? dayActs.map(actChipLabel).join(' · ')
+        : !isActToday() ? 'لا نشاط له ' + actDayLabel(actDay())
+        : act ? 'آخر نشاط ' + actDayLabel(String(act.date)) + ' · ' + actChipLabel(act)
+        : 'لا يوجد نشاط مسجّل';
 
-    const summary = act
-        ? `<span class="student-last-text">${escapeHtml(formatActivitySummary(act))}</span>`
-        : `<span class="student-last-text student-last-none">لا يوجد نشاط مسجّل</span>`;
-
-    const idNoHtml = s.idNo
-        ? `<span class="student-idno">الهوية: ${escapeHtml(s.idNo)}</span>`
-        : '';
-
-    // لا نعرض «رقم الطالب» إن كان هو نفسه رقم الهوية — تكرار بلا معنى،
-    // ويحدث حين لا يُرجع السيرفر رقم طالب مستقلاً.
-    const hasRealStudentNo = s.idNo && String(s.idNo) !== String(id);
-    const studentNoHtml = hasRealStudentNo
-        ? `<div class="student-no">رقم الطالب: ${id}</div>`
-        : '';
+    let body = '';
+    if (open) {
+        const btn = (t, cls, icon, text, quick) =>
+            `<button type="button" class="st-act ${cls}" title="${escapeHtml(activityTypeName(t))}" ` +
+            `onclick="${quick ? 'quickSaveActivity' : 'openActivityForStudent'}(${id}, ${t})">` +
+            `<i class="fas ${icon}"></i><span>${escapeHtml(text)}</span></button>`;
+        // لا نعرض «رقم الطالب» إن كان هو نفسه رقم الهوية — تكرار بلا معنى
+        const ids = [];
+        if (s.idNo) ids.push('الهوية ' + s.idNo);
+        if (s.idNo && String(s.idNo) !== String(id)) ids.push('رقم الطالب ' + id);
+        body = '<div class="st-acts">' +
+            btn(1, 'rec', 'fa-microphone', activityTypeName(1)) +
+            btn(2, 'rec', 'fa-rotate', activityTypeName(2)) +
+            btn(3, 'ok', 'fa-user-check', 'حاضر', true) +
+            btn(4, 'warn', 'fa-envelope', 'بعذر', true) +
+            btn(5, 'bad', 'fa-xmark', 'غائب', true) +
+            '</div><div class="st-more">' +
+            // شارات نشاط اليوم: لمسُها يعرض السجلّ ويعدّله ويحذفه ويرفعه
+            dayActs.map(actChipHtml).join('') +
+            `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 6)"><i class="fas fa-trophy"></i> ${escapeHtml(activityTypeName(6))}</button>` +
+            `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 7)"><i class="fas fa-book-open"></i> ${escapeHtml(activityTypeName(7))}</button>` +
+            `<button type="button" class="st-chip" onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check"></i> ترشيح للاختبار</button>` +
+            (ids.length ? `<span class="st-ids">${escapeHtml(ids.join(' · '))}</span>` : '') +
+            '</div>';
+    }
 
     return `
-    <div class="student-card">
-        <div class="student-card-head">
-            <span class="student-name">${escapeHtml(fullStudentName(s))}</span>
-            ${idNoHtml}
-        </div>
-        ${studentNoHtml}
-        ${lastLine != null ? lastLine : `<div class="student-last">
-            <span class="student-last-icon">${
-                act ? activityIconHtml(act.type) : '<i class="fas fa-minus" style="color:#bdc3c7"></i>'
-            }</span>
-            ${summary}
-        </div>`}
-        <div class="student-actions">
-            <button class="act-btn" title="ترشيح للاختبار" aria-label="ترشيح للاختبار"
-                    onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check" style="color:#FF5722"></i></button>
-            <span class="actions-sep"></span>
-            ${OPEN_ACTIVITY_TYPES.map(t => actionButtonHtml(t, id, false)).join('')}
-            <span class="actions-sep"></span>
-            ${QUICK_ACTIVITY_TYPES.map(t => actionButtonHtml(t, id, true)).join('')}
-        </div>
+    <div class="st-row${open ? ' open' : ''}" id="stRow${id}">
+        <button type="button" class="st-main" aria-expanded="${open}" onclick="toggleStudentRow(${id})">
+            <span class="st-av">${escapeHtml(name.charAt(0))}</span>
+            <span class="st-text"><span class="st-name">${escapeHtml(name)}</span><span class="st-sub">${escapeHtml(sub)}</span></span>
+            <span class="st-pill ${st[1]}">${escapeHtml(st[0])}</span>
+        </button>${body}
     </div>`;
+}
+
+// حالة الطالب في اليوم المعروض: [النصّ، الصنف]
+function dayStateOf(acts) {
+    if (!acts || !acts.length) return ['لم يُرصد', 'mute'];
+    const types = acts.map(a => Number(a.type));
+    const has = (t) => types.indexOf(t) !== -1;
+    if (has(1)) return ['سمّع', 'ok'];
+    if (has(2) || has(SECOND_REVIEW_TYPE)) return ['راجع', 'ok'];
+    if (has(6)) return ['اختبار جزء', 'ok'];
+    if (has(7)) return ['سرد', 'ok'];
+    if (has(3)) return ['حضر ولم يُسمّع', 'brand'];
+    if (has(4)) return ['غاب بعذر', 'warn'];
+    return ['غاب', 'bad'];
+}
+
+// مجموعة المرشّح: none لم يُرصد · done حضر (سمّع أو لم يُسمّع) · abs غاب
+function dayGroupOf(acts) {
+    if (!acts || !acts.length) return 'none';
+    return acts.some(a => [4, 5].indexOf(Number(a.type)) === -1) ? 'done' : 'abs';
 }
 
 // الترتيب كما في Flutter: من لا نشاط له أولاً، ثم الأقدم نشاطاً (الأولى بالمتابعة)
@@ -2140,12 +2349,20 @@ function renderStudentCards() {
     // 📅 سطر «نشاط اليوم» وشاراته (بديل «تقرير الأنشطة»)
     _dayActsCache = dayActsByStudent();
     renderDayStrip(scoped);
+    // مرشّح حالة اليوم (شرائح سطر «نشاط اليوم»)
+    if (_dayFilter !== 'all') {
+        list = list.filter(s => dayGroupOf(_dayActsCache[Number(s.id)]) === _dayFilter);
+    }
+    _shownStudentIds = list.map(s => Number(s.id));
     wrap.innerHTML = list.map(studentCardHtml).join('');
+    updatePendingPill();
 
     if (empty) {
         empty.style.display = list.length ? 'none' : 'block';
         if (scoped.length) {
-            empty.textContent = 'لا نتائج مطابقة لبحثك';
+            empty.textContent = q ? 'لا نتائج مطابقة لبحثك'
+                : _dayFilter === 'none' ? 'رُصد الجميع — بارك الله فيك'
+                : 'لا أحد في هذا التصنيف';
         } else if (_studentsCache.length) {
             // عنده طلبة لكن لا حلقة يُدرّسها — الفرق يستحق التوضيح
             empty.textContent = 'لا طلبة في حلقاتك — دورك في حلقاتك «استعلام فقط»، ' +
@@ -2171,7 +2388,10 @@ function renderStudentCards() {
 
 // فتح شاشة النشاط بالطالب والنوع محدَّدين مسبقاً (مثل DailyActivityScreen في Flutter)
 function openActivityForStudent(studentId, type) {
-    openTab('activityTab', document.querySelector('.tab-btn[data-tab="activityTab"]'));
+    // تعديلٌ لم يُكمَل لا يُحمَل إلى طالبٍ آخر
+    if (_editingRecordId) { _editingRecordId = null; _editingTagNo = 0; setEditingMode(false); }
+    openActivitySheet();
+    paintSheetHead(studentId, type);
 
     const sel = document.getElementById('studentSelect');
     if (sel) {
@@ -2181,8 +2401,43 @@ function openActivityForStudent(studentId, type) {
         sel.dispatchEvent(new Event('change'));
     }
 
+    // اليوم المعروض في القائمة هو يوم الرصد
+    const dateEl = document.getElementById('activityDate');
+    if (dateEl) dateEl.value = actDay();
+
     // ضبط النوع والتمييز واستدعاء handleActivityTypeChange
     selectActivityType(type);
+}
+
+/* صفّ الطالب (2026-11-14): مطويٌّ بحالته اليوم، والمفتوح وحده يعرض الأزرار بأسمائها */
+let _openStudentRow = null;    // رقم الطالب المفتوحة أزراره
+let _dayFilter = 'all';        // all | none | done | abs
+let _shownStudentIds = [];     // ترتيب المعروض — لاختيار «التالي»
+
+function toggleStudentRow(studentId) {
+    const id = Number(studentId);
+    _openStudentRow = (_openStudentRow === id) ? null : id;
+    renderStudentCards();
+    const el = document.getElementById('stRow' + id);
+    if (el && _openStudentRow === id && el.scrollIntoView) {
+        try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {}
+    }
+}
+
+function setDayFilter(f) {
+    _dayFilter = f;
+    _openStudentRow = null;
+    renderStudentCards();
+}
+
+// بعد رصد طالب: يُفتح التالي في القائمة ممّن لم يُرصد له شيء في اليوم المعروض
+function advanceStudentRow(studentId) {
+    const ids = _shownStudentIds, at = ids.indexOf(Number(studentId));
+    _openStudentRow = null;
+    for (let k = 1; k <= ids.length; k++) {
+        const id = ids[(Math.max(at, 0) + k) % ids.length];
+        if (id !== Number(studentId) && !((_dayActsCache[id] || []).length)) { _openStudentRow = id; return; }
+    }
 }
 
 // ترشيح الطالب للاختبار من بطاقته (مثل ActionIcon assignment_turned_in في Flutter)
@@ -2206,13 +2461,30 @@ async function quickSaveActivity(studentId, type) {
     const name = fullStudentName(student) || `الطالب ${studentId}`;
     const title = activityTypeName(type);
 
-    const ok = await showConfirm({
-        title: title,
-        message: `هل تريد تسجيل "${title}" للطالب ${name} بتاريخ اليوم؟`,
-        confirmText: "تأكيد",
-        icon: activityIconHtml(type),
-    });
-    if (!ok) return;
+    const day = actDay();
+    const mine = (_dayActsCache[Number(studentId)] || []);
+
+    // حضورٌ أو غيابٌ مسجَّل في اليوم نفسه ⇒ لا حالتان متناقضتان لطالبٍ واحد
+    const other = mine.find(a => ATTENDANCE_ONLY_TYPES.indexOf(Number(a.type)) !== -1 && Number(a.type) !== Number(type));
+    if (other) {
+        return showAlert({
+            title: "مسجَّلٌ له «" + activityTypeName(other.type) + "»",
+            message: "لتغييرها: المس شارتها في صفّ الطالب ثم «حذف»، ثم سجّل الحالة الجديدة.",
+            icon: "ℹ️",
+        });
+    }
+
+    /* (2026-11-14) اليوم: يُسجَّل فورًا بلا نافذة تأكيد، ومعه «تراجع» خمس ثوانٍ
+       (الرفع مؤجَّلٌ خلالها، فالتراجع حذفٌ محلّيّ). يومٌ مضى: سؤالٌ بالتاريخ كما كان. */
+    if (!isActToday()) {
+        const ok = await showConfirm({
+            title: title,
+            message: `تسجيل "${title}" للطالب ${name}\nبتاريخ ${actDayLabel(day)} (${day})؟`,
+            confirmText: "تأكيد",
+            icon: activityIconHtml(type),
+        });
+        if (!ok) return;
+    }
 
     const { teacher, teacherName } = await getTeacherIdentity();
     if (!teacher) {
@@ -2223,7 +2495,24 @@ async function quickSaveActivity(studentId, type) {
         teacher, teacherName,
         student: Number(studentId),
         type: Number(type),
-    }));
+        date: day,
+    }), (rec) => {
+        advanceStudentRow(studentId);
+        showToast(`سُجّل «${title}» لـ${String(name).split(' ')[0]}`, {
+            ms: 5000, actionLabel: 'تراجع', onAction: () => undoQuickSave(rec),
+        });
+    }, { quiet: true, deferSyncMs: 5200 });
+}
+
+// «تراجع» عن تسجيلٍ فوريّ: لم يُرفع بعد ⇒ حذفٌ محلّيّ؛ رُفع ⇒ الحذف المعتاد بتأكيده
+async function undoQuickSave(rec) {
+    const cur = rec && rec.id != null ? await getRecordById(rec.id) : null;
+    if (!cur) return;
+    if (cur.synced) return deleteRecord(cur.id);
+    await deleteRecordLocally(cur.id);
+    _openStudentRow = Number(cur.student);
+    refreshAll();
+    showToast("أُلغي التسجيل");
 }
 
 /* ===== مربع بحث الطالب في شاشة النشاط (بديل القائمة الطويلة) ===== */
@@ -2338,7 +2627,7 @@ function refreshAll() {
         .catch(err => console.error("❌ خطأ في تحديث الواجهة:", err));
 }
 
-document.getElementById('filterDate').valueAsDate = new Date();
+document.getElementById('filterDate').value = ymdLocal(new Date());
 
 function translateLookup(code, value) {
     if (value === null || value === undefined) return "";
@@ -2518,7 +2807,7 @@ function displayRecords() {
 
 
 function resetFilters() {
-    document.getElementById('filterDate').valueAsDate = new Date();
+    document.getElementById('filterDate').value = ymdLocal(new Date());
     document.getElementById('filterStudentID').value = "";
     displayRecords();
 }
@@ -3040,7 +3329,7 @@ function readStudentForm(requireAll) {
         }
     }
 
-    if (birthDate && birthDate > new Date().toISOString().split('T')[0]) {
+    if (birthDate && birthDate > ymdLocal(new Date())) {
         setStudentStatus("❌ تاريخ الميلاد لا يكون في المستقبل", '#c0392b');
         return null;
     }
@@ -3298,6 +3587,17 @@ function populateSelectFromLookups(selectId, meaningCode) {
     }
 }
 
+// ينفّذ worker على العناصر بسقف تزامن — بديل Promise.all(items.map(...))
+function runLimited(items, limit, worker) {
+  let i = 0;
+  const next = () => (i < items.length)
+    ? Promise.resolve().then(() => worker(items[i++])).then(next, next)
+    : null;
+  const runners = [];
+  for (let k = 0; k < Math.min(limit, items.length); k++) runners.push(next());
+  return Promise.all(runners);
+}
+
 function syncRecordsFromPage() {
   return new Promise((resolve, reject) => {
     if (!db) {
@@ -3339,8 +3639,9 @@ function syncRecordsFromPage() {
 
         let okCount = 0, failCount = 0;
 
-        Promise.all(
-          unsynced.map(record =>
+        // ⚠️ (2026-11-14) أربعةٌ معًا لا الكلّ دفعةً: يومٌ بلا شبكة كان يفتح عشرات
+        //    الجلسات على ORDS في لحظةٍ واحدة
+        runLimited(unsynced, 4, record =>
             // ✅ saveActivity: النجاح يتطلّب status = success من السيرفر
             QMC.saveActivity(record)
             .then(result => {
@@ -3366,7 +3667,6 @@ function syncRecordsFromPage() {
               const txUpdate = db.transaction("records", "readwrite");
               txUpdate.objectStore("records").put(record);
             })
-          )
         )
         .then(() => {
           // رسالة صادقة: لا نقول "تمت" ما لم تُقبل فعلاً
@@ -3527,15 +3827,27 @@ document.addEventListener('keydown', (e) => {
     else if (e.key === 'Enter') closeAppModal(true);
 });
 
-function showToast(message) {
+// opts (2026-11-14): { ms, actionLabel, onAction } — زرّ «تراجع» للتسجيل الفوريّ
+let _toastTimer = null;
+function showToast(message, opts) {
     const toast = document.getElementById('toast');
-    toast.innerText = message;
+    const o = opts || {};
+    toast.textContent = message;
+    if (o.actionLabel && typeof o.onAction === 'function') {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'toast-action';
+        b.textContent = o.actionLabel;
+        b.onclick = () => { toast.classList.add('toast-hidden'); o.onAction(); };
+        toast.appendChild(b);
+    }
     toast.classList.remove('toast-hidden');
-    
-    // تختفي تلقائياً بعد 3 ثوانٍ
-    setTimeout(() => {
+
+    // تختفي تلقائياً بعد 3 ثوانٍ (والمؤقّت السابق يُلغى كي لا يُخفي رسالةً أحدث)
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => {
         toast.classList.add('toast-hidden');
-    }, 3000);
+    }, o.ms || 3000);
 }
 
 function resetActivityForm() {
@@ -3936,6 +4248,17 @@ function requestAppVersion() {
             if (target) target.postMessage({ type: 'GET_VERSION' });
         })
         .catch(err => console.warn("تعذّر طلب رقم النسخة:", err));
+}
+
+// شارة الترويسة «N بانتظار الرفع» (2026-11-14) — كانت نقطةً خضراء والعدد في الإعدادات
+function updatePendingPill() {
+    const el = document.getElementById('pendPill');
+    if (!el) return;
+    countPendingRecords().then(n => {
+        el.style.display = n ? '' : 'none';
+        const t = document.getElementById('pendPillText');
+        if (t) t.textContent = n ? (n + ' للرفع') : '';
+    }).catch(() => {});
 }
 
 // عدّ السجلات التي لم تُرفع بعد
@@ -4438,7 +4761,7 @@ async function submitExamRequest() {
     }
 
     const examDate = canSetExamDate() ? val('reqExamDate') : '';
-    if (examDate && examDate < new Date().toISOString().split('T')[0]) {
+    if (examDate && examDate < ymdLocal(new Date())) {
         return setExamRequestStatus("❌ لا يمكن أن يكون تاريخ الاختبار قبل اليوم", '#c0392b');
     }
 

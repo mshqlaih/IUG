@@ -696,24 +696,34 @@ function ctCardHtml(c, i) {
     }
     if (queued) facts.push(`<span class="warn"><i class="fas fa-cloud-arrow-up"></i>${queued} بانتظار الرفع</span>`);
 
+    /* (2026-11-14) ما يُفعل اليوم زرٌّ رئيسيّ بعرض البطاقة وأوّلُها — كان «رصد الحضور»
+       آخر أربعة أزرارٍ بوزنٍ متقارب. الدورة المنتهية المعتمدة زرّها «نتائج طلابي». */
+    const ended = c.state === 'ENDED';
+    const main = (ended && c.resultsApproved)
+        ? `<button type="button" class="cr-main ok" onclick="openCtResults(${i})">
+                <i class="fas fa-clipboard-check"></i> نتائج طلابي</button>`
+        : `<button type="button" class="cr-main" onclick="openCtAttendance(${i})">
+                <i class="fas fa-user-check"></i> ${ended ? 'رصد الحضور' : 'رصد حضور اليوم'}</button>`;
+
     return `
     <div class="student-card">
         <div class="student-card-head">
             <span class="student-name">${escapeHtml(c.courseName)}</span>
             <span class="cr-pill ${ctStateCls(c.state)}">${ctStateLabel(c.state)}</span>
         </div>
-        ${c.className ? `<div class="cr-sub">🎓 ${escapeHtml(c.className)}</div>` : ''}
+        ${c.className ? `<div class="cr-sub"><i class="fas fa-graduation-cap cr-ic"></i> ${escapeHtml(c.className)}</div>` : ''}
         <div class="cr-facts">${facts.join('')}</div>
         ${c.resultsApproved ? '<div class="cr-pills"><span class="cr-pill ok">✓ نتائج معتمدة</span></div>' : ''}
+        ${main}
         <div class="cr-actions">
             <button type="button" class="cr-action" onclick="openCtStudents(${i})">
                 <i class="fas fa-user-plus"></i> إضافة طلاب</button>
             <button type="button" class="cr-action" onclick="openCourseContacts(${c.courseNo}, _ctCourses[${i}].courseName)">
                 <i class="fas fa-address-book"></i> أرقام الطلاب</button>
-            ${c.resultsApproved ? `<button type="button" class="cr-action ok" onclick="openCtResults(${i})">
+            ${(ended && c.resultsApproved) ? `<button type="button" class="cr-action" onclick="openCtAttendance(${i})">
+                <i class="fas fa-user-check"></i> رصد الحضور</button>`
+              : c.resultsApproved ? `<button type="button" class="cr-action ok" onclick="openCtResults(${i})">
                 <i class="fas fa-clipboard-check"></i> نتائج طلابي</button>` : ''}
-            <button type="button" class="cr-action primary" onclick="openCtAttendance(${i})">
-                <i class="fas fa-user-check"></i> رصد الحضور</button>
         </div>
     </div>`;
 }
@@ -1020,6 +1030,7 @@ async function loadSvCenters(forceOnline) {
         _svCentersError = crErrorText(err, 'sv');
     }
     renderSvCenters();
+    loadSvQueue(!!forceOnline).catch(() => {});   // 🧭 «بانتظارك في كل المواضع»
 }
 
 function svBanners(fromCache, error, hasData) {
@@ -1236,17 +1247,18 @@ function svCourseCardHtml(c, i) {
             <div class="cr-progress ${p >= 1 ? 'done' : ''}"><span style="width:${Math.round(p * 100)}%"></span></div>`;
     }
 
+    // (2026-11-14) أيقونات المجموعة نفسها بدل الرموز التعبيرية (⛔ ⚠️ 📆 🎓 🧑‍🏫 📅 📍 👥)
+    const ic = (name) => `<i class="fas ${name} cr-ic"></i> `;
     const notes = [];
-    if (!hasScheme) notes.push('<div class="cr-note crit">⛔ تصنيف الدورة غير مربوط بمخطّط — لا يمكن الرصد فيها</div>');
+    if (!hasScheme) notes.push(`<div class="cr-note crit">${ic('fa-ban')}تصنيف الدورة غير مربوط بمخطّط — لا يمكن الرصد فيها</div>`);
     if (c.state === 'ENDED' && c.finalDone < c.students) {
-        notes.push(`<div class="cr-note warn">⚠️ ${c.students - c.finalDone} مسجّلاً بلا نتيجة نهائية بعد انتهاء الدورة</div>`);
+        notes.push(`<div class="cr-note warn">${ic('fa-triangle-exclamation')}${c.students - c.finalDone} مسجّلاً بلا نتيجة نهائية بعد انتهاء الدورة</div>`);
     }
     if (c.unrecordedDays > 0 && c.state !== 'UPCOMING') {
-        notes.push(`<div class="cr-note warn">📆 ${c.unrecordedDays} من ${c.schedDays} لقاءً بلا تسجيل حضور</div>`);
+        notes.push(`<div class="cr-note warn">${ic('fa-calendar-xmark')}${c.unrecordedDays} من ${c.schedDays} لقاءً بلا تسجيل حضور</div>`);
     }
 
-    const canDelete = (c.canDelete == null) ? canManageCourses() : c.canDelete;
-
+    // «حذف الدورة» انتقل إلى إجراءات كشفها (renderSvRoster)
     return `
     <div class="student-card roster-card" onclick="openSvRoster(${i})">
         <div class="student-card-head">
@@ -1254,12 +1266,12 @@ function svCourseCardHtml(c, i) {
             <i class="fas fa-chevron-left" style="color:#9aa0a6"></i>
         </div>
         <div class="cr-sub">
-            ${c.className ? '🎓 ' + escapeHtml(c.className) + '<br>' : ''}
-            <span class="${c.teacherName ? '' : 'warn'}">🧑‍🏫 ${escapeHtml(c.teacherName || 'لم يُسنَد معلّم')}${
+            ${c.className ? ic('fa-graduation-cap') + escapeHtml(c.className) + '<br>' : ''}
+            <span class="${c.teacherName ? '' : 'warn'}">${ic('fa-chalkboard-user')}${escapeHtml(c.teacherName || 'لم يُسنَد معلّم')}${
                 c.teacherMobile ? ' · ' + escapeHtml(c.teacherMobile) : ''}</span><br>
-            ${c.startDate ? '📅 ' + escapeHtml(c.startDate) + (c.endDate ? ' — ' + escapeHtml(c.endDate) : '') +
-                (c.placeName ? ' · 📍 ' + escapeHtml(c.placeName) : '') + '<br>' : ''}
-            👥 المسجّلون: ${c.students}
+            ${c.startDate ? ic('fa-calendar-days') + escapeHtml(c.startDate) + (c.endDate ? ' — ' + escapeHtml(c.endDate) : '') +
+                (c.placeName ? ' · ' + ic('fa-location-dot') + escapeHtml(c.placeName) : '') + '<br>' : ''}
+            ${ic('fa-users')}المسجّلون: ${c.students}
         </div>
         <div class="cr-pills">${pills.join('')}</div>
         ${progress}
@@ -1270,10 +1282,106 @@ function svCourseCardHtml(c, i) {
             <button type="button" class="cr-action ${svAttTracked(c) ? 'ok' : 'muted'}"
                     onclick="event.stopPropagation(); openSvAttendance(${i})">
                 <i class="fas fa-calendar-check"></i> سجلّ الحضور</button>
-            ${canDelete ? `<button type="button" class="cr-action crit" onclick="event.stopPropagation(); svDeleteCourse(${i})">
-                <i class="fas fa-trash"></i> حذف الدورة</button>` : ''}
         </div>
     </div>`;
+}
+
+/* =========================================================
+   🧭 «بانتظارك في كل المواضع» (2026-11-14) — أعلى إشراف الدورات.
+   كانت تنبيهات الدورة (بلا نتيجة · بلا حضور · تنتظر الاعتماد) على بطاقتها داخل موضعها،
+   فلا يعرفها المشرف إلا بفتح المواضع واحدًا واحدًا. تُجمَع هنا من sv/courses لكل موضعٍ
+   فيه دورات (ثلاثة نداءاتٍ معًا، ومخزَّنة بمفاتيح قائمة الموضع نفسها)، وتُعاد كل 10 دقائق
+   أو بزرّ «تحديث».
+   ========================================================= */
+let _svQueue = null, _svQueueAt = 0, _svQueueBusy = false, _svQueueOpen = null;
+
+const SV_QUEUE = [
+    ['approve', 'fa-circle-check', 'ok', c => c.students > 0 && svHasScheme(c) && c.finalDone >= c.students && c.resultsApproved !== true,
+        n => n === 1 ? 'دورةٌ اكتمل رصدها وتنتظر الاعتماد' : n === 2 ? 'دورتان اكتمل رصدهما وتنتظران الاعتماد' : n + ' دوراتٍ اكتمل رصدها وتنتظر الاعتماد'],
+    ['missing', 'fa-clipboard-list', 'warn', c => c.state === 'ENDED' && svHasScheme(c) && c.finalDone < c.students,
+        n => n === 1 ? 'دورةٌ انتهت وفيها مسجّلون بلا نتيجة' : n === 2 ? 'دورتان انتهتا وفيهما مسجّلون بلا نتيجة' : n + ' دوراتٍ انتهت وفيها مسجّلون بلا نتيجة'],
+    ['att', 'fa-calendar-xmark', 'bad', c => c.unrecordedDays > 0 && c.state !== 'UPCOMING',
+        n => n === 1 ? 'دورةٌ فيها لقاءات بلا حضور مسجَّل' : n === 2 ? 'دورتان فيهما لقاءات بلا حضور مسجَّل' : n + ' دوراتٍ فيها لقاءات بلا حضور مسجَّل'],
+    ['teacher', 'fa-user-slash', 'mute', c => !c.teacherName && c.state !== 'ENDED',
+        n => n === 1 ? 'دورةٌ لم يُسنَد لها معلّم' : n === 2 ? 'دورتان لم يُسنَد لهما معلّم' : n + ' دوراتٍ لم يُسنَد لها معلّم'],
+];
+
+function svQueueDetail(key, c) {
+    if (key === 'missing') return (c.students - c.finalDone) + ' بلا نتيجة' + (c.daysSinceEnd != null ? ' · منتهية منذ ' + c.daysSinceEnd + ' يومًا' : '');
+    if (key === 'att') return c.unrecordedDays + ' من ' + c.schedDays + ' لقاءً';
+    if (key === 'approve') return c.students + ' مسجّلًا';
+    return svStateStyle(c).label;
+}
+
+async function loadSvQueue(force) {
+    if (_svQueueBusy) return;
+    if (_svQueue && !force && Date.now() - _svQueueAt < 600000) return renderSvQueue();
+    const centers = _svCenters.filter(c => c.courses > 0);
+    if (!centers.length) { _svQueue = []; return renderSvQueue(); }
+    _svQueueBusy = true;
+    renderSvQueue();
+    const all = [];
+    try {
+        await runLimited(centers, 3, async (c) => {
+            try {
+                const r = await crCached('cs_courses_' + c.centerNo + '_all', () => QMC.getSvCourses(c.centerNo, 'all'), false);
+                (r.data || []).map(normalizeSvCourse).forEach(x => { x._centerName = c.centerName; all.push(x); });
+            } catch (_) { /* موضعٌ تعذّر جلبه لا يُسقط الباقي */ }
+        });
+        _svQueue = all;
+        _svQueueAt = Date.now();
+    } finally {
+        _svQueueBusy = false;
+        renderSvQueue();
+    }
+}
+
+function toggleSvQueue(key) {
+    _svQueueOpen = (_svQueueOpen === key) ? null : key;
+    renderSvQueue();
+}
+
+function renderSvQueue() {
+    const el = crEl('svQueue');
+    if (!el) return;
+    if (!_svQueue) {
+        el.innerHTML = _svQueueBusy ? '<div class="svq-loading"><i class="fas fa-spinner fa-spin"></i> نجمع ما ينتظرك من كل المواضع…</div>' : '';
+        return;
+    }
+    const groups = SV_QUEUE.map(g => ({ key: g[0], icon: g[1], cls: g[2], list: _svQueue.filter(g[3]), title: g[4] }))
+        .filter(g => g.list.length);
+    if (!groups.length) {
+        el.innerHTML = _svQueue.length
+            ? '<div class="svq-ok"><i class="fas fa-circle-check"></i> لا شيء ينتظرك في الدورات الآن</div>' : '';
+        return;
+    }
+    el.innerHTML = '<div class="more-h">بانتظارك في كل المواضع</div><div class="card more-menu svq">' +
+        groups.map(g => {
+            const open = _svQueueOpen === g.key;
+            return `<button type="button" aria-expanded="${open}" onclick="toggleSvQueue('${g.key}')">` +
+                `<span class="more-ic ${g.cls}"><i class="fas ${g.icon}"></i></span>` +
+                `<span class="more-t"><b>${escapeHtml(g.title(g.list.length))}</b><small>${
+                    escapeHtml(g.list.slice(0, 2).map(c => c.courseName).join(' · ') + (g.list.length > 2 ? ' …' : ''))}</small></span>` +
+                `<i class="fas fa-chevron-${open ? 'up' : 'down'} more-go"></i></button>` +
+                (open ? '<div class="svq-list">' + g.list.map(c =>
+                    `<button type="button" onclick="openSvFromQueue(${c.centerNo}, ${c.courseNo})">` +
+                    `<span class="more-t"><b>${escapeHtml(c.courseName)}</b><small>${
+                        escapeHtml((c._centerName || '') + ' · ' + svQueueDetail(g.key, c))}</small></span>` +
+                    '<i class="fas fa-chevron-left more-go"></i></button>').join('') + '</div>' : '');
+        }).join('') + '</div>';
+}
+
+// من القائمة إلى كشف الدورة مباشرةً: موضعها ثم كشفها
+async function openSvFromQueue(centerNo, courseNo) {
+    const i = _svCenters.findIndex(c => c.centerNo === Number(centerNo));
+    if (i < 0) return;
+    _svState = 'all';
+    openSvCourses(i);
+    for (let t = 0; t < 40; t++) {
+        const k = _svCourses.findIndex(c => c.courseNo === Number(courseNo));
+        if (k >= 0) return openSvRoster(k);
+        await new Promise(res => setTimeout(res, 200));
+    }
 }
 
 /* حذف الدورة بكشفها — لا رجعة فيه.
@@ -1299,6 +1407,9 @@ async function svDeleteCourse(i) {
         await coursesStoreDelete('courses', 'course_' + c.courseNo);
         await coursesStoreDelete('courses', 'cs_roster_' + c.courseNo);
         showToast('🗑️ حُذفت الدورة ' + c.courseNo + (res && res.students ? ' وكشف ' + res.students + ' مسجّلاً' : ''));
+        // (2026-11-14) الحذف صار من صفحة الدورة ⇒ العودة إلى قائمة الموضع
+        if (typeof showCoursesView === 'function') showCoursesView('svCoursesView');
+        _svQueue = null;
         await loadSvCourses(true);
     } catch (err) {
         showAlert({ title: 'تعذّر الحذف', message: (err && err.message) || 'خطأ غير معروف', icon: '⚠️' });
@@ -1519,7 +1630,12 @@ function renderSvRoster() {
             `<button type="button" class="cr-action" onclick="openCourseContacts(${c.courseNo}, _svCourse.courseName)">
                 <i class="fas fa-address-book"></i> أرقام الطلاب</button>` +
             `<button type="button" class="cr-action" ${_svBusy ? 'disabled' : ''} onclick="loadSvRoster(true)">
-                <i class="fas fa-rotate"></i> تحديث</button>`;
+                <i class="fas fa-rotate"></i> تحديث</button>` +
+            // 🗑️ (2026-11-14) كان في بطاقة القائمة بجوار «سجلّ الحضور» — زرٌّ لا رجعة فيه
+            //    لا يجاور أزرار العمل اليوميّ؛ هنا في آخر إجراءات الدورة نفسها
+            (((c.canDelete == null) ? canManageCourses() : c.canDelete)
+                ? `<button type="button" class="cr-action crit" ${_svBusy ? 'disabled' : ''} onclick="svDeleteCourse(_svCourses.indexOf(_svCourse))">
+                <i class="fas fa-trash"></i> حذف الدورة</button>` : '');
     }
 
     const chips = crEl('svRosterChips');

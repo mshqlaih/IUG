@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.27';
+const CACHE_NAME = 'quran-app-v2.28';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -20,11 +20,12 @@ const CACHE_NAME = 'quran-app-v2.27';
 // ✅ teacher_day.js (2026-11-13): يوم المحفّظ — «لن أحضر» والنيابة (org/teacher-day)
 // ✅ status_req.js (2026-11-13): حالات الطلاب وطلبات تغييرها (org/students · org/status-request*)
 // ✅ share_card.js (2026-11-13): مشاركة النشاط بطاقةً ونصًّا منسّقًا (بلا شبكة)
+// ✅ shell.css (2026-11-14): الشريط الرباعيّ · صفّ الطالب · لوحة الرصد · «المزيد»
 const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app.js', 'api.js', 'courses.js',
                      'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'help.js',
                      'account.js', 'schedule.js', 'harvest.js', 'adm_record.js', 'welcome.js',
-                     'teacher_day.js', 'status_req.js', 'share_card.js', 'app.css', 'safwa.css'];
-const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './safwa.css', './app.js', './api.js',
+                     'teacher_day.js', 'status_req.js', 'share_card.js', 'app.css', 'safwa.css', 'shell.css'];
+const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './safwa.css', './shell.css', './app.js', './api.js',
                './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js',
                './appearance.js', './help.js', './account.js', './schedule.js', './harvest.js', './adm_record.js', './welcome.js',
                './teacher_day.js', './status_req.js', './share_card.js'];
@@ -243,8 +244,9 @@ function syncRecords() {
 
           if (unsynced.length === 0) return resolve();
 
-          Promise.all(
-            unsynced.map(record =>
+          // أربعةٌ معًا لا الكلّ دفعةً (نظير runLimited في app.js)
+          let cursor = 0;
+          const upload = (record) =>
               fetch("https://g0a3378e3bd0d3a-dbcpc2023.adb.me-abudhabi-1.oraclecloudapps.com/ords/cpcws/qmc/saveActivity", {
                 method: "POST",
                 headers: {
@@ -313,9 +315,12 @@ function syncRecords() {
                 record.synced = false;
                 record.syncError = "خطأ اتصال: " + err.message;
                 storeUpdate.put(record);
-              })
-            )
-          ).then(resolve).catch(reject);
+              });
+          const pump = () => (cursor < unsynced.length)
+            ? upload(unsynced[cursor++]).then(pump, pump) : null;
+          const pumps = [];
+          for (let k = 0; k < Math.min(4, unsynced.length); k++) pumps.push(pump());
+          Promise.all(pumps).then(resolve).catch(reject);
         };
       };
     };
