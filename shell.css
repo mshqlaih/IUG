@@ -317,6 +317,19 @@ body.sheet-open { overflow: hidden; }
 .svq-loading, .svq-ok { font-size: 13px; color: #6b7280; padding: 4px 6px 12px; }
 .svq-ok i { color: #17764a; }
 
+/* ===== صفحات الإعدادات (2026-11-14): بطاقةٌ واحدة لكل صفحة — openSettingsPage ===== */
+#settingsTab [data-page] { display: none; }
+#settingsTab[data-page="account"] [data-page="account"],
+#settingsTab[data-page="sync"] [data-page="sync"],
+#settingsTab[data-page="appearance"] [data-page="appearance"],
+#settingsTab[data-page="about"] [data-page="about"],
+#settingsTab[data-page="advanced"] [data-page="advanced"] { display: block; }
+/* في صفحته: لا عنوانَ مكرّر (عنوان الشاشة يكفي) ولا مقبضَ طيٍّ */
+#settingsTab[data-page] [data-page] > h3,
+#settingsTab[data-page="advanced"] .settings-advanced > summary { display: none; }
+#settingsTab[data-page="advanced"] .settings-advanced { padding-top: 6px; }
+.more-ic.purple { background: #efe7fb; color: #6a3fb5; }
+
 /* ===== مفتاح «دوراتي | الاختبارات والإشراف» ===== */
 .courses-role-bar { margin-bottom: 14px; }
 

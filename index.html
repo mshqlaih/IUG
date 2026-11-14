@@ -978,24 +978,46 @@
                 </div>
             </div>
 
+            <!-- (2026-11-14) كانت «المزامنة والإعدادات» بندًا واحدًا يفتح خمس بطاقات في صفحةٍ طويلة؛
+                 الآن كل بندٍ صفحته — بترتيب قائمة «حسابي» في أندرويد (settings_drawer.dart) -->
             <div class="more-h">المتابعة</div>
             <div class="card more-menu">
                 <button type="button" onclick="openInbox()">
                     <span class="more-ic bad"><i class="fas fa-bell"></i></span>
-                    <span class="more-t"><b>الرسائل والإشعارات</b><small>رسائل الإدارة وإشعارات الجوال</small></span><i class="fas fa-chevron-left more-go"></i></button>
-                <button type="button" onclick="openSettings()">
+                    <span class="more-t"><b>الرسائل</b><small>رسائل الإدارة وتنبيهاتها</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openSettingsPage('sync')">
                     <span class="more-ic ok"><i class="fas fa-cloud"></i></span>
-                    <span class="more-t"><b>المزامنة والإعدادات</b><small id="moreSyncSub">الرفع والسحب · المظهر · أدوات متقدّمة</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                    <span class="more-t"><b>المزامنة</b><small id="moreSyncSub">رفع السجلات وسحب البيانات</small></span><i class="fas fa-chevron-left more-go"></i></button>
             </div>
 
+            <div class="more-h">التطبيق</div>
+            <div class="card more-menu">
+                <button type="button" onclick="openSettingsPage('appearance')">
+                    <span class="more-ic purple"><i class="fas fa-palette"></i></span>
+                    <span class="more-t"><b>المظهر</b><small>لون التطبيق والوضع الليليّ وحجم الخطّ</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openPushSettings()">
+                    <span class="more-ic warn"><i class="fas fa-mobile-screen-button"></i></span>
+                    <span class="more-t"><b>إشعارات الجوال</b><small>تصلك الرسائل ولو كان التطبيق مغلقًا</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openSettingsPage('about')">
+                    <span class="more-ic"><i class="fas fa-circle-info"></i></span>
+                    <span class="more-t"><b>عن التطبيق</b><small id="moreAboutSub">الإصدار وإعادة التحميل</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openSettingsPage('advanced')">
+                    <span class="more-ic mute"><i class="fas fa-screwdriver-wrench"></i></span>
+                    <span class="more-t"><b>الدعم الفنّي</b><small>التشخيص · الصيانة · النسخ الاحتياطي — عند العطل</small></span><i class="fas fa-chevron-left more-go"></i></button>
+            </div>
+
+            <!-- «حسابي» آخرًا والخروج آخرُه — كما في أندرويد -->
             <div class="more-h">حسابي</div>
             <div class="card more-menu">
-                <button type="button" onclick="openSettings()">
+                <button type="button" onclick="openSettingsPage('account')">
                     <span class="more-ic mute"><i class="fas fa-circle-user"></i></span>
                     <span class="more-t"><b>حسابي وحلقاتي</b><small id="moreWho"></small></span><i class="fas fa-chevron-left more-go"></i></button>
                 <button type="button" onclick="openAdmRecord()">
                     <span class="more-ic mute"><i class="fas fa-folder-open"></i></span>
-                    <span class="more-t"><b>سجلّي الإداريّ</b><small>الإجراءات والشكر والردّ عليها</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                    <span class="more-t"><b>سجلّي الإداريّ</b><small>الشكر والإجراءات الإدارية الموجّهة إليك</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                <button type="button" onclick="openEmailSettings()">
+                    <span class="more-ic ok"><i class="fas fa-at"></i></span>
+                    <span class="more-t"><b>البريد الإلكتروني</b><small id="moreEmailSub">تأكيده يتيح استعادة كلمة المرور</small></span><i class="fas fa-chevron-left more-go"></i></button>
                 <button type="button" onclick="handleLogout()">
                     <span class="more-ic bad"><i class="fas fa-right-from-bracket"></i></span>
                     <span class="more-t"><b>تسجيل الخروج</b><small>يُنبّهك إن بقي ما لم يُرفع</small></span></button>
@@ -1007,15 +1029,18 @@
             <div class="section-head">
                 <!-- تُفتح من «المزيد» ⇒ الرجوع إليها -->
                 <button type="button" class="report-back-btn" onclick="openTab('moreTab', document.querySelector('.tab-btn[data-tab=moreTab]'))" title="رجوع" aria-label="رجوع"><i class="fas fa-arrow-right"></i></button>
-                <div class="section-title">الإعدادات</div>
+                <div class="section-title" id="settingsTitle">الإعدادات</div>
                 <button type="button" class="help-btn" data-help="settings" title="شرح الشاشة" aria-label="شرح الشاشة"><i class="fas fa-question"></i></button>
             </div>
 
             <!-- الترتيب (2026-10-27): التطبيق ← حسابي ← المزامنة ← المظهر ← «أدوات متقدّمة» مطويّة.
                  الصيانة والتشخيص والنسخ الاحتياطي لا يحتاجها المستخدم إلا عند عطل. -->
 
+            <!-- 🗂 (2026-11-14) كل بطاقةٍ صفحةٌ وحدها (data-page) تُفتح من «المزيد» كقائمة «حسابي» في
+                 أندرويد — كانت الخمس صفحةً واحدة طويلة. openSettingsPage في app.js -->
+
             <!-- التطبيق: الاسم الكامل والإصدار -->
-            <div class="card app-about">
+            <div class="card app-about" data-page="about">
                 <div class="app-about-head">
                     <img src="app-icon.png" alt="" class="app-about-icon">
                     <div>
@@ -1032,7 +1057,7 @@
             </div>
 
             <!-- بيانات المسمّع -->
-            <div class="card">
+            <div class="card" data-page="account">
                 <h3><i class="fas fa-id-card"></i> حسابي وحلقاتي</h3>
                 <div class="table-wrap responsive">
                     <table class="info-table">
@@ -1047,10 +1072,7 @@
                 <button type="button" id="settingsEmailBtn" class="em-row-btn" onclick="openEmailSettings()">
                     <i class="fas fa-at"></i> <span>تأكيد البريد</span>
                 </button>
-                <!-- 🗂 (2026-11-08) الإجراءات الإدارية والشكر + الردّ عليها — adm_record.js -->
-                <button type="button" class="em-row-btn" onclick="openAdmRecord()">
-                    <i class="fas fa-folder-open"></i> <span>سجلّي الإداريّ</span>
-                </button>
+                <!-- «سجلّي الإداريّ» بندٌ وحده في «المزيد» (2026-11-14) -->
 
                 <div class="circles-block">
                     <div class="circles-head">
@@ -1066,7 +1088,7 @@
             </div>
 
             <!-- المزامنة -->
-            <div class="card">
+            <div class="card" data-page="sync">
                 <h3><i class="fas fa-cloud"></i> مزامنة البيانات</h3>
                 <p class="section-note" style="margin:0 0 10px">الرفع يرسل سجلاتك غير المزامنة، والسحب يجلب طلاب الحلقة وأنشطتها من السيرفر.</p>
                 <div class="table-wrap responsive">
@@ -1083,13 +1105,13 @@
             </div>
 
             <!-- 🎨 المظهر (appearance.js يملأ اللوحة) -->
-            <div class="card" id="appearanceCard">
+            <div class="card" id="appearanceCard" data-page="appearance">
                 <h3><i class="fas fa-palette"></i> المظهر</h3>
                 <div id="appearanceBody"></div>
             </div>
 
-            <!-- أدوات متقدّمة: عند العطل وحده — مطويّة كي لا تُضغط خطأً -->
-            <details class="card settings-advanced">
+            <!-- أدوات متقدّمة: عند العطل وحده — صفحة «الدعم الفنّي» (تُفتح مبسوطةً) -->
+            <details class="card settings-advanced" data-page="advanced">
                 <summary><i class="fas fa-screwdriver-wrench"></i> أدوات متقدّمة
                     <small>الصيانة · التشخيص · النسخ الاحتياطي</small></summary>
 
@@ -1397,6 +1419,7 @@
 
         // فتح شاشة الإعدادات من أيقونة الحساب في الترويسة
         function openSettings() {
+            if (typeof openSettingsPage === "function") return openSettingsPage('account');
             openTab('settingsTab', document.querySelector('.tab-btn[data-tab="settingsTab"]'));
         }
     </script>

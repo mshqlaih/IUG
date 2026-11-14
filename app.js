@@ -526,6 +526,33 @@ function renderMoreMenu() {
         const el = document.getElementById('moreSyncSub');
         if (el) el.textContent = n ? (n + ' بانتظار الرفع') : 'كل شيءٍ مرفوع';
     }).catch(() => {});
+    // سطرا «عن التطبيق» و«البريد» من خلايا صفحتيهما (refreshSettingsInfo · account.js)
+    const ver = (document.getElementById('appVersion') || {}).textContent || '';
+    const ab = document.getElementById('moreAboutSub');
+    if (ab) ab.textContent = ver && ver !== '-' ? 'الإصدار ' + ver + ' · إعادة التحميل' : 'الإصدار وإعادة التحميل';
+    const em = ((document.getElementById('settingsEmail') || {}).textContent || '').trim();
+    const es = document.getElementById('moreEmailSub');
+    if (es && em && em !== '-') es.textContent = em;
+}
+
+/* 🗂 صفحات الإعدادات (2026-11-14): كل بطاقةٍ في #settingsTab صفحةٌ وحدها (data-page)
+   تُفتح من «المزيد» — كقائمة «حسابي» في أندرويد. العناصر نفسها (refreshSettingsInfo
+   وaccount.js وappearance.js تكتب فيها كما كانت)، والعرض بـ#settingsTab[data-page]. */
+const SETTINGS_PAGES = {
+    account: 'حسابي وحلقاتي', sync: 'المزامنة', appearance: 'المظهر',
+    about: 'عن التطبيق', advanced: 'الدعم الفنّي',
+};
+function openSettingsPage(page) {
+    if (!SETTINGS_PAGES[page]) page = 'account';
+    const tab = document.getElementById('settingsTab');
+    if (!tab) return;
+    tab.dataset.page = page;
+    const t = document.getElementById('settingsTitle');
+    if (t) t.textContent = SETTINGS_PAGES[page];
+    // الدعم الفنّي صفحتُه: تُفتح مبسوطة (كانت مطويّةً أسفل الإعدادات كي لا تُضغط خطأً)
+    const adv = tab.querySelector('.settings-advanced');
+    if (adv) adv.open = (page === 'advanced');
+    openTab('settingsTab', document.querySelector('.tab-btn[data-tab="settingsTab"]'));
 }
 
 // إجراءات الحلقة (من رأس «الحلقة»): موعدها · حالات طلابها · تقرير الأنشطة

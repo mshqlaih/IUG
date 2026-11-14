@@ -469,6 +469,16 @@
     refreshNow(false);
   }
 
+  // 📱 (2026-11-14) «إشعارات الجوال» بندٌ وحده في «المزيد» (كأندرويد): الصندوق نفسه مفتوحًا
+  //    على قسم الإشعارات
+  function openPushSettings() {
+    openInbox();
+    setTimeout(function () {
+      var el = document.getElementById('inboxPush');
+      if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (_) { el.scrollIntoView(); } }
+    }, 120);
+  }
+
   function closeInbox() {
     var sheet = document.getElementById('inboxSheet');
     if (sheet) sheet.style.display = 'none';
@@ -655,5 +665,6 @@
 
   window.openInbox = openInbox;
   window.closeInbox = closeInbox;
+  window.openPushSettings = openPushSettings;
   window.QMC_INBOX = { fetch: fetchMessages, all: all, unreadCount: unreadCount, refreshUi: refreshUi };
 })();
