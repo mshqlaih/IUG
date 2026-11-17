@@ -16,8 +16,11 @@
 <style>
   :root { --g:#2e7d32; --r:#c62828; --o:#ef6c00; --b:#1565c0; --bg:#f6f7f5; --card:#fff; --ink:#1b1b1b; --mute:#666; }
   * { box-sizing: border-box; }
+  /* 🔢 الأرقام الهندية تُرسم 0-9 (انظر appearance.js) */
+  @font-face { font-family:'QmcDigits'; src:url('fonts/QmcDigits.ttf') format('truetype');
+               unicode-range:U+0660-066C,U+06F0-06F9; font-display:block; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font-family: Tahoma, "Segoe UI", "Noto Naskh Arabic", Arial, sans-serif; }
+         font-family: 'QmcDigits', Tahoma, "Segoe UI", "Noto Naskh Arabic", Arial, sans-serif; }
   header { background:var(--g); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:5; }
   /* العنوان واسم المؤسسة عمودًا واحدًا — min-width:0 ليعمل القصّ في flex */
   .htxt { flex:1; min-width:0; }

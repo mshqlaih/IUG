@@ -1647,6 +1647,18 @@ async function saveActivity() {
 
     if (_editingRecordId) {
         const editedId = _editingRecordId;
+        // 🔑 (2026-11-17) سجلٌّ مرفوع بلا مفتاح السيرفر: تغيير تاريخه أو نوعه كان
+        //    يُضيف سجلًّا جديدًا ويُبقي القديم (السيرفر يعرف السجلّ بـtagno وحده)
+        const old = await getRecordById(editedId);
+        if (old && old.synced && !Number(old.tagNo)
+            && (old.date !== record.date || Number(old.type) !== Number(record.type))) {
+            return showAlert({
+                title: "اسحب البيانات أوّلًا",
+                message: "هذا النشاط لم يصل رقمه من السيرفر بعد، فتغيير تاريخه أو نوعه يكرّره.\n" +
+                         "اسحب البيانات من الإعدادات ثم أعد التعديل.",
+                icon: "⚠️",
+            });
+        }
         updateExistingRecord(editedId, record, () => {
             _editingRecordId = null;
             _editingTagNo = 0;
@@ -3106,6 +3118,15 @@ async function deleteRecord(id) {
 
     const onServer = !!rec.synced;
 
+    // 🔑 السيرفر يحذف بـtagno وحده — بلاه يُرفض بـ«ليس من إدخالك»
+    if (onServer && !Number(rec.tagNo)) {
+        return showAlert({
+            title: "اسحب البيانات أوّلًا",
+            message: "هذا النشاط لم يصل رقمه من السيرفر بعد.\nاسحب البيانات من الإعدادات ثم احذفه.",
+            icon: "⚠️",
+        });
+    }
+
     const ok = await showConfirm({
         title: "حذف النشاط",
         message: `${typeName} — ${name}\nبتاريخ ${rec.date}\n\n` +
@@ -4416,7 +4437,11 @@ const studentSelect = document.getElementById('studentSelect');
 const studentId = studentSelect ? studentSelect.value : null;
 
 // 2. إذا كان النوع يتطلب آيات وكان الطالب مختاراً
-if (studentId && studentId !== "") {
+// 🔒 (2026-11-17) في التعديل الآيات آيات السجلّ نفسه — كان الملء يقع بعد editRecord
+//    (غير متزامن) فيكتب «من» = آخر «إلى» + 1 فوق آية السجلّ
+if (_editingRecordId) {
+    // لا شيء
+} else if (studentId && studentId !== "") {
     // استدعاء الدالة وانتظارها (يجب أن تكون handleActivityTypeChange معرفة كـ async)
     await fillNextAyahFields(studentId, type);
     
@@ -6149,6 +6174,7 @@ async function _pullRecordsFromServer(opts) {
         //    وإلا فالأصغر رقمًا (tagno) هي الأولى. بدونه كان السحب كلّه يسقط
         //    على الفهرس الفريد متى سجّل أحدٌ مراجعتين من تطبيق أندرويد.
         const secondReviewTags = {};
+        const remoteKeys = {};   // «طالب|تاريخ|نوع» لكل ما أعاده السيرفر — لحذف ما زال منه
         (function markSecondReviews() {
             const byDay = {};
             for (const r of remoteRecords) {
@@ -6207,6 +6233,7 @@ async function _pullRecordsFromServer(opts) {
                 sortOrder:   Number(remote.sortorder || 999),
                 synced:      true
             };
+            remoteKeys[recordToSave.student + '|' + recordToSave.date + '|' + recordToSave.type] = true;
 
             const local = await new Promise(r => {
                 const req = indexRec.get([recordToSave.student, recordToSave.date, recordToSave.type]);
@@ -6217,8 +6244,32 @@ async function _pullRecordsFromServer(opts) {
             // ⚠️ تعديلٌ محلّيّ لم يُرفع بعد هو الأحدث — لا يمحوه السحب
             //    (صار السحب يقع وحده عند الفتح، قبل أن يرفع المستخدم)
             if (local && !local.synced) continue;
-            if (local) recordToSave.id = local.id;
+            if (local) {
+                recordToSave.id = local.id;
+                // 🔑 (2026-11-17) لا يُمحى مفتاح السيرفر إن لم يُرسله السحب — بلا tagNo
+                //    يصير تعديل التاريخ إضافةً جديدة ويُرفض الحذف
+                if (!recordToSave.tagNo && local.tagNo) recordToSave.tagNo = Number(local.tagNo);
+            }
             storeRec.put(recordToSave);
+        }
+
+        // 🧹 (2026-11-17) ما حُذف أو نُقل على السيرفر يُحذف من الجهاز: سجلٌّ مرفوع في
+        //    نافذة السحب (آخر 6 أيام) لم يعد في جوابه. لا يُطبَّق إن كان الجواب مقطوعًا
+        //    (hasMore) فلا يُحذف ما لم يصل.
+        if (!recordsData.hasMore && remoteRecords.length < 250) {
+            const minDate = ymdLocal(new Date(Date.now() - 6 * 86400000));
+            const localAll = await new Promise(r => {
+                const req = storeRec.getAll();
+                req.onsuccess = e => r(e.target.result || []);
+                req.onerror   = () => r([]);
+            });
+            const pulledStudents = {};
+            Object.keys(idNoToStudentNo).forEach(k => { pulledStudents[idNoToStudentNo[k]] = true; });
+            for (const l of localAll) {
+                if (!l.synced || !l.date || l.date < minDate) continue;
+                if (!pulledStudents[Number(l.student)]) continue;   // طالبٌ لم يصل في السحب
+                if (!remoteKeys[l.student + '|' + l.date + '|' + Number(l.type)]) storeRec.delete(l.id);
+            }
         }
 
         // انتظر حتى تكتمل المعاملة بالكامل

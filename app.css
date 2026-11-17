@@ -13,7 +13,7 @@
 
 body {
   /* تجوّل افتراضيًّا (2026-10-28) — @font-face في appearance.js، ونوع الخطّ المختار يغلبه */
-  font-family: 'QmcTajawal', 'Segoe UI', Tahoma, sans-serif;
+  font-family: 'QmcDigits', 'QmcTajawal', 'Segoe UI', Tahoma, sans-serif;
   background: var(--bg);
   margin: 0;
   padding: 0;

@@ -77,6 +77,12 @@
   var css =
     "@font-face{font-family:'QmcTajawal';src:url('fonts/Tajawal-Regular.ttf') format('truetype');font-display:swap}" +
     "@font-face{font-family:'QmcAmiri';src:url('fonts/Amiri-Regular.ttf') format('truetype');font-display:swap}" +
+    // 🔢 (2026-11-17) أشكال 0-9 على مواضع الأرقام الهندية وحدها: المتصفّح ذو الواجهة
+    // العربية يكتب حقول التاريخ والوقت والأرقام بالهندية (١١/١٧/٢٠٢٦) ولا يغيّرها
+    // lang ⇒ هذا الخطّ أوّل القائمة فتُرسم بالعربية في كل مكان. fonts/QmcDigits.ttf
+    // مولَّدٌ من Tajawal (scratchpad make_digits_font.py)
+    "@font-face{font-family:'QmcDigits';src:url('fonts/QmcDigits.ttf') format('truetype');" +
+    "unicode-range:U+0660-066C,U+06F0-06F9;font-display:block}" +
     // الليليّ: الرموز والسطوح في dark.css — هنا الخلفية وحدها كي لا يومض الأبيض قبل تحميله
     "html.qmc-dark{background:#0f141b;color-scheme:dark}" +
     '.ap-row{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}' +
@@ -400,9 +406,9 @@
     }
     var f = find(FONTS, state.font);
     fontCss.textContent = f && f.family
-      ? 'body,input,button,select,textarea{font-family:' + f.family + ",'Segoe UI',Tahoma,sans-serif}"
+      ? "body,input,button,select,textarea{font-family:'QmcDigits'," + f.family + ",'Segoe UI',Tahoma,sans-serif}"
       : (f && f.id === 'system'
-          ? 'body,input,button,select,textarea{font-family:system-ui,-apple-system,sans-serif}'
+          ? "body,input,button,select,textarea{font-family:'QmcDigits',system-ui,-apple-system,sans-serif}"
           : '');
 
     var meta = document.querySelector('meta[name="theme-color"]');
