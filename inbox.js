@@ -113,6 +113,7 @@
   // طلبٌ واحد في كل لحظة — الإقلاع وعودة الشبكة قد ينطلقان معًا
   function fetchMessages() {
     if (inFlight) return inFlight;
+    loadEmpCenter();
     inFlight = doFetch().then(function (n) { inFlight = null; return n; },
                               function (e) { inFlight = null; throw e; });
     return inFlight;
@@ -233,11 +234,39 @@
     b.style.display = n ? 'inline-block' : 'none';
   }
 
+  /* اسم المركز من بيانات الجهاز حين لا يحمله التنبيه:
+     حلقات المستخدم، ثم مراكز المشرف، ثم سجلّ الموظّف (يُقرأ مرّةً عند الجلب). */
+  var _empCenter = null;
+  function loadEmpCenter() {
+    try {
+      if (typeof getEmpRecord !== 'function') return;
+      getEmpRecord().then(function (e) {
+        if (e && e.CENTER_NO != null && e.CENTER_NAME) {
+          _empCenter = { no: String(e.CENTER_NO), name: String(e.CENTER_NAME) };
+        }
+      });
+    } catch (_) {}
+  }
+  function centerNameOf(no) {
+    var k = String(no), i, c, lists = [];
+    try { if (typeof _circlesCache !== 'undefined' && _circlesCache) lists.push(_circlesCache); } catch (_) {}
+    try { if (typeof _svCenters !== 'undefined' && _svCenters) lists.push(_svCenters); } catch (_) {}
+    for (var L = 0; L < lists.length; L++) {
+      for (i = 0; i < lists[L].length; i++) {
+        c = lists[L][i];
+        if (c && c.centerNo != null && String(c.centerNo) === k && c.centerName &&
+            String(c.centerName).indexOf('مركز ') !== 0) return String(c.centerName);
+      }
+    }
+    if (_empCenter && _empCenter.no === k) return _empCenter.name;
+    return '';
+  }
+
   function scopeLabel(m) {
     var d = m.data || {};
     var bits = [];
     if (d.center_name) bits.push(String(d.center_name));
-    else if (d.center_no != null && d.center_no !== '') bits.push('مركز ' + d.center_no);
+    else if (d.center_no != null && d.center_no !== '') bits.push(centerNameOf(d.center_no) || ('مركز ' + d.center_no));
     var g = String(d.gender || '').toUpperCase();
     if (g === 'M') bits.push('حلقات الطلاب');
     if (g === 'F') bits.push('حلقات الطالبات');
@@ -279,6 +308,7 @@
   function refreshUi() {
     renderBadge();
     renderBanners();
+    if (window.QmcWelcome && QmcWelcome.repaintInsights) { try { QmcWelcome.repaintInsights(); } catch (_) {} }
     var sheet = document.getElementById('inboxSheet');
     if (sheet && sheet.style.display === 'block') renderList();
   }
@@ -290,25 +320,29 @@
     if (dialogsShown) return;
     dialogsShown = true;
     var s = seen(), t = today();
-    var list = all().filter(function (m) {
-      return m.display === 'DIALOG' && !(isAnn(m) && isRead(m)) && s[m.key] !== t;
-    });
-    for (var i = 0; i < list.length; i++) {
-      var m = list[i];
+    // 🚪 (2026-11-17، كالصفوة cdb4bfb) نافذةٌ واحدة على الأكثر عند الدخول:
+    //    أهمّ رسالة (all() مرتّبةٌ بالعاجل ثم غير المقروء)، والباقي بطاقاتٌ في
+    //    «يحتاج تدخّلك» وفي الصندوق — كانت النوافذ تتتابع واحدةً بعد أخرى
+    var m = all().filter(function (x) {
+      return x.display === 'DIALOG' && !(isAnn(x) && isRead(x)) && s[x.key] !== t;
+    })[0];
+    if (m) {
       putSeen(m.key, t);   // مرّةً في اليوم — وإلا تعلّم المستخدم إغلاقها بلا قراءة
       var extra = (m.data && Array.isArray(m.data.rows) && m.data.rows.length)
         ? '\n\n(التفاصيل في «الرسائل»)' : '';
       var scope = scopeLabel(m);
+      var tgt = hasTarget(m);
       var ok = await showConfirm({
         title: m.title || 'رسالة',
         message: (scope ? scope + '\n\n' : '') + m.body + extra,
         icon: m.severity === 'URGENT' ? '🔴' : (isAlert(m) ? '🔔' : '📢'),
-        confirmText: isAnn(m) ? 'اطّلعت' : 'الرسائل',
+        confirmText: isAnn(m) ? 'اطّلعت' : (tgt ? targetLabel(m) : 'الرسائل'),
         cancelText: 'لاحقًا'
       });
       if (ok) {
         if (isAnn(m)) await markRead(m);
-        else { openInbox(); break; }
+        else if (tgt) openTarget(m);
+        else openInbox();
       }
     }
     refreshUi();
@@ -353,6 +387,51 @@
     return h + '</table></div>';
   }
 
+  /* ---------- 🎯 التنبيه وشاشته (نظير inboxHasTarget/openInboxTarget) ----------
+     تنبيهٌ يُنجَز من شاشةٍ بعينها ⇒ زرّه في الصندوق وفي «يحتاج تدخّلك» يفتحها
+     مباشرةً. ما ليس في IUG (طلبات التصحيح، المحاضر) يبقى بلا زرّ. */
+  function hasTarget(m) {
+    if (!m || !isAlert(m)) return false;
+    switch (m.code) {
+      case 'EMAIL_UNVERIFIED': return typeof openEmailSettings === 'function';
+      case 'STATUS_REQUESTS':
+      case 'STATUS_REQ_DECIDED': return typeof openStatusRequests === 'function';
+      case 'OLD_NOMINATIONS':
+      case 'MARKS_UNSAVED': return typeof openOverdueNominations === 'function';
+      case 'PARTIAL_DAYS': return !!(window.QmcPartialDays && QmcPartialDays.days(m).length);
+    }
+    return false;
+  }
+  function targetLabel(m) {
+    switch (m.code) {
+      case 'EMAIL_UNVERIFIED': return 'أكّد بريدك';
+      case 'PARTIAL_DAYS': return 'أكمل التسجيل';
+      case 'OLD_NOMINATIONS': return 'اعرض الترشيحات';
+      case 'MARKS_UNSAVED': return 'افتحها واحفظها';
+      case 'STATUS_REQ_DECIDED': return 'اعرض طلباتي';
+    }
+    return 'افتح الطلبات';
+  }
+  function targetIcon(m) {
+    switch (m.code) {
+      case 'EMAIL_UNVERIFIED': return 'fa-at';
+      case 'PARTIAL_DAYS': return 'fa-list-check';
+      case 'OLD_NOMINATIONS':
+      case 'MARKS_UNSAVED': return 'fa-clipboard-check';
+    }
+    return 'fa-id-card';
+  }
+  function openTarget(m) {
+    closeInbox();
+    if (m.code === 'EMAIL_UNVERIFIED') openEmailSettings();
+    else if (m.code === 'STATUS_REQUESTS' || m.code === 'STATUS_REQ_DECIDED') {
+      var id = parseInt(m.data && m.data.req_id != null ? m.data.req_id : '', 10);
+      openStatusRequests(isNaN(id) ? null : id);
+    } else if (m.code === 'OLD_NOMINATIONS' || m.code === 'MARKS_UNSAVED') openOverdueNominations();
+    else if (m.code === 'PARTIAL_DAYS') QmcPartialDays.open(m);
+    else openInbox();
+  }
+
   function stamp(iso) {
     var s = String(iso || '');
     return s.length >= 16 ? s.substring(0, 16).replace('T', ' ') : s;
@@ -388,16 +467,10 @@
         (isAnn(m) && !read && m.id != null
           ? '<button type="button" data-read="' + esc(m.key) + '">تمّ الاطلاع</button>'
           : (isAnn(m) ? '<span>✓ مقروءة</span>'
-            // ✉️ (2026-10-28) التأكيد من هنا — account.js؛ نصّ التنبيه يذكر قائمة أندرويد
-            : (m.code === 'EMAIL_UNVERIFIED' && typeof openEmailSettings === 'function'
-                ? '<button type="button" data-email="1"><i class="fas fa-at"></i> تأكيد البريد</button>'
-                // 📝 (2026-11-13) طلبات الحالة — status_req.js
-                : ((m.code === 'STATUS_REQUESTS' || m.code === 'STATUS_REQ_DECIDED') && typeof openStatusRequests === 'function'
-                  ? '<button type="button" data-sreq="' + esc(m.data && m.data.req_id != null ? m.data.req_id : '') + '"><i class="fas fa-id-card"></i> ' +
-                    (m.code === 'STATUS_REQ_DECIDED' ? 'اعرض طلباتي' : 'افتح الطلبات') + '</button>'
-                  // ⏰ (2026-11-13) الترشيحات التي مضى موعدها بلا نتيجة — هي وحدها
-                  : (m.code === 'OLD_NOMINATIONS' && typeof openOverdueNominations === 'function'
-                    ? '<button type="button" data-oldnom="1"><i class="fas fa-clipboard-check"></i> اعرض الترشيحات</button>' : ''))))) +
+            // 🎯 تنبيهٌ له شاشةٌ تُنجزه ⇒ زرّها (hasTarget — مصدرٌ واحد مع الرئيسية)
+            : (hasTarget(m)
+                ? '<button type="button" data-target="' + esc(m.key) + '"><i class="fas ' + targetIcon(m) + '"></i> ' +
+                  esc(targetLabel(m)) + '</button>' : ''))) +
         // 🗂 (2026-11-08) رسالة إجراءٍ إداريّ ⇒ الردّ من «سجلّي الإداريّ» (adm_record.js)
         (isAnn(m) && window.QmcAdm && QmcAdm.letterOf(m.body) != null
           ? '<button type="button" data-adm="' + esc(QmcAdm.letterOf(m.body)) + '"><i class="fas fa-reply"></i> ردّك</button>' : '') +
@@ -415,18 +488,12 @@
         QmcAdm.open(b.getAttribute('data-adm') || null);
       };
     });
-    Array.prototype.forEach.call(host.querySelectorAll('button[data-email]'), function (b) {
-      b.onclick = function () { closeInbox(); openEmailSettings(); };
-    });
-    Array.prototype.forEach.call(host.querySelectorAll('button[data-sreq]'), function (b) {
+    Array.prototype.forEach.call(host.querySelectorAll('button[data-target]'), function (b) {
       b.onclick = function () {
-        var id = parseInt(b.getAttribute('data-sreq'), 10);
-        closeInbox();
-        openStatusRequests(isNaN(id) ? null : id);
+        var key = b.getAttribute('data-target');
+        var m = all().filter(function (x) { return x.key === key; })[0];
+        if (m) openTarget(m);
       };
-    });
-    Array.prototype.forEach.call(host.querySelectorAll('button[data-oldnom]'), function (b) {
-      b.onclick = function () { closeInbox(); openOverdueNominations(); };
     });
     Array.prototype.forEach.call(host.querySelectorAll('button[data-read]'), function (b) {
       b.onclick = async function () {
@@ -666,5 +733,7 @@
   window.openInbox = openInbox;
   window.closeInbox = closeInbox;
   window.openPushSettings = openPushSettings;
-  window.QMC_INBOX = { fetch: fetchMessages, all: all, unreadCount: unreadCount, refreshUi: refreshUi };
+  window.QMC_INBOX = { fetch: fetchMessages, all: all, unreadCount: unreadCount, refreshUi: refreshUi,
+                       banners: banners, scopeLabel: scopeLabel, isAlert: isAlert,
+                       hasTarget: hasTarget, targetLabel: targetLabel, openTarget: openTarget };
 })();

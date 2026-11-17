@@ -170,6 +170,8 @@ window.QMC = (function () {
       notes           : record.notes || "",
       // 0 أو فارغ ⇒ null فيراه السيرفر إضافة جديدة
       tagno           : record.tagNo ? Number(record.tagNo) : null,
+      // 🕓 وقت التسجيل على الجهاز (docs/entry_audit/) — الغائب لا يُرسَل
+      client_at       : record.clientAt || undefined,
     };
   }
 

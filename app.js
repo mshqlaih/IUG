@@ -1839,11 +1839,16 @@ function updateExistingRecord(id, record, onSaved) {
         record.synced = false;       // يحتاج إعادة رفع بعد التعديل
         record.syncError = "";
 
-        store.put(record).onsuccess = () => {
-            refreshAll();
-            showToast("تم تحديث النشاط");
-            if (typeof onSaved === "function") onSaved();
-            requestSync();
+        // 🕓 وقت التسجيل الأوّل يبقى — التعديل ليس إدخالًا جديدًا
+        const old = store.get(Number(id));
+        old.onsuccess = () => {
+            if (old.result && old.result.clientAt) record.clientAt = old.result.clientAt;
+            store.put(record).onsuccess = () => {
+                refreshAll();
+                showToast("تم تحديث النشاط");
+                if (typeof onSaved === "function") onSaved();
+                requestSync();
+            };
         };
     };
 }
@@ -1872,6 +1877,12 @@ async function getTeacherIdentity() {
     return { teacher, teacherName };
 }
 
+// «2026-11-17T14:05:09» بساعة الجهاز — لا toISOString (UTC)
+function localStamp(d) {
+    const p = (n) => String(n).padStart(2, '0');
+    return ymdLocal(d) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
 // سجل نشاط بالحقول الافتراضية؛ ما يُمرَّر في opts يطغى عليها
 function buildActivityRecord(opts) {
     const type = Number(opts.type);
@@ -1898,6 +1909,9 @@ function buildActivityRecord(opts) {
         partTo     : "",
         notes      : "",
         tagNo      : 0,          // مفتاح السجل على السيرفر؛ 0 = إضافة جديدة
+        // 🕓 وقت التسجيل على الجهاز بتوقيته المحلّيّ (docs/entry_audit/، كـclient_at
+        //    في الصفوة) — السيرفر يكتبه للإدخال الجديد وحده
+        clientAt   : localStamp(new Date()),
         synced     : false,
         syncError  : "",
         sortOrder  : (activityInfo && activityInfo.SORT_ORDER != null) ? activityInfo.SORT_ORDER : 999,

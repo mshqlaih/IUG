@@ -1120,11 +1120,94 @@
   }
   /* الترتيب (11-14): قبل ثم أثناء ثم بعد، وما لا مرحلة له آخرًا — وكلٌّ بأهمّيته.
      T_EMPTY دعوةٌ تحت التحية (inviteHtml) لا بطاقة هنا */
+  function cardPhase(c) { return phaseOfCard(c.inboxCode || c.code); }
+
+  /* 📬 (2026-11-17، نظير _inboxCards في insight_home_screen.dart) تنبيهات الصندوق
+     التي **تطلب عملًا** في الحلقات والطلاب بطاقاتٌ هنا — لا تأكيد البريد ولا أخبار
+     الحالة، ولا ما يظهر شريطًا أعلى الشاشة. والرمز الواحد برسائل متعدّدة (لكل
+     مركز · جنس) بطاقةٌ واحدة بمجموعها وسطرٌ لكلٍّ منها، الأكبر أوّلًا. */
+  var WORK_ALERTS = ['NO_ACTIVITY', 'PENDING_ACTIVITY_TODAY', 'PARTIAL_DAYS', 'LAGGING_TEACHERS',
+    'OLD_NOMINATIONS', 'MARKS_UNSAVED', 'STUDENT_DATA_REQUESTS', 'STATUS_REQUESTS',
+    'GUARDIAN_ABSENCE_NOTICES', 'IQRA_MISSED_SESSIONS', 'IQRA_PENDING_TODAY',
+    'IQRA_NO_APPOINTMENT', 'LAGGING_MUQRIS'];
+  var PAREN = /\s*\([^)]*\)/g;
+  // أيقونة التنبيه برمزه (inboxIconForCode) — بدل العدد حين لا عدد
+  function inboxIcon(code) {
+    switch (code) {
+      case 'NO_ACTIVITY': case 'PENDING_ACTIVITY_TODAY':
+      case 'IQRA_MISSED_SESSIONS': case 'IQRA_PENDING_TODAY': return 'fa-calendar-xmark';
+      case 'PARTIAL_DAYS': return 'fa-list-check';
+      case 'LAGGING_TEACHERS': case 'LAGGING_MUQRIS': return 'fa-users';
+      case 'IQRA_NO_APPOINTMENT': return 'fa-clock';
+      case 'OLD_NOMINATIONS': return 'fa-hourglass-half';
+      case 'MARKS_UNSAVED': return 'fa-pen-to-square';
+      case 'GUARDIAN_ABSENCE_NOTICES': return 'fa-envelope-open-text';
+      case 'STUDENT_DATA_REQUESTS': case 'STATUS_REQUESTS': return 'fa-id-card';
+    }
+    return 'fa-bell';
+  }
+  function alertCount(m) {
+    var d = m.data || {};
+    if (Array.isArray(d.rows) && d.rows.length) return d.rows.length;
+    var n = parseInt(d.count, 10);
+    return isNaN(n) ? 0 : n;
+  }
+  function commonTitle(ms) {
+    var set = [];
+    ms.forEach(function (m) { if (set.indexOf(m.title) < 0) set.push(m.title); });
+    if (set.length === 1) return set[0];
+    var bare = [];
+    set.forEach(function (t) { var b = t.replace(PAREN, '').trim(); if (bare.indexOf(b) < 0) bare.push(b); });
+    return bare.length === 1 ? bare[0] : set[0];
+  }
+  function itemName(m, title) {
+    var scope = window.QMC_INBOX ? QMC_INBOX.scopeLabel(m) : '';
+    [' · حلقات الطلاب', ' · حلقات الطالبات'].forEach(function (g) {
+      if (title.indexOf(g.substring(3)) >= 0) scope = scope.split(g).join('');
+    });
+    var tag = (String(m.title).match(/\([^)]*\)/) || [''])[0].trim();
+    var out = [scope, tag].filter(function (x) { return x; }).join(' · ');
+    return out || m.title;
+  }
+  function inboxCards() {
+    var I = window.QMC_INBOX;
+    if (!I || !I.all) return [];
+    var bannerKeys = {};
+    (I.banners ? I.banners() : []).forEach(function (m) { bannerKeys[m.key] = 1; });
+    var byCode = {}, order = [];
+    I.all().forEach(function (m) {
+      if (!I.isAlert(m) || WORK_ALERTS.indexOf(m.code) < 0 || bannerKeys[m.key]) return;
+      if (!byCode[m.code]) { byCode[m.code] = []; order.push(m.code); }
+      byCode[m.code].push(m);
+    });
+    function sevOfMs(ms) {
+      return ms.some(function (m) { return m.severity === 'WARN' || m.severity === 'URGENT'; }) ? 'warn' : 'info';
+    }
+    function openOf(ms) { return I.hasTarget(ms[0]) ? 'INBOX_TARGET' : 'INBOX'; }
+    return order.map(function (code) {
+      var ms = byCode[code];
+      if (ms.length === 1) {
+        var m = ms[0], scope = I.scopeLabel(m);
+        return { code: 'INBOX_' + m.key, sev: sevOfMs(ms), title: m.title,
+                 why: scope ? scope + ' — ' + m.body : m.body, count: alertCount(m) || '',
+                 open: openOf(ms), inboxCode: code, inboxKey: m.key, items: [] };
+      }
+      var title = commonTitle(ms);
+      ms.sort(function (a, b) { return alertCount(b) - alertCount(a); });
+      var total = ms.reduce(function (a, m) { return a + alertCount(m); }, 0);
+      var n = ms.length;
+      return { code: 'INBOX_' + code, sev: sevOfMs(ms), title: title,
+               why: 'موزّعةٌ على ' + (n === 2 ? 'رسالتين' : n <= 10 ? n + ' رسائل' : n + ' رسالة') + ' — المسها لترى كلًّا منها',
+               count: total || n, open: openOf(ms), inboxCode: code, inboxKey: ms[0].key,
+               items: ms.map(function (m) { return { name: itemName(m, title), reason: m.body }; }) };
+    });
+  }
+
   function sortedCards(d) {
-    function po(c) { var p = phaseOfCard(c.code); return p == null ? 3 : PHASES.indexOf(p); }
+    function po(c) { var p = cardPhase(c); return p == null ? 3 : PHASES.indexOf(p); }
     return (Array.isArray(d.cards) ? d.cards : []).filter(function (c) {
       return c.code !== 'T_EMPTY';
-    }).sort(function (a, b) {
+    }).concat(inboxCards()).sort(function (a, b) {
       return (po(a) - po(b)) || (sevOf(a.sev).rank - sevOf(b.sev).rank);
     });
   }
@@ -1215,7 +1298,18 @@
   var TARGET = { ACTIVITY: ['studentsTab', 'افتح الحلقة'], MY_COURSES: ['myCoursesTab', 'دوراتي'], INBOX: ['inbox', 'صندوق الرسائل'],
                  // 🎯 جاهزون للترشيح ⇒ الطلبات (2026-11-14)
                  NOMINATE: ['requestsTab', 'طلبات الاختبار'] };
+  function inboxMsgOf(c) {
+    if (!window.QMC_INBOX) return null;
+    var ms = QMC_INBOX.all().filter(function (m) { return m.code === c.inboxCode; });
+    return ms.filter(function (m) { return m.key === c.inboxKey; })[0] || ms[0] || null;
+  }
   function targetOf(c) {
+    // 📬 تنبيهٌ له شاشته («أكمل التسجيل» …) ⇒ هي مباشرةً؛ وإن غابت رسالته فالصندوق
+    if (c.open === 'INBOX_TARGET') {
+      var m = inboxMsgOf(c);
+      if (m && QMC_INBOX.hasTarget(m)) return ['inboxtgt', QMC_INBOX.targetLabel(m)];
+      return typeof openInbox === 'function' ? ['inbox', 'صندوق الرسائل'] : null;
+    }
     var t = TARGET[c.open];
     if (!t) return null;
     if (t[0] === 'inbox') return typeof openInbox === 'function' ? t : null;
@@ -1230,7 +1324,8 @@
     // 📊 من له المربّعات وحدها (يدير الحلقات بقدرة) تظهر له اللوحة أيضًا
     return ['teacher', 'supervisor', 'org_admin', 'course_teacher', 'course_sup']
       .some(function (k) { return r[k] === 'Y'; }) ||
-      !!d.kpi || (Array.isArray(d.centers) && d.centers.length > 0);
+      !!d.kpi || (Array.isArray(d.centers) && d.centers.length > 0) ||
+      inboxCards().length > 0;
   }
 
   function insightsInner() {
@@ -1261,11 +1356,11 @@
     }
     // ⏱️ (11-14، قرار المستخدم) بطاقات المعلّم كلّها معًا، مرتّبةً قبل الحلقة ثم
     //    أثناءها ثم بعدها (sortCards)، وعنوانٌ صغير فوق كل مرحلة إن تعدّدت — لا تبويب
-    var titled = cards.map(function (c) { return phaseOfCard(c.code); })
+    var titled = cards.map(function (c) { return cardPhase(c); })
       .filter(function (p, i, a) { return p != null && a.indexOf(p) === i; }).length > 1;
     var lastPh = null;
     cards.forEach(function (c, idx) {
-      var cp = phaseOfCard(c.code);
+      var cp = cardPhase(c);
       if (titled && cp != null && cp !== lastPh) h += '<div class="wh-ph-t">' + PHASE_LABEL[cp] + '</div>';
       lastPh = cp;
       var sv = sevOf(c.sev);
@@ -1275,24 +1370,30 @@
       var count = parseInt(c.count, 10);
       if (isNaN(count)) count = items.length;
       var tgt = targetOf(c);
+      // ▾ (2026-11-17، كالصفوة 6ba1d27) كل بطاقةٍ تُفتح في مكانها: السبب كاملًا ثم
+      //    زرّ الشاشة باسمه — لا نقلٌ مباشر يفاجئ من لمسها ليقرأ
+      var foldable = items.length > 0 || !!tgt || s(c.why).length > 0;
+      var icon = c.inboxCode && window.QMC_INBOX ? inboxIcon(c.inboxCode) : null;
       h += '<div class="wh-ic' + (open ? ' open' : '') + '" style="--c:' + sv.c + ';--s:' + sv.s + '">' +
-        '<div class="wh-ic-h" data-act="' + (items.length ? 'toggle' : (tgt ? 'go' : '')) + '" data-code="' + esc(code) + '"' +
-        (tgt ? ' data-target="' + tgt[0] + '"' : '') + '>' +
-        '<div class="wh-ic-n">' + (c.sev === 'set' ? '<i class="fas fa-sliders"></i>' : count) + '</div>' +
+        '<div class="wh-ic-h" data-act="' + (foldable ? 'toggle' : '') + '" data-code="' + esc(code) + '">' +
+        '<div class="wh-ic-n">' + (c.sev === 'set' ? '<i class="fas fa-sliders"></i>'
+          : (count ? count : (icon ? '<i class="fas ' + icon + '"></i>' : count))) + '</div>' +
         '<div style="flex:1;min-width:0"><div class="wh-ic-t">' + esc(c.title) + '</div>' +
         (s(c.why) ? '<div class="wh-ic-w">' + esc(c.why) + '</div>' : '') + '</div>' +
-        '<i class="fas ' + (items.length ? (open ? 'fa-chevron-up' : 'fa-chevron-down') : (tgt ? 'fa-chevron-left' : '')) + ' wh-chev"></i></div>';
+        '<i class="fas ' + (foldable ? (open ? 'fa-chevron-up' : 'fa-chevron-down') : '') + ' wh-chev"></i></div>';
       if (open) {
         items.forEach(function (it) {
           h += '<div class="wh-ic-row"><b>' + esc(it.name) + '</b>' +
             (s(it.sub) ? '<small>' + esc(it.sub) + '</small>' : '') +
             (s(it.reason) ? '<div>' + esc(it.reason) + '</div>' : '') + '</div>';
         });
-        if (count > items.length) {
+        // بطاقة الصندوق: العدد مجموعٌ في الرسائل لا أسماءٌ ناقصة
+        if (!c.inboxCode && count > items.length) {
           h += '<div class="wh-ic-row"><small>وغيرهم ' + (count - items.length) + '</small></div>';
         }
         if (tgt) {
-          h += '<button type="button" class="wh-ic-go" data-act="go" data-target="' + tgt[0] + '">' +
+          h += '<button type="button" class="wh-ic-go" data-act="go" data-target="' + tgt[0] + '"' +
+            (tgt[0] === 'inboxtgt' ? ' data-code="' + esc(code) + '"' : '') + '>' +
             '<i class="fas fa-arrow-up-right-from-square"></i> ' + esc(tgt[1]) + '</button>';
         }
       }
@@ -1379,6 +1480,12 @@
     } else if (act === 'go') {
       var t = el.dataset.target;
       if (t === 'inbox') { if (typeof openInbox === 'function') openInbox(); }
+      else if (t === 'inboxtgt') {
+        var d0 = state.insights && state.insights.data;
+        var card = d0 ? sortedCards(d0).filter(function (x) { return String(x.code) === el.dataset.code; })[0] : null;
+        var msg = card ? inboxMsgOf(card) : null;
+        if (msg) QMC_INBOX.openTarget(msg); else if (typeof openInbox === 'function') openInbox();
+      }
       else goTab(t);
     } else if (act === '') {
       /* بطاقةٌ بلا قائمةٍ ولا وجهة */
@@ -1550,6 +1657,8 @@
 
   window.QmcWelcome = {
     render: render,
+    // 📬 الصندوق تحدّث (inbox.js refreshUi) ⇒ بطاقات تنبيهاته في «يحتاج تدخّلك»
+    repaintInsights: function () { if (isActive()) paintInsights(); },
     refreshIfActive: refreshIfActive,
     noteTab: noteTab,
     emptyCircles: emptyCircles,
