@@ -121,6 +121,15 @@ let _syncInProgress = false;
 // (يستدعي syncRecordsFromPage المعرّفة أدناه — النسخة المعتمدة على db العام)
 function requestSync() {
     if (_syncInProgress || !navigator.onLine) return;   // منع التشغيل المتزامن / لا فائدة بدون اتصال
+    // 🧹 لا رفع قبل التحقّق من صاحب البيانات (ensureLocalDataOwner): عمل غيره لا يُرفع بتوكنه
+    if (!_localOwnerReady) {
+        if (typeof db !== 'undefined' && db) {
+            ensureLocalDataOwner().then(() => {
+                if (_localOwnerReady) { refreshAll(); requestSync(); }
+            }).catch(() => {});
+        }
+        return;
+    }
     if (SUPPORTS_BG_SYNC) {
         // ⚠️ (2026-11-14) serviceWorker.ready لا يُحسم أبدًا إن لم يُسجَّل الـSW (شهادةٌ
         //    مرفوضة، وضعٌ خاصّ) فكان الرفع التلقائيّ لا يقع إطلاقًا ⇒ مهلة 3 ث ثم الصفحة.
@@ -172,13 +181,44 @@ function runPageSync() {
             }
         })
         .catch(err => console.error("❌ خطأ أثناء المزامنة:", err))
-        .finally(() => { _syncInProgress = false; });
+        .finally(() => { _syncInProgress = false; refreshAfterUpload(); });
 }
 
-// مُحفّز iOS: مزامنة عند إعادة فتح/إظهار التطبيق (يعوّض غياب Background Sync)
-if (!SUPPORTS_BG_SYNC) {
-    document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") requestSync();
+// ⚠️ (2026-11-17) «1 للرفع» بقيت والشبكة متاحة حتى ضغطها المستخدم. السببان:
+//   1) الرفع التلقائيّ محاولةٌ واحدة عند الحفظ أو حدث online؛ إن فشلت (شبكةٌ متقطّعة
+//      و navigator.onLine صادقٌ فلا يأتي online بعدها) لا تُعاد أبدًا، والـSW يُنهي
+//      حدث sync بنجاحٍ دائمًا فلا يعيده المتصفّح أيضًا.
+//   2) رفعُ الـSW الناجح لا يُحدّث الواجهة (لا مستمع لرسائله) فتبقى الشارة قديمة.
+//   ⇒ إعادةٌ من الصفحة كل دقيقة ما دام شيءٌ معلّقًا، وعند العودة للتطبيق (لكل المنصّات)،
+//     وتحديث الواجهة بعد كل رفعٍ من الـSW أو الصفحة.
+const PENDING_RETRY_MS = 60000;
+let _refreshAfterUploadTimer = null;
+function refreshAfterUpload() {
+    clearTimeout(_refreshAfterUploadTimer);
+    _refreshAfterUploadTimer = setTimeout(() => {
+        if (typeof db === 'undefined' || !db) return;
+        refreshAll();
+        if (typeof refreshSettingsInfo === 'function') refreshSettingsInfo();
+    }, 400);
+}
+function retryPendingUploads() {
+    if (typeof db === 'undefined' || !db || _syncInProgress || !navigator.onLine) return;
+    if (document.visibilityState !== 'visible') return;
+    if (!_localOwnerReady) return requestSync();   // يفحص الصاحب أوّلًا
+    countPendingRecords().then(n => {
+        if (n && !_syncInProgress && navigator.onLine) runPageSync();
+    }).catch(() => {});
+}
+setInterval(retryPendingUploads, PENDING_RETRY_MS);
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (SUPPORTS_BG_SYNC) setTimeout(retryPendingUploads, 1500);
+    else requestSync();   // iOS: لا Background Sync
+});
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        const t = (event.data || {}).type;
+        if (t === 'SYNC_LOG' || t === 'SYNC_DONE') refreshAfterUpload();
     });
 }
 
@@ -788,6 +828,101 @@ async function loadAllLookups() {
     }
 }
 
+/* ⚠️⚠️ (2026-11-17) **الطلاب والأنشطة على الجهاز مِلكُ حسابٍ لا جهاز.**
+   الخروج كان يمحو مخزن settings وحده، والسحب يدمج ولا يحذف ⇒ من دخل بعد غيره
+   على المتصفّح نفسه رأى في «تقرير الأنشطة» أنشطة حلقة من قبله (محمود الهندي
+   رأى سجلّات معتصم بركات — حلقتان في مركزين لا صلة بينهما)، وأسوأ: ما لم يُرفع
+   من عمل السابق يُرفع بتوكن اللاحق.
+   ⇒ يُختم المخزون بصاحبه (`local_data_owner`)؛ إن تغيّر يُمحى الطلاب والحلقات
+     وبيانات الموظّف والمرفوعُ من الأنشطة والترشيحات (السحب يعيد ما للداخل)،
+     وما لم يُرفع من أنشطة غيره **يُنحّى لا يُحذف** إلى `orphan_records:<هويّته>`
+     ويعود إليه حين يدخل على هذا الجهاز. الترشيحات غير المرفوعة تبقى (كطوابير
+     الدورات في ensureCoursesOwner؛ السيرفر يحرسها بهويّة الرافع).
+   ℹ️ بلا ختم (أوّل فتحٍ بعد التحديث): لا يُعرف الصاحب والجهاز قد يكون مصابًا ⇒
+      التنظيف نفسه، لكن متّصلًا فقط كي يعيد السحب ما للداخل فورًا. */
+let _localOwnerReady = false;
+async function ensureLocalDataOwner() {
+    const user = getCurrentUser();
+    if (!user || !db) return;
+    let owner = null;
+    try { owner = localStorage.getItem('local_data_owner'); } catch (_) {}
+    if (owner === user) { _localOwnerReady = true; return; }
+    if (owner === null && !navigator.onLine) return;   // يُعاد في الفتح التالي متّصلًا
+
+    const me = String(parseInt(user, 10));
+    const has = (s) => db.objectStoreNames.contains(s);
+    const all = (s) => new Promise(res => {
+        const q = db.transaction(s, 'readonly').objectStore(s).getAll();
+        q.onsuccess = () => res(q.result || []);
+        q.onerror = () => res([]);
+    });
+
+    const records = await all('records');
+    const orphans = {};   // هويّة المسمّع ⇐ سجلّاته غير المرفوعة
+    records.forEach(r => {
+        const t = String(r.teacher == null ? '' : r.teacher).replace(/[\\"]/g, '').trim();
+        if (!r.synced && t !== me) (orphans[t] = orphans[t] || []).push(r);
+    });
+    Object.keys(orphans).forEach(t => {
+        try {
+            const key = 'orphan_records:' + t;
+            const prev = JSON.parse(localStorage.getItem(key) || '[]');
+            localStorage.setItem(key, JSON.stringify(prev.concat(orphans[t].map(r => {
+                const c = Object.assign({}, r); delete c.id; return c;
+            }))));
+        } catch (err) { console.warn('تعذّر تنحية سجلّات غير مرفوعة لـ' + t, err); }
+    });
+
+    const stores = ['records', 'students', 'circles', 'empdata', 'examRequests'].filter(has);
+    await new Promise(resolve => {
+        const tx = db.transaction(stores, 'readwrite');
+        records.forEach(r => {
+            const t = String(r.teacher == null ? '' : r.teacher).replace(/[\\"]/g, '').trim();
+            if (r.synced || t !== me) tx.objectStore('records').delete(r.id);
+        });
+        ['students', 'circles', 'empdata'].filter(has).forEach(s => tx.objectStore(s).clear());
+        if (has('examRequests')) {
+            const cur = tx.objectStore('examRequests').openCursor();
+            cur.onsuccess = () => {
+                const c = cur.result;
+                if (!c) return;
+                if (c.value && c.value.synced !== false) c.delete();
+                c.continue();
+            };
+        }
+        tx.oncomplete = resolve;
+        tx.onerror = resolve;
+        tx.onabort = resolve;
+    });
+
+    // عملُ الداخل غير المرفوع الذي نُحّي يومًا عن هذا الجهاز يعود إليه
+    try {
+        const key = 'orphan_records:' + me;
+        const mine = JSON.parse(localStorage.getItem(key) || '[]');
+        if (mine.length) {
+            await new Promise(resolve => {
+                const tx = db.transaction('records', 'readwrite');
+                const st = tx.objectStore('records');
+                mine.forEach(r => {
+                    const chk = st.index('student_date_type').getKey([r.student, r.date, r.type]);
+                    chk.onsuccess = () => { if (chk.result === undefined) st.add(r); };
+                });
+                tx.oncomplete = resolve;
+                tx.onerror = resolve;
+                tx.onabort = resolve;
+            });
+            localStorage.removeItem(key);
+        }
+    } catch (err) { console.warn('تعذّر إعادة السجلّات المنحّاة', err); }
+
+    try {
+        localStorage.setItem('local_data_owner', user);
+        localStorage.removeItem('circles_synced_user');
+    } catch (_) {}
+    _localOwnerReady = true;
+    console.log('🧹 بيانات الجهاز صارت للمستخدم ' + user + ' (كانت: ' + (owner || 'غير معروف') + ')');
+}
+
 // 2. تهيئة قاعدة البيانات
 function initDB() {
     const request = indexedDB.open(DB_NAME, 16); // 16: مخزنا الدورات ومخطّطات التقييم
@@ -858,6 +993,9 @@ function initDB() {
 
     request.onsuccess = (e) => {
         db = e.target.result;
+        // 🧹 بيانات الجهاز لصاحبها أوّلًا (قبل أيّ رسمٍ أو رفع)
+        ensureLocalDataOwner().catch(err => console.warn("تعذّر فحص صاحب البيانات:", err))
+        .finally(() => {
         // الثوابت أولاً: تعتمدها أسماء الأنشطة والتقديرات وأنواع الاختبار
         // ثم سحب الطلاب والأنشطة تلقائيًّا: كان لا يقع إلا بزرّ «سحب البيانات»
         // ⇒ بعد الخروج والدخول تبقى «طلابي» فارغة حتى يضغطه المستخدم
@@ -866,6 +1004,7 @@ function initDB() {
         fetchAndStoreCircles();
         loadUserAccess();
         refreshSettingsInfo();
+        });
 
          if (!window._syncOnlineListenerAdded) {
         window._syncOnlineListenerAdded = true;
@@ -1193,7 +1332,10 @@ function syncRatingSelection() {
 
 // تحليل نص البحث إلى: اسم سورة + رقم آية + صفحة + جزء
 function parseAyahQuery(raw) {
-    let t = normalizeAr(raw).replace(/سوره/g, ' ').replace(/ايه/g, ' ');
+    let t = normalizeAr(raw).replace(/سوره/g, ' ').replace(/ايه/g, ' ')
+        // ١٢ من لوحة المفاتيح العربية = 12
+        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
 
     let page = null, juz = null;
     // "ص" و "ج" تُحسبان صفحة/جزء فقط إذا كانتا كلمة مستقلة (حتى لا تتأثر "قصص 5" أو "حج 5")
@@ -1442,6 +1584,10 @@ function getLinesBetween(obj1, obj2) {
 
 // 6. حفظ النشاط
 async function saveActivity() {
+
+    // 🧠 الآيات المكتوبة تُفهم قبل الحساب (الملتبسة تُسأل، الناقصة يُشار إليها)
+    const _t = Number(document.getElementById('activityType').value) || 0;
+    if ((_t === 1 || _t === 2 || _t === SECOND_REVIEW_TYPE) && !(await ensureAyahFields())) return;
 
     const prog = calculateExactProgress();
 
@@ -3513,22 +3659,189 @@ function formatAyah(id) {
     return AYAH_REVERSE[id] || id;
 }
 
+/* 🧠 (2026-11-17) الآية المكتوبة تُفهم ولا يُطلب اختيارها من القائمة —
+   معلّمٌ كتب «الممتحنة 12» و«الممتحنة 13» فرُفض الحفظ بـ«يجب اختيار آيات
+   صحيحة من القائمة»: كان الحقل لا يقبل إلا نصّ القائمة حرفًا بحرف
+   («سورة الممتحنة آية 12 ص 550 ج 28»). الآن:
+     · اسم السورة (أو بعضه) والرقم بأيّ ترتيب يُعرف، والرقم وحده من السورة
+       المختارة أعلاه، وإلا من سورة الحقل الآخر («إلى: 13» بعد «من: الممتحنة 12»).
+     · عند مغادرة الحقل يُكتب النصّ كاملًا فيرى المعلّم ما فُهم، أو سطرٌ تحته
+       يقول ما الناقص (رقم الآية، رقمٌ أكبر من آيات السورة…).
+     · عند الحفظ: أكثر من آيةٍ تطابق ⇒ «أيّها تقصد؟» بأزرارها، لا رفض. */
+const AYAH_FIELDS = {
+    rangeFrom: { text: 'rangeFromText', other: 'rangeTo',   label: 'الآية من'  },
+    rangeTo:   { text: 'rangeToText',   other: 'rangeFrom', label: 'الآية إلى' },
+};
+
+function ayahById(id) {
+    id = Number(id);
+    if (!id || typeof QURAN_DATA === 'undefined') return null;
+    const g = QURAN_DATA[id];
+    if (g && g.id === id) return g;
+    return QURAN_DATA.find(i => i.id === id) || null;
+}
+
+// ⇒ { id, reason: '' | 'empty' | 'noNum' | 'none' | 'many', candidates, more, surah }
+function resolveAyahText(raw, hiddenID) {
+    const val = String(raw || '').trim();
+    const out = (o) => Object.assign({ id: 0, reason: '', candidates: [], more: false, surah: null }, o);
+    if (!val) return out({ reason: 'empty' });
+
+    const exact = window.AYAH_BY_LABEL && window.AYAH_BY_LABEL[val];
+    if (exact) return out({ id: exact });
+    if (typeof QURAN_DATA === 'undefined') return out({ reason: 'none' });
+
+    const q = parseAyahQuery(val);
+    const knownSurah = () => q.words.length > 0 && searchAyat(q.words.join(' '), null).length > 0;
+    if (q.num === null) return out({ reason: knownSurah() ? 'noNum' : 'none' });
+
+    // الرقم وحده: سورة القائمة أعلاه، وإلا سورة الحقل الآخر
+    let scope = window.CURRENT_SURAH || null;
+    if (!q.words.length && !scope) {
+        const f = AYAH_FIELDS[hiddenID];
+        const otherEl = f ? document.getElementById(f.other) : null;
+        const other = otherEl ? ayahById(otherEl.value) : null;
+        if (other) scope = other.s;
+    }
+    // رقمٌ بلا سورةٍ يُعرف منها ⇒ آيةٌ بهذا الرقم في كل سورة: لا اختيار يُعرض
+    if (!q.words.length && !scope && q.page === null && q.juz === null) return out({ reason: 'noSurah' });
+
+    let res = searchAyat(val, scope);
+    // سورةٌ مكتوبة غير المختارة أعلاه ⇒ المكتوب أولى
+    if (!res.length && scope && q.words.length) res = searchAyat(val, null);
+
+    if (res.length === 1) return out({ id: res[0].id });
+    if (res.length > 1)   return out({ reason: 'many', candidates: res.slice(0, 8), more: res.length > 8 });
+
+    // لا شيء: سورةٌ معروفة ورقمٌ أكبر من آياتها؟
+    let surah = null;
+    if (q.words.length) {
+        const ss = Array.from(new Set(searchAyat(q.words.join(' '), null).map(i => i.s)));
+        if (ss.length === 1 && window.SURAH_BY_NUM) surah = window.SURAH_BY_NUM[ss[0]];
+    }
+    return out({ reason: 'none', surah: surah });
+}
+
+function ayahProblemText(r, raw, label) {
+    const v = String(raw || '').trim();
+    if (r.reason === 'empty') return `اكتب «${label}»: اسم السورة ثم رقم الآية، مثل «البقرة 25» — أو حدّدها «من المصحف».`;
+    if (r.reason === 'noNum') return `ينقص رقم الآية: اكتبه بعد اسم السورة، مثل «${v} 12».`;
+    if (r.reason === 'noSurah') return `آية ${v} من أيّ سورة؟ اكتب اسم السورة معها، مثل «البقرة ${v}» — أو اختر السورة أعلاه.`;
+    if (r.reason === 'many')  return `«${v}» تطابق أكثر من آية — اكتب اسم السورة مع الرقم، أو اختر من القائمة.`;
+    if (r.surah) {
+        const count = (ayahById(r.surah.lastId) || {}).a || (r.surah.lastId - r.surah.firstId + 1);
+        return `سورة ${r.surah.name} آياتها ${count} — راجع رقم الآية.`;
+    }
+    return `لم أتعرّف على «${v}» — اكتب اسم السورة ثم رقم الآية، مثل «البقرة 25».`;
+}
+
+// سطرٌ صغير تحت الحقل يقول ما الناقص (null يُخفيه)
+function setAyahHint(hiddenID, r) {
+    const f = AYAH_FIELDS[hiddenID];
+    const t = f && document.getElementById(f.text);
+    if (!t) return;
+    const wrap = t.closest('.input-with-clear') || t.parentElement;
+    let hint = document.getElementById(hiddenID + 'Hint');
+    if (!r) { if (hint) hint.style.display = 'none'; return; }
+    if (!hint) {
+        hint = document.createElement('div');
+        hint.id = hiddenID + 'Hint';
+        hint.className = 'ayah-hint';
+        hint.style.cssText = 'font-size:.85em;color:#a15c00;margin-top:5px;line-height:1.5';
+        wrap.insertAdjacentElement('afterend', hint);
+    }
+    hint.textContent = '⚠️ ' + ayahProblemText(r, t.value, f.label);
+    hint.style.display = '';
+}
+
+// أثناء الكتابة: يُحدَّث الرقم المخفيّ بصمت (التنبيه عند مغادرة الحقل)
 function syncAyahID(textInput, hiddenID) {
-    const val    = String(textInput.value || '').trim();
     const hidden = document.getElementById(hiddenID);
     if (!hidden) return;
+    const r = resolveAyahText(textInput.value, hiddenID);
+    hidden.value = r.id || '';
+    setAyahHint(hiddenID, null);
+}
 
-    // المصدر الموثوق: خريطة (نص الآية ← ID) المبنية من QURAN_DATA كاملة،
-    // وليس خيارات القائمة لأنها مفلترة وقد لا تحتوي الآية المكتوبة.
-    let foundID = (window.AYAH_BY_LABEL && window.AYAH_BY_LABEL[val]) || "";
-
-    if (!foundID) {
-        document.querySelectorAll('#ayatList option').forEach(opt => {
-            if (opt.value === val) foundID = opt.dataset.id;
-        });
+// عند مغادرة الحقل أو الاختيار من القائمة: النصّ كاملًا أو سطر ما الناقص
+function finalizeAyahField(textInput, hiddenID) {
+    const hidden = document.getElementById(hiddenID);
+    if (!hidden) return;
+    const r = resolveAyahText(textInput.value, hiddenID);
+    hidden.value = r.id || '';
+    if (!r.id) {
+        setAyahHint(hiddenID, r.reason === 'empty' ? null : r);
+        return;
     }
+    const label = AYAH_REVERSE[r.id];
+    if (label && textInput.value !== label) textInput.value = label;
+    setAyahHint(hiddenID, null);
+    // الحقل الآخر رقمٌ وحده كان ينتظر هذه السورة
+    const f = AYAH_FIELDS[hiddenID];
+    const ot = document.getElementById(AYAH_FIELDS[f.other].text);
+    const oh = document.getElementById(f.other);
+    if (ot && oh && ot.value.trim() && !oh.value) finalizeAyahField(ot, f.other);
+}
 
-    hidden.value = foundID;
+// «أيّها تقصد؟» — يُرجع رقم الآية أو null
+function pickAyahCandidate(label, raw, candidates, more) {
+    return new Promise(resolve => {
+        let ov = document.getElementById('ayahPickModal');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'ayahPickModal';
+            ov.className = 'modal-overlay';
+            ov.setAttribute('role', 'dialog');
+            ov.setAttribute('aria-modal', 'true');
+            document.body.appendChild(ov);
+        }
+        const done = (id) => { ov.style.display = 'none'; ov.onclick = null; resolve(id || null); };
+        ov.innerHTML = `
+            <div class="modal-box">
+                <div class="modal-icon">📖</div>
+                <h4 class="modal-title">«${escapeHtml(label)}»: أيّ آيةٍ تقصد؟</h4>
+                <div class="modal-message">كتبتَ «${escapeHtml(String(raw).trim())}»${more ? ' — وهذه أوّل المطابقات؛ اكتب اسم السورة لتضييقها' : ''}</div>
+                <div class="ayah-pick-list" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin:10px 0">
+                    ${candidates.map(c => `<button type="button" class="modal-btn modal-cancel" data-id="${c.id}" style="width:100%;text-align:right">${escapeHtml(c.l)}</button>`).join('')}
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn modal-cancel" data-id="">رجوع للتعديل</button>
+                </div>
+            </div>`;
+        ov.onclick = (e) => {
+            if (e.target === ov) return done(null);
+            const b = e.target.closest && e.target.closest('button[data-id]');
+            if (b) done(Number(b.dataset.id) || null);
+        };
+        ov.style.display = 'flex';
+    });
+}
+
+// قبل الحفظ: يُفهم الحقلان، ويُسأل عند الالتباس، ويُشار إلى الحقل الناقص
+async function ensureAyahFields() {
+    for (const hid of ['rangeFrom', 'rangeTo']) {
+        const f = AYAH_FIELDS[hid];
+        const t = document.getElementById(f.text);
+        const h = document.getElementById(hid);
+        if (!t || !h) continue;
+
+        let r = resolveAyahText(t.value, hid);
+        if (!r.id && r.reason === 'many') {
+            const id = await pickAyahCandidate(f.label, t.value, r.candidates, r.more);
+            if (!id) { t.focus(); return false; }
+            r = { id: id };
+        }
+        if (!r.id) {
+            setAyahHint(hid, r);
+            await showAlert({ title: 'حقل «' + f.label + '»', icon: '📖', message: ayahProblemText(r, t.value, f.label) });
+            t.focus();
+            return false;
+        }
+        h.value = r.id;
+        if (AYAH_REVERSE[r.id]) t.value = AYAH_REVERSE[r.id];
+        setAyahHint(hid, null);
+    }
+    return true;
 }
 
 /**
@@ -3904,6 +4217,8 @@ function resetActivityForm() {
     document.getElementById('rangeToText').value = "";
     document.getElementById('rangeFrom').value = "";
     document.getElementById('rangeTo').value = "";
+    setAyahHint('rangeFrom', null);
+    setAyahHint('rangeTo', null);
 
     // إلغاء تصفية السورة
     const surahSel = document.getElementById('surahFilter');

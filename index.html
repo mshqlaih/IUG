@@ -305,8 +305,8 @@
                     <button type="button" class="mushaf-open-btn" onclick="openMushafPicker()" title="تحديد الآيات من المصحف"><i class="fas fa-book-quran"></i> من المصحف</button>
                 </label>
                 <div class="input-with-clear">
-                    <input list="ayatList" id="rangeFromText" placeholder="مثلاً: بقرة 155" onfocus="handleSmartSearch(this)" oninput="handleSmartSearch(this); syncAyahID(this, 'rangeFrom')">
-                    <span class="clear-btn" onclick="document.getElementById('rangeFromText').value='';document.getElementById('rangeFrom').value='';handleSmartSearch(document.getElementById('rangeFromText'))">✖</span>
+                    <input list="ayatList" id="rangeFromText" placeholder="مثلاً: بقرة 155" onfocus="handleSmartSearch(this)" oninput="handleSmartSearch(this); syncAyahID(this, 'rangeFrom')" onchange="finalizeAyahField(this, 'rangeFrom')">
+                    <span class="clear-btn" onclick="document.getElementById('rangeFromText').value='';document.getElementById('rangeFrom').value='';setAyahHint('rangeFrom',null);handleSmartSearch(document.getElementById('rangeFromText'))">✖</span>
                     <input type="hidden" id="rangeFrom">
                 </div>
             </div>
@@ -314,8 +314,8 @@
             <div class="field">
                 <label>الآية إلى</label>
                 <div class="input-with-clear">
-                    <input list="ayatList" id="rangeToText" placeholder="مثلاً: ص 20" onfocus="handleSmartSearch(this)" oninput="handleSmartSearch(this);syncAyahID(this, 'rangeTo')">
-                    <span class="clear-btn" onclick="document.getElementById('rangeToText').value='';document.getElementById('rangeTo').value='';handleSmartSearch(document.getElementById('rangeToText'))">✖</span>
+                    <input list="ayatList" id="rangeToText" placeholder="مثلاً: ص 20" onfocus="handleSmartSearch(this)" oninput="handleSmartSearch(this);syncAyahID(this, 'rangeTo')" onchange="finalizeAyahField(this, 'rangeTo')">
+                    <span class="clear-btn" onclick="document.getElementById('rangeToText').value='';document.getElementById('rangeTo').value='';setAyahHint('rangeTo',null);handleSmartSearch(document.getElementById('rangeToText'))">✖</span>
                     <input type="hidden" id="rangeTo">
                 </div>
             </div>

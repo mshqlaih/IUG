@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.33';
+const CACHE_NAME = 'quran-app-v2.34';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -322,7 +322,10 @@ function syncRecords() {
             ? upload(unsynced[cursor++]).then(pump, pump) : null;
           const pumps = [];
           for (let k = 0; k < Math.min(4, unsynced.length); k++) pumps.push(pump());
-          Promise.all(pumps).then(resolve).catch(reject);
+          // (2026-11-17) الصفحة تحدّث شارة «N للرفع» بعد الدفعة — نجحت أو فشلت
+          const done = () => self.clients.matchAll().then(cs =>
+              cs.forEach(c => c.postMessage({ type: 'SYNC_DONE' }))).catch(() => {});
+          Promise.all(pumps).then(() => done().then(resolve)).catch(reject);
         };
       };
     };
