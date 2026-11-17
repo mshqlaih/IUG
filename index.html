@@ -536,9 +536,31 @@
                 <div class="card" style="background: #f8f9fa; border: 1px solid #dee2e6;">
     <label class="fw-bold mb-2"><i class="fas fa-filter" style="margin-left: 6px;"></i>تصفية السجلات</label>
     <div class="grid">
+        <!-- 📅 (2026-11-17) من – إلى، والتاريخ يُعرض بأرقامٍ عربية (0-9) في زرٍّ
+             فوقه حقل date شفّاف — حقل المتصفّح يكتبه بالهندية (١١/١٧/٢٠٢٦) -->
         <div class="field">
-            <label>عرض حسب التاريخ</label>
-            <input type="date" id="filterDate" onchange="displayRecords()">
+            <label>الفترة</label>
+            <div class="range-row">
+                <span class="range-item">
+                    <span class="range-lbl">من</span>
+                    <span class="date-pick-wrap">
+                        <span class="date-pick" id="filterDateFromTxt"></span>
+                        <input type="date" id="filterDateFrom" class="day-input" onclick="pickActDay(event)" onchange="onReportRange('from')" aria-label="من تاريخ">
+                    </span>
+                </span>
+                <span class="range-item">
+                    <span class="range-lbl">إلى</span>
+                    <span class="date-pick-wrap">
+                        <span class="date-pick" id="filterDateToTxt"></span>
+                        <input type="date" id="filterDateTo" class="day-input" onclick="pickActDay(event)" onchange="onReportRange('to')" aria-label="إلى تاريخ">
+                    </span>
+                </span>
+            </div>
+            <div class="range-quick">
+                <button type="button" onclick="setReportPreset('today')">اليوم</button>
+                <button type="button" onclick="setReportPreset('week')">هذا الأسبوع</button>
+                <button type="button" onclick="setReportPreset('month')">هذا الشهر</button>
+            </div>
         </div>
         <div class="field">
             <label>بحث برقم الطالب أو اسمه</label>

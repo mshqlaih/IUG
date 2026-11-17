@@ -2374,8 +2374,7 @@ function pickActDay(ev) {
    التبويب مخفيٌّ من الشريط، والطلبة يبقى مضيئًا فيه ما دام التقرير مفتوحًا.
    يُفتح على اليوم المعروض في سطر «نشاط اليوم». */
 function openActivityReport() {
-    const fd = document.getElementById('filterDate');
-    if (fd) fd.value = actDay();
+    setReportRange(actDay(), actDay());
     openTab('logsTab', document.querySelector('.tab-btn[data-tab="studentsTab"]'));
     displayRecords();
     if (typeof _helpMarkDots === 'function') { try { _helpMarkDots(); } catch (_) {} }
@@ -2835,7 +2834,62 @@ function refreshAll() {
         .catch(err => console.error("❌ خطأ في تحديث الواجهة:", err));
 }
 
-document.getElementById('filterDate').value = ymdLocal(new Date());
+/* 📅 (2026-11-17) فترة تقرير الأنشطة «من – إلى». التاريخ يُعرض في زرٍّ بأرقامٍ
+   عربية (17/11/2026)، والحقل الأصليّ شفّافٌ فوقه — حقل المتصفّح يكتبه بالأرقام
+   الهندية في صفحةٍ lang="ar". الفارغ = بلا حدّ. */
+function fmtDmy(ymd) {
+    if (!ymd) return '';
+    const p = String(ymd).split('-');
+    return p.length === 3 ? Number(p[2]) + '/' + Number(p[1]) + '/' + p[0] : String(ymd);
+}
+function reportRange() {
+    const f = (document.getElementById('filterDateFrom') || {}).value || '';
+    const t = (document.getElementById('filterDateTo') || {}).value || '';
+    return { from: f, to: t };
+}
+function paintReportRange() {
+    const r = reportRange();
+    const a = document.getElementById('filterDateFromTxt');
+    const b = document.getElementById('filterDateToTxt');
+    if (a) a.textContent = fmtDmy(r.from);
+    if (b) b.textContent = fmtDmy(r.to);
+}
+function setReportRange(from, to) {
+    const a = document.getElementById('filterDateFrom');
+    const b = document.getElementById('filterDateTo');
+    if (a) a.value = from || '';
+    if (b) b.value = to || '';
+    paintReportRange();
+}
+// «من» بعد «إلى» ⇒ يُسحب الطرف الآخر إليه (لا فترة مقلوبة)
+function onReportRange(which) {
+    const r = reportRange();
+    if (r.from && r.to && r.from > r.to) {
+        if (which === 'from') r.to = r.from; else r.from = r.to;
+    }
+    setReportRange(r.from, r.to);
+    displayRecords();
+}
+// الأسبوع يبدأ بالسبت
+function setReportPreset(kind) {
+    const now = new Date(), today = ymdLocal(now);
+    let from = today;
+    if (kind === 'week') {
+        const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+        from = ymdLocal(d);
+    } else if (kind === 'month') {
+        from = ymdLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+    }
+    setReportRange(from, today);
+    displayRecords();
+}
+// يومٌ واحد إن كانت الفترة يومًا (للنصّ المعتاد)، وإلا null
+function reportSingleDay() {
+    const r = reportRange();
+    return r.from && r.from === r.to ? r.from : null;
+}
+
+setReportRange(ymdLocal(new Date()), ymdLocal(new Date()));
 
 function translateLookup(code, value) {
     if (value === null || value === undefined) return "";
@@ -2908,7 +2962,7 @@ function displayRecords() {
     lastDisplayedData = [];
     lastDisplayedRecords = [];
 
-    const fDate = document.getElementById('filterDate').value;
+    const fRange = reportRange();
     const fID   = document.getElementById('filterStudentID').value;
 
     // أولاً: جلب الطلاب
@@ -2939,7 +2993,10 @@ function displayRecords() {
                    const studentName = studentsMap[r.student] || r.student || "غير مدخل";
                    const currentTeacherId = String(r.teacher).replace(/[\\"]/g, '').trim();
                    const teacherName = r.teacherName || teachersMap[currentTeacherId] || currentTeacherId;
-                    const matchesDate = !fDate || r.date === fDate;
+                    // r.date «YYYY-MM-DD» ⇒ المقارنة النصّية مقارنة تاريخ
+                    const rd = String(r.date || '');
+                    const matchesDate = (!fRange.from || rd >= fRange.from) &&
+                                        (!fRange.to   || rd <= fRange.to);
                     // r.student رقم وليس نصاً — التحويل ضروري وإلا انهار الفلتر
                     const matchesID   = !fID || String(r.student).includes(fID) ||
                                         studentName.indexOf(fID) !== -1;
@@ -3015,7 +3072,7 @@ function displayRecords() {
 
 
 function resetFilters() {
-    document.getElementById('filterDate').value = ymdLocal(new Date());
+    setReportRange(ymdLocal(new Date()), ymdLocal(new Date()));
     document.getElementById('filterStudentID').value = "";
     displayRecords();
 }
@@ -4474,24 +4531,30 @@ async function exportAndSharePDF() {
 }
 
 function getSelectedDate() {
-  const v = document.getElementById("filterDate").value;
-  return v && v.trim() !== "" ? v : null;
+  return reportSingleDay();
 }
 
 function getFileDatePart() {
-  const d = getSelectedDate();
-  return d ? d : "ALL_DATES";
+  const r = reportRange();
+  if (!r.from && !r.to) return "ALL_DATES";
+  if (r.from === r.to) return r.from;
+  return (r.from || "START") + "_" + (r.to || "END");
 }
 
+// «17 نوفمبر 2026» أو «1 نوفمبر 2026 – 17 نوفمبر 2026» — بأرقامٍ عربية لا هندية
 function getArabicDateText() {
-  const d = getSelectedDate();
-  if (!d) return "جميع التواريخ";
-
-  return new Date(d).toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "long",
-    day: "numeric"
-  });
+  const r = reportRange();
+  const long = (ymd) => {
+    const p = ymd.split("-").map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString("ar-u-nu-latn", {
+      year: "numeric", month: "long", day: "numeric"
+    });
+  };
+  if (!r.from && !r.to) return "جميع التواريخ";
+  if (r.from === r.to) return long(r.from);
+  if (!r.from) return "حتى " + long(r.to);
+  if (!r.to) return "من " + long(r.from);
+  return long(r.from) + " – " + long(r.to);
 }
 function clean(value, fallback = "") {
   if (value === undefined || value === null || Number.isNaN(value)) {
@@ -6255,7 +6318,8 @@ function buildReportLine(r) {
 async function buildClassicReportText(records, day) {
     // من «طلابي»: سجلّات اليوم المعروض؛ وإلا ما في التقرير
     const recs = records || lastDisplayedRecords;
-    const dateInput = day || document.getElementById("filterDate").value;
+    // النصّ المعتاد ليومٍ واحد؛ لفترةٍ تبقى البطاقة والمنسّق (يجمعان بالأيام)
+    const dateInput = day || reportSingleDay();
     if (!dateInput || !recs.length) return null;
 
     const selectedDate = new Date(dateInput);

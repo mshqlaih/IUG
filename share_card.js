@@ -112,6 +112,10 @@
       d.centerName = c && c.centerName ? String(c.centerName).trim() : '';
       d.centerNo = c && c.centerNo != null ? Number(c.centerNo) : null;
       d.dateLabel = dayLabel(d.date);
+      // 👥 (2026-11-17) طلاب الحلقة على الجهاز — مقام الحضور: من لم يُدخَل له
+      // نشاطٌ في يومه لم يحضر (كان المقام من سُجّل لهم ⇒ «3 / 3 · 100٪»)
+      d.roster = d.circleNo ? studs.filter(function (x) { return Number(x.circleNo) === d.circleNo; })
+        .map(function (x) { return Number(x.id); }) : [];
       return d;
     });
     out.sort(function (a, b) { return (a.date - b.date) || a.circleName.localeCompare(b.circleName, 'ar'); });
@@ -149,8 +153,9 @@
     var exams = d.acts.filter(function (a) { return isPart(typeOf(a)); })
       .sort(function (a, b) { return (parseFloat(b.mark) || 0) - (parseFloat(a.mark) || 0); });
     var P = Object.keys(present).length, E = Object.keys(excused).length, U = Object.keys(unexcused).length;
-    var total = P + E + U;
-    return { present: P, excused: E, unexcused: U, silent: Object.keys(silent).length, total: total,
+    var N = (d.roster || []).filter(function (k) { return !present[k] && !excused[k] && !unexcused[k]; }).length;
+    var total = P + E + U + N;
+    return { present: P, excused: E, unexcused: U, unrecorded: N, silent: Object.keys(silent).length, total: total,
       percent: total ? Math.round(P * 100 / total) : 0, pages: pages, review: review, excellent: excellent, exams: exams, top: top };
   }
 
@@ -172,6 +177,7 @@
     lines.push('');
     lines.push('> 📊 *حصاد اليوم*');
     lines.push('> ✅ الحضور *' + s.present + ' / ' + s.total + '* · ' + s.percent + '٪' + (s.silent > 0 ? ' · منهم لم يُسمّع *' + s.silent + '*' : ''));
+    if (s.unrecorded > 0) lines.push('> ⚪ لم يُسجَّل لهم شيء *' + s.unrecorded + '*');
     var l3 = [];
     if (s.pages > 0) l3.push('📖 صفحات التسميع *' + fmtPages(s.pages) + '*');
     if (s.review > 0) l3.push('🔁 المراجعة *' + fmtPages(s.review) + '*');
@@ -491,10 +497,12 @@
     if (s.silent > 0) chips.push(['منهم لم يُسمّع ' + s.silent, '#EDEFEA', '#4F5D55']);
     if (s.excused > 0) chips.push(['بعذر ' + s.excused, '#FBF0D6', '#8A6212']);
     if (s.unexcused > 0) chips.push(['بلا عذر ' + s.unexcused, '#F8E0DC', '#9A2F22']);
+    if (s.unrecorded > 0) chips.push(['لم يُسجَّل ' + s.unrecorded, '#EEF0F3', '#5B6472']);
     var cx = W - m;
     chips.forEach(function (c) {
       ctx.font = font(14, true);
       var w = ctx.measureText(c[0]).width + 26;
+      if (cx - w < m) { cx = W - m; y += 38; }   // سطرٌ ثانٍ ولا يخرج عن البطاقة
       rrect(ctx, cx - w, y, w, 30, 15); ctx.fillStyle = c[1]; ctx.fill();
       textR(ctx, c[0], cx - 13, y + 7, 14, c[2], true);
       cx -= w + 8;
