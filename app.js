@@ -6166,6 +6166,29 @@ async function _pullRecordsFromServer(opts) {
             console.warn(`⚠️ تُجوهل ${missingStudentNo} طالباً لأن السيرفر لم يُرجع لهم student_no`);
         }
 
+        // 🧹 (2026-11-17) من لم يعد في جواب السيرفر (نُقل، أو تغيّرت حالته من غير
+        //    «منتظم/إضافي») يُحذف من الجهاز — كان يبقى ظاهرًا ولو خرج ودخل، فالخروج
+        //    لا يمحو بيانات المستخدم نفسه. يُبقى من له نشاطٌ لم يُرفع بعد.
+        if (Array.isArray(studentsData.items) && !studentsData.hasMore && !missingStudentNo) {
+            const keep = {};
+            for (const s of remoteStudents) {
+                const no = Number(s.student_no || s.studentno || s.studentNo || s.STUDENT_NO || 0);
+                if (no) keep[no] = true;
+            }
+            const [localStu, localRec] = await Promise.all([
+                new Promise(r => { const q = storeStu.getAll(); q.onsuccess = e => r(e.target.result || []); q.onerror = () => r([]); }),
+                new Promise(r => { const q = storeRec.getAll(); q.onsuccess = e => r(e.target.result || []); q.onerror = () => r([]); }),
+            ]);
+            const pending = {};
+            localRec.forEach(x => { if (!x.synced) pending[Number(x.student)] = true; });
+            let dropped = 0;
+            for (const s of localStu) {
+                const id = Number(s.id);
+                if (!keep[id] && !pending[id]) { storeStu.delete(s.id); dropped++; }
+            }
+            if (dropped) console.log(`🧹 حُذف ${dropped} طالبًا لم يعودوا في حلقاتك`);
+        }
+
         // --- حفظ السجلات ---
         let translatedByIdNo = 0;
 
