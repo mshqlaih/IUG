@@ -2546,20 +2546,24 @@ function studentCardHtml(s) {
         const ids = [];
         if (s.idNo) ids.push('الهوية ' + s.idNo);
         if (s.idNo && String(s.idNo) !== String(id)) ids.push('رقم الطالب ' + id);
-        body = '<div class="st-acts">' +
+        // (2026-11-18 طلب المستخدم) ما سُجّل له اليوم سطرٌ وحده فوق الأزرار، ثم
+        //   الأزرار الخمسة، ثم اختبار الجزء والسرد والترشيح معًا في سطرٍ واحد
+        body = (dayActs.length
+                // شارات نشاط اليوم: لمسُها يعدّل، والسلّة تحذف، والسحابة: لم يُرفع
+                ? '<div class="st-more st-day">' + dayActs.map(actChipHtml).join('') + '</div>'
+                : '') +
+            '<div class="st-acts">' +
             btn(1, 'rec', 'fa-microphone', activityTypeName(1)) +
             btn(2, 'rec', 'fa-rotate', activityTypeName(2)) +
             btn(3, 'ok', 'fa-user-check', 'حاضر', true) +
             btn(4, 'warn', 'fa-envelope', 'بعذر', true) +
             btn(5, 'bad', 'fa-xmark', 'غائب', true) +
-            '</div><div class="st-more">' +
-            // شارات نشاط اليوم: لمسُها يعرض السجلّ ويعدّله ويحذفه ويرفعه
-            dayActs.map(actChipHtml).join('') +
+            '</div><div class="st-tools">' +
             `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 6)"><i class="fas fa-trophy"></i> ${escapeHtml(activityTypeName(6))}</button>` +
             `<button type="button" class="st-chip" onclick="${recFn}(${id}, 7)"><i class="fas fa-book-open"></i> ${escapeHtml(activityTypeName(7))}</button>` +
             `<button type="button" class="st-chip" onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check"></i> ترشيح للاختبار</button>` +
-            (ids.length ? `<span class="st-ids">${escapeHtml(ids.join(' · '))}</span>` : '') +
-            '</div>';
+            '</div>' +
+            (ids.length ? `<div class="st-more"><span class="st-ids">${escapeHtml(ids.join(' · '))}</span></div>` : '');
     }
 
     return `
