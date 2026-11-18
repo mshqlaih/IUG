@@ -2332,7 +2332,11 @@ async function openActChipMenu(id) {
         if (!b) return;
         o.remove();
         if (b.dataset.do === 'sync') uploadUnsyncedFromStudents();
-        else if (b.dataset.do === 'edit') editRecord(id);
+        // ✍️ التسميع والمراجعة والسرد تُعدَّل في صفّ الطالب نفسه
+        else if (b.dataset.do === 'edit') {
+            if (window.QmcRowEntry && QmcRowEntry.canEdit(r) && document.getElementById('stRow' + Number(r.student))) QmcRowEntry.edit(r);
+            else editRecord(id);
+        }
         else if (b.dataset.do === 'delete') deleteRecord(id);
     });
     document.body.appendChild(o);
@@ -2451,7 +2455,12 @@ function renderDayStrip(students) {
         '<div class="day-filter">' +
         [['all', 'الكل', total], ['none', 'لم يُرصد', noneN], ['done', 'حضر', doneN], ['abs', 'غاب', absent]].map(f =>
             `<button type="button" class="${_dayFilter === f[0] ? 'on' : ''}" aria-pressed="${_dayFilter === f[0]}" onclick="setDayFilter('${f[0]}')">${f[1]} ${f[2]}</button>`).join('') +
-        '</div><div class="day-strip-acts">';
+        '</div>' +
+        (window.QmcRowEntry
+            ? `<button type="button" class="row-next-switch" role="switch" aria-checked="${QmcRowEntry.autoNext()}" onclick="toggleRowAutoNext()">` +
+              '<i aria-hidden="true"></i>بعد الحفظ افتح الطالب التالي</button>'
+            : '') +
+        '<div class="day-strip-acts">';
     if (!isActToday()) h += '<button type="button" onclick="showActDay(null)"><i class="fas fa-calendar-day"></i> عودة إلى اليوم</button>';
     if (prev) h += `<button type="button" onclick="showActDay('${prev}')"><i class="fas fa-clock-rotate-left"></i> آخر يومٍ مسجَّل: ${escapeHtml(actDayLabel(prev))}</button>`;
     if (unsynced) h += `<button type="button" class="warn" onclick="uploadUnsyncedFromStudents()"><i class="fas fa-cloud-arrow-up"></i> رفع ${unsynced} لم يُرفع</button>`;
@@ -2469,17 +2478,23 @@ function studentCardHtml(s) {
        الاسم وسطرٌ واحد وحالة اليوم، والأزرار بأسمائها للصفّ المفتوح وحده. */
     const st = dayStateOf(dayActs);
     const open = _openStudentRow === id;
-    const name = fullStudentName(s) || ('الطالب ' + id);
+    // 👤 (2026-11-18) الاسم الثلاثيّ من حقوله (الأول والأب والعائلة)، يلتفّ ولا يُقصّ
+    const name = tripleStudentName(s) || fullStudentName(s) || ('الطالب ' + id);
+    // ✍️ الرصد في الصفّ نفسه (row_entry.js) — «تسميع/مراجعة/سرد» لا تفتح اللوحة
+    const inline = open && window.QmcRowEntry ? QmcRowEntry.bodyHtml(id) : null;
+    const recFn = window.QmcRowEntry ? 'QmcRowEntry.open' : 'openActivityForStudent';
     const sub = dayActs.length ? dayActs.map(actChipLabel).join(' · ')
         : !isActToday() ? 'لا نشاط له ' + actDayLabel(actDay())
         : act ? 'آخر نشاط ' + actDayLabel(String(act.date)) + ' · ' + actChipLabel(act)
         : 'لا يوجد نشاط مسجّل';
 
     let body = '';
-    if (open) {
+    if (inline) {
+        body = (dayActs.length ? '<div class="st-more">' + dayActs.map(actChipHtml).join('') + '</div>' : '') + inline;
+    } else if (open) {
         const btn = (t, cls, icon, text, quick) =>
             `<button type="button" class="st-act ${cls}" title="${escapeHtml(activityTypeName(t))}" ` +
-            `onclick="${quick ? 'quickSaveActivity' : 'openActivityForStudent'}(${id}, ${t})">` +
+            `onclick="${quick ? 'quickSaveActivity' : recFn}(${id}, ${t})">` +
             `<i class="fas ${icon}"></i><span>${escapeHtml(text)}</span></button>`;
         // لا نعرض «رقم الطالب» إن كان هو نفسه رقم الهوية — تكرار بلا معنى
         const ids = [];
@@ -2495,14 +2510,14 @@ function studentCardHtml(s) {
             // شارات نشاط اليوم: لمسُها يعرض السجلّ ويعدّله ويحذفه ويرفعه
             dayActs.map(actChipHtml).join('') +
             `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 6)"><i class="fas fa-trophy"></i> ${escapeHtml(activityTypeName(6))}</button>` +
-            `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 7)"><i class="fas fa-book-open"></i> ${escapeHtml(activityTypeName(7))}</button>` +
+            `<button type="button" class="st-chip" onclick="${recFn}(${id}, 7)"><i class="fas fa-book-open"></i> ${escapeHtml(activityTypeName(7))}</button>` +
             `<button type="button" class="st-chip" onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check"></i> ترشيح للاختبار</button>` +
             (ids.length ? `<span class="st-ids">${escapeHtml(ids.join(' · '))}</span>` : '') +
             '</div>';
     }
 
     return `
-    <div class="st-row${open ? ' open' : ''}" id="stRow${id}">
+    <div class="st-row${open ? ' open' : ''}${inline ? ' entering' : ''}" id="stRow${id}">
         <button type="button" class="st-main" aria-expanded="${open}" onclick="toggleStudentRow(${id})">
             <span class="st-av">${escapeHtml(name.charAt(0))}</span>
             <span class="st-text"><span class="st-name">${escapeHtml(name)}</span><span class="st-sub">${escapeHtml(sub)}</span></span>
@@ -2572,8 +2587,16 @@ function renderStudentCards() {
     if (_dayFilter !== 'all') {
         list = list.filter(s => dayGroupOf(_dayActsCache[Number(s.id)]) === _dayFilter);
     }
+    // الصفّ الذي يُرصد فيه يبقى ظاهرًا وإن خرج من المرشّح (لا يختفي تحت اليد)
+    const entering = window.QmcRowEntry ? QmcRowEntry.active() : null;
+    if (entering && !list.some(s => Number(s.id) === entering)) {
+        const s = scoped.find(x => Number(x.id) === entering);
+        if (s) list.unshift(s); else QmcRowEntry.close();
+    }
     _shownStudentIds = list.map(s => Number(s.id));
+    const focus = window.QmcRowEntry ? QmcRowEntry.focusMark() : null;
     wrap.innerHTML = list.map(studentCardHtml).join('');
+    if (focus) QmcRowEntry.focusRestore(focus);
     updatePendingPill();
 
     if (empty) {
@@ -2636,6 +2659,8 @@ let _shownStudentIds = [];     // ترتيب المعروض — لاختيار �
 function toggleStudentRow(studentId) {
     const id = Number(studentId);
     _openStudentRow = (_openStudentRow === id) ? null : id;
+    // الرصد المضمَّن يُغلق بإغلاق صفّه أو فتح غيره
+    if (window.QmcRowEntry && QmcRowEntry.active() !== null) QmcRowEntry.close();
     renderStudentCards();
     const el = document.getElementById('stRow' + id);
     if (el && _openStudentRow === id && el.scrollIntoView) {
@@ -2646,13 +2671,24 @@ function toggleStudentRow(studentId) {
 function setDayFilter(f) {
     _dayFilter = f;
     _openStudentRow = null;
+    if (window.QmcRowEntry) QmcRowEntry.close();
     renderStudentCards();
+}
+
+// ⏭ (2026-11-18) مفتاح المعلّم: بعد الحفظ يُفتح التالي، أو يُغلق الصفّ ويختار بنفسه
+function toggleRowAutoNext() {
+    if (!window.QmcRowEntry) return;
+    const on = !QmcRowEntry.autoNext();
+    QmcRowEntry.setAutoNext(on);
+    renderStudentCards();
+    showToast(on ? 'بعد الحفظ يُفتح الطالب التالي' : 'بعد الحفظ يُغلق الصفّ، وتختار الطالب بنفسك');
 }
 
 // بعد رصد طالب: يُفتح التالي في القائمة ممّن لم يُرصد له شيء في اليوم المعروض
 function advanceStudentRow(studentId) {
     const ids = _shownStudentIds, at = ids.indexOf(Number(studentId));
     _openStudentRow = null;
+    if (window.QmcRowEntry && !QmcRowEntry.autoNext()) return;
     for (let k = 1; k <= ids.length; k++) {
         const id = ids[(Math.max(at, 0) + k) % ids.length];
         if (id !== Number(studentId) && !((_dayActsCache[id] || []).length)) { _openStudentRow = id; return; }
