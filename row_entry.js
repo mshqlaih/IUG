@@ -292,12 +292,9 @@
         h += '<div class="re-row"><span class="re-lbl">الأخطاء</span>' +
             stepper('err', k, '<output class="' + (e.errors ? 'has' : '') + '">' + e.errors + '</output>', 'خطأٌ أقلّ', 'خطأٌ أكثر') + '</div>';
 
-        if (e.noteOpen || e.note) {
-            h += '<input type="text" class="re-note" data-ref="note" data-k="' + k + '" id="reNote' + k + '" maxlength="400" ' +
-                'value="' + esc(e.note) + '" placeholder="ملاحظة (اختياري)">';
-        } else {
-            h += '<div><button type="button" class="re-link" data-re="note-open" data-k="' + k + '"><i class="fas fa-plus"></i> ملاحظة</button></div>';
-        }
+        // الملاحظة حقلٌ ظاهر (11-18: زرّ «+ ملاحظة» كان يأخذ السطر نفسه)
+        h += '<input type="text" class="re-note" data-ref="note" data-k="' + k + '" id="reNote' + k + '" maxlength="400" ' +
+            'value="' + esc(e.note) + '" placeholder="ملاحظة (اختياري)">';
         if (e.err) h += '<div class="re-err">' + esc(e.err) + '</div>';
         return h + '</div>';
     }

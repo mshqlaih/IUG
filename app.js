@@ -1973,7 +1973,7 @@ async function offerSecondReview(record, first, onSaved) {
         return showAlert({ title: "لا ثالثة", message: "سُجّلت للطالب مراجعتان في هذا اليوم.", icon: "⚠️" });
     }
     const range = (first.fromRange && first.toRange)
-        ? `\n${AYAH_REVERSE[first.fromRange] || ''} — ${AYAH_REVERSE[first.toRange] || ''}`
+        ? `\n${ayahRangeLabel(first.fromRange, first.toRange, ' — ')}`
         : '';
     const ok = await showConfirm({
         title: "مراجعة ثانية؟",
@@ -2216,13 +2216,14 @@ function formatActivitySummary(r) {
     if (ATTENDANCE_ONLY_TYPES.indexOf(type) !== -1) {
         range = "";                            // حضور/غياب: بلا مدى إطلاقاً
     } else if (isPartMode) {
-        if (r.partFrom && r.partTo) range = `من الجزء ${r.partFrom} إلى الجزء ${r.partTo}`;
+        // جزءٌ واحد ⇒ يُذكر مرّةً (11-18)
+        if (r.partFrom && r.partTo && Number(r.partFrom) === Number(r.partTo)) range = `الجزء ${r.partFrom}`;
+        else if (r.partFrom && r.partTo) range = `من الجزء ${r.partFrom} إلى الجزء ${r.partTo}`;
         else if (r.partFrom)        range = `من الجزء ${r.partFrom}`;
     } else {
-        const from = shortAyahLabel(r.fromRange);
-        const to   = shortAyahLabel(r.toRange);
-        if (from && to) range = `من ${from} إلى ${to}`;
-        else if (from)  range = `من ${from}`;
+        // السورة نفسها ⇒ «المطففين (1-9)»، وإلا «من … إلى …»
+        range = ayahRangeLabel(r.fromRange, r.toRange, ' إلى ');
+        if (range && range.indexOf(' إلى ') !== -1) range = 'من ' + range;
     }
 
     const grade = r.rating ? `تقدير: ${translateLookup("ACTIVITY_GRADE", r.rating)}` : "";
@@ -2285,13 +2286,16 @@ function dayActsByStudent() {
     return out;
 }
 
-// «تسميع: البقرة (155) – البقرة (176)» — ونصّ النوع وحده للحضور والغياب
+// «تسميع: البقرة (155-176)» — ونصّ النوع وحده للحضور والغياب
 function actChipLabel(r) {
     const t = Number(r.type);
     const name = activityTypeName(t);
     let from = '', to = '';
     if (t === 6 || t === 7) { from = JUZ_NAMES[r.partFrom] || ''; to = JUZ_NAMES[r.partTo] || ''; }
-    else if (ATTENDANCE_ONLY_TYPES.indexOf(t) === -1) { from = compactAyahLabel(r.fromRange); to = compactAyahLabel(r.toRange); }
+    else if (ATTENDANCE_ONLY_TYPES.indexOf(t) === -1) {
+        const range = ayahRangeLabel(r.fromRange, r.toRange, ' – ');
+        return range ? `${name}: ${range}` : name;
+    }
     if (!from) return name;
     return (!to || to === from) ? `${name}: ${from}` : `${name}: ${from} – ${to}`;
 }
@@ -2413,13 +2417,42 @@ async function shareActDay() {
     if (msg) shareTextSafely(msg);
 }
 
+// ⛶ (2026-11-18) التركيز على الرصد: يُطوى رأس الشاشة والبحث وسطر اليوم إلى
+//    سطرٍ واحد بالعدد والمرشّح — كتكبير خطة الإنجاز في الصفوة. يُتذكَّر على الجهاز.
+function rasdFocus() {
+    try { return localStorage.getItem('rasd_focus:' + getCurrentUser()) === '1'; } catch (_) { return false; }
+}
+function toggleRasdFocus() {
+    const on = !rasdFocus();
+    try { localStorage.setItem('rasd_focus:' + getCurrentUser(), on ? '1' : '0'); } catch (_) {}
+    renderStudentCards();
+}
+
 function renderDayStrip(students) {
     const el = document.getElementById('dayStrip');
     if (!el) return;
+    const tab = document.getElementById('studentsTab');
+    const focus = rasdFocus();
+    if (tab) tab.classList.toggle('rasd-focus', focus);
     if (!students.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
     el.style.display = '';
     const byStu = dayActsByStudent();
     const day = actDay(), label = actDayLabel(day);
+    const focusBtn = `<button type="button" class="focus-btn" onclick="toggleRasdFocus()" title="${focus ? 'إظهار البحث وسطر اليوم' : 'التركيز على الرصد'}" ` +
+        `aria-label="${focus ? 'إظهار البحث وسطر اليوم' : 'التركيز على الرصد'}"><i class="fas ${focus ? 'fa-compress' : 'fa-expand'}"></i></button>`;
+    if (focus) {
+        let doneF = 0;
+        students.forEach(s => { if ((byStu[Number(s.id)] || []).length) doneF++; });
+        const totalF = students.length;
+        el.innerHTML = `<div class="day-strip compact${isActToday() ? '' : ' past'}"><div class="day-strip-top">` +
+            `<b>${escapeHtml(label)} · رُصد ${doneF} من ${totalF}</b>${focusBtn}</div>` +
+            `<div class="day-prog"><i style="width:${totalF ? Math.round(doneF / totalF * 100) : 0}%"></i></div>` +
+            '<div class="day-filter">' +
+            [['all', 'الكل', totalF], ['none', 'لم يُرصد', totalF - doneF], ['rec', 'رُصد', doneF]].map(f =>
+                `<button type="button" class="${_dayFilter === f[0] ? 'on' : ''}" aria-pressed="${_dayFilter === f[0]}" onclick="setDayFilter('${f[0]}')">${f[1]} ${f[2]}</button>`).join('') +
+            '</div></div>';
+        return;
+    }
     let recited = 0, present = 0, absent = 0, unsynced = 0, any = 0;
     students.forEach(s => {
         const acts = byStu[Number(s.id)] || [];
@@ -2449,11 +2482,12 @@ function renderDayStrip(students) {
         }
         if (absent) h += `<b style="color:#c62828">غاب ${absent}</b>`;
     }
+    h += focusBtn;
     // (2026-11-14) أين وصلتُ؟ شريط تقدّم، وشرائح تُبقي مجموعةً واحدة (لم يُرصد…)
     const total = students.length, doneN = recited + present, noneN = Math.max(0, total - doneN - absent);
     h += `</div><div class="day-prog" title="رُصد ${total - noneN} من ${total}"><i style="width:${total ? Math.round((total - noneN) / total * 100) : 0}%"></i></div>` +
         '<div class="day-filter">' +
-        [['all', 'الكل', total], ['none', 'لم يُرصد', noneN], ['done', 'حضر', doneN], ['abs', 'غاب', absent]].map(f =>
+        [['all', 'الكل', total], ['none', 'لم يُرصد', noneN], ['rec', 'رُصد', total - noneN], ['done', 'حضر', doneN], ['abs', 'غاب', absent]].map(f =>
             `<button type="button" class="${_dayFilter === f[0] ? 'on' : ''}" aria-pressed="${_dayFilter === f[0]}" onclick="setDayFilter('${f[0]}')">${f[1]} ${f[2]}</button>`).join('') +
         '</div>' +
         (window.QmcRowEntry
@@ -2585,7 +2619,11 @@ function renderStudentCards() {
     renderDayStrip(scoped);
     // مرشّح حالة اليوم (شرائح سطر «نشاط اليوم»)
     if (_dayFilter !== 'all') {
-        list = list.filter(s => dayGroupOf(_dayActsCache[Number(s.id)]) === _dayFilter);
+        // rec (11-18) = من رُصد له شيء: حضر أو غاب
+        list = list.filter(s => {
+            const g = dayGroupOf(_dayActsCache[Number(s.id)]);
+            return _dayFilter === 'rec' ? g !== 'none' : g === _dayFilter;
+        });
     }
     // الصفّ الذي يُرصد فيه يبقى ظاهرًا وإن خرج من المرشّح (لا يختفي تحت اليد)
     const entering = window.QmcRowEntry ? QmcRowEntry.active() : null;
@@ -2604,6 +2642,7 @@ function renderStudentCards() {
         if (scoped.length) {
             empty.textContent = q ? 'لا نتائج مطابقة لبحثك'
                 : _dayFilter === 'none' ? 'رُصد الجميع — بارك الله فيك'
+                : _dayFilter === 'rec' ? 'لم يُرصد أحدٌ بعد'
                 : 'لا أحد في هذا التصنيف';
         } else if (_studentsCache.length) {
             // عنده طلبة لكن لا حلقة يُدرّسها — الفرق يستحق التوضيح
@@ -6375,6 +6414,20 @@ function compactAyahLabel(id) {
     return m ? `${m[1]} (${m[2]})` : shortAyahLabel(id);
 }
 
+// 📖 مدى آيات: السورة نفسها ⇒ تُذكر مرّةً «المطففين (1-9)» (11-18)؛
+// سورتان ⇒ «البقرة (250) - آل عمران (10)» بالفاصل المعطى
+function ayahRangeLabel(fromId, toId, sep = ' - ') {
+    const parse = id => {
+        const m = /^سورة\s+(.+?)\s+آية\s+(\d+)/.exec(AYAH_REVERSE[id] || '');
+        return m ? { s: m[1].trim(), a: m[2] } : null;
+    };
+    const f = parse(fromId), t = parse(toId);
+    if (f && t && f.s === t.s) return f.a === t.a ? `${f.s} (${f.a})` : `${f.s} (${f.a}-${t.a})`;
+    const a = compactAyahLabel(fromId), b = compactAyahLabel(toId);
+    if (a && b) return a === b ? a : `${a}${sep}${b}`;
+    return a || b;
+}
+
 // الاسم الثلاثي: الأول + الأب + العائلة
 function tripleStudentName(s) {
     if (!s) return "";
@@ -6405,10 +6458,8 @@ function buildReportLine(r) {
         if (from && to) parts.push(from === to ? from : `${from} - ${to}`);
         else if (from)  parts.push(from);
     } else {
-        const from = compactAyahLabel(r.fromRange);
-        const to   = compactAyahLabel(r.toRange);
-        if (from && to) parts.push(`${from} - ${to}`);
-        else if (from)  parts.push(from);
+        const range = ayahRangeLabel(r.fromRange, r.toRange);
+        if (range) parts.push(range);
     }
 
     const pages = parseFloat(r.amount) || 0;
