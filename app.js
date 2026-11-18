@@ -2303,8 +2303,20 @@ function actChipLabel(r) {
 function actChipHtml(r) {
     const failed = !r.synced && String(r.syncError || '').trim() !== '';
     const cloud = r.synced ? '' : `<i class="fas ${failed ? 'fa-circle-exclamation' : 'fa-cloud-arrow-up'}" style="color:${failed ? '#c62828' : '#e67e22'}"></i>`;
-    return `<button type="button" class="act-chip" title="${r.synced ? 'عرض / تعديل / حذف' : 'لم يُرفع بعد'}" ` +
-        `onclick="openActChipMenu(${Number(r.id)})">${activityIconHtml(r.type)}<span>${escapeHtml(actChipLabel(r))}</span>${cloud}</button>`;
+    // (2026-11-18 طلب المستخدم) ✕ الحذف على الشارة نفسها، واللمس تعديلٌ مباشرةً
+    //   بلا نافذة «تعديل أم حذف»؛ القائمة لما لم يُرفع وحده (المزامنة)
+    const id = Number(r.id);
+    return `<span class="act-chip"><button type="button" class="act-chip-main" title="${r.synced ? 'عرض / تعديل' : 'لم يُرفع بعد'}" ` +
+        `onclick="${r.synced ? 'editActChip' : 'openActChipMenu'}(${id})">${activityIconHtml(r.type)}<span>${escapeHtml(actChipLabel(r))}</span>${cloud}</button>` +
+        `<button type="button" class="act-chip-del" title="حذف" aria-label="حذف" onclick="deleteRecord(${id})"><i class="fas fa-xmark"></i></button></span>`;
+}
+
+// ✍️ التسميع والمراجعة والسرد تُعدَّل في صفّ الطالب نفسه، وغيرها في نافذة النشاط
+async function editActChip(id) {
+    const r = await getRecordById(id);
+    if (!r) return showAlert('لم يُعثر على السجل');
+    if (window.QmcRowEntry && QmcRowEntry.canEdit(r) && document.getElementById('stRow' + Number(r.student))) QmcRowEntry.edit(r);
+    else editRecord(id);
 }
 
 async function openActChipMenu(id) {
@@ -2336,11 +2348,7 @@ async function openActChipMenu(id) {
         if (!b) return;
         o.remove();
         if (b.dataset.do === 'sync') uploadUnsyncedFromStudents();
-        // ✍️ التسميع والمراجعة والسرد تُعدَّل في صفّ الطالب نفسه
-        else if (b.dataset.do === 'edit') {
-            if (window.QmcRowEntry && QmcRowEntry.canEdit(r) && document.getElementById('stRow' + Number(r.student))) QmcRowEntry.edit(r);
-            else editRecord(id);
-        }
+        else if (b.dataset.do === 'edit') editActChip(id);
         else if (b.dataset.do === 'delete') deleteRecord(id);
     });
     document.body.appendChild(o);

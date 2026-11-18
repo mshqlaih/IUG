@@ -917,6 +917,10 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .act-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .act-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 16px; padding: 5px 10px; font-size: 13px; color: #1e293b; cursor: pointer; }
 .act-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* (2026-11-18) الشارة زرّان: التعديل و ✕ الحذف */
+.act-chip { padding: 0; gap: 0; cursor: default; overflow: hidden; }
+.act-chip-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; background: none; border: 0; padding: 5px 10px; font: inherit; color: inherit; cursor: pointer; }
+.act-chip-del { flex: none; align-self: stretch; background: none; border: 0; border-inline-start: 1px solid #e2e8f0; padding: 0 10px; color: #c5221f; cursor: pointer; font-size: 14px; }
 .act-menu-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: start; background: #fff; border: 0; border-bottom: 1px solid #f0f0f0; padding: 12px 4px; font: inherit; font-size: 15px; color: inherit; cursor: pointer; }
 .act-menu-row.off { cursor: default; color: #2e7d32; }
 /* نافذتا الشارة والحلقة: هامشٌ بين الأزرار وما فوقها */

@@ -381,7 +381,7 @@
         if (todayTypes(id).indexOf(Number(type)) !== -1) {
             return showAlert({
                 title: 'سُجّل له «' + typeShort(type) + '» ' + actDayLabel(actDay()),
-                message: 'لتعديله: المس شارته في صفّ الطالب ثم «عرض / تعديل».',
+                message: 'لتعديله: المس شارته في صفّ الطالب، ولحذفه ✕ بجانبها.',
                 icon: 'ℹ️',
             });
         }
