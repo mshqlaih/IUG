@@ -88,6 +88,8 @@
   cursor: pointer;
 }
 .st-main:hover { background: transparent; }
+/* العرض القديم (الرصد في الصفّ موقوف): الصفّ مفتوحٌ دائمًا، رأسه لا يُلمس */
+.st-row.classic .st-main { box-sizing: border-box; cursor: default; min-height: 56px; padding-bottom: 6px; }
 .st-av {
   width: 40px;
   height: 40px;

@@ -2303,12 +2303,13 @@ function actChipLabel(r) {
 function actChipHtml(r) {
     const failed = !r.synced && String(r.syncError || '').trim() !== '';
     const cloud = r.synced ? '' : `<i class="fas ${failed ? 'fa-circle-exclamation' : 'fa-cloud-arrow-up'}" style="color:${failed ? '#c62828' : '#e67e22'}"></i>`;
-    // (2026-11-18 طلب المستخدم) ✕ الحذف على الشارة نفسها، واللمس تعديلٌ مباشرةً
-    //   بلا نافذة «تعديل أم حذف»؛ القائمة لما لم يُرفع وحده (المزامنة)
+    // (2026-11-18 طلب المستخدم) الحذف على الشارة نفسها، واللمس تعديلٌ مباشرةً
+    //   بلا نافذة «تعديل أم حذف»؛ القائمة لما لم يُرفع وحده (المزامنة).
+    //   الحذف سلّة لا ✕ — ✕ أيقونة «غائب» نفسها فتلتبس بها (كـFlutter).
     const id = Number(r.id);
     return `<span class="act-chip"><button type="button" class="act-chip-main" title="${r.synced ? 'عرض / تعديل' : 'لم يُرفع بعد'}" ` +
         `onclick="${r.synced ? 'editActChip' : 'openActChipMenu'}(${id})">${activityIconHtml(r.type)}<span>${escapeHtml(actChipLabel(r))}</span>${cloud}</button>` +
-        `<button type="button" class="act-chip-del" title="حذف" aria-label="حذف" onclick="deleteRecord(${id})"><i class="fas fa-xmark"></i></button></span>`;
+        `<button type="button" class="act-chip-del" title="حذف" aria-label="حذف" onclick="deleteRecord(${id})"><i class="fas fa-trash-can"></i></button></span>`;
 }
 
 // ✍️ التسميع والمراجعة والسرد تُعدَّل في صفّ الطالب نفسه، وغيرها في نافذة النشاط
@@ -2519,13 +2520,16 @@ function studentCardHtml(s) {
     /* (2026-11-14) صفٌّ مختصر بدل بطاقةٍ بثماني أيقوناتٍ بلا أسماء (كانت 250px للطالب):
        الاسم وسطرٌ واحد وحالة اليوم، والأزرار بأسمائها للصفّ المفتوح وحده. */
     const st = dayStateOf(dayActs);
-    const open = _openStudentRow === id;
+    // العرض القديم (الرصد في الصفّ موقوف): كل صفٍّ مفتوحٌ بأزراره، ولا طيّ
+    const classic = rowClassic();
+    const open = classic || _openStudentRow === id;
     // 👤 (2026-11-18) الاسم الثلاثيّ من حقوله (الأول والأب والعائلة)، يلتفّ ولا يُقصّ
     const name = tripleStudentName(s) || fullStudentName(s) || ('الطالب ' + id);
     // ✍️ الرصد في الصفّ نفسه (row_entry.js) — «تسميع/مراجعة/سرد» لا تفتح اللوحة
     const inline = open && window.QmcRowEntry ? QmcRowEntry.bodyHtml(id) : null;
     const recFn = window.QmcRowEntry ? 'QmcRowEntry.open' : 'openActivityForStudent';
-    const sub = dayActs.length ? dayActs.map(actChipLabel).join(' · ')
+    // في العرض القديم شارات اليوم ظاهرةٌ تحته — لا تُكرَّر نصًّا
+    const sub = dayActs.length ? (classic ? '' : dayActs.map(actChipLabel).join(' · '))
         : !isActToday() ? 'لا نشاط له ' + actDayLabel(actDay())
         : act ? 'آخر نشاط ' + actDayLabel(String(act.date)) + ' · ' + actChipLabel(act)
         : 'لا يوجد نشاط مسجّل';
@@ -2559,12 +2563,12 @@ function studentCardHtml(s) {
     }
 
     return `
-    <div class="st-row${open ? ' open' : ''}${inline ? ' entering' : ''}" id="stRow${id}">
-        <button type="button" class="st-main" aria-expanded="${open}" onclick="toggleStudentRow(${id})">
+    <div class="st-row${open ? ' open' : ''}${classic ? ' classic' : ''}${inline ? ' entering' : ''}" id="stRow${id}">
+        ${classic ? '<div class="st-main">' : `<button type="button" class="st-main" aria-expanded="${open}" onclick="toggleStudentRow(${id})">`}
             <span class="st-av">${escapeHtml(name.charAt(0))}</span>
-            <span class="st-text"><span class="st-name">${escapeHtml(name)}</span><span class="st-sub">${escapeHtml(sub)}</span></span>
+            <span class="st-text"><span class="st-name">${escapeHtml(name)}</span>${sub ? `<span class="st-sub">${escapeHtml(sub)}</span>` : ''}</span>
             <span class="st-pill ${st[1]}">${escapeHtml(st[0])}</span>
-        </button>${body}
+        ${classic ? '</div>' : '</button>'}${body}
     </div>`;
 }
 
@@ -2703,7 +2707,13 @@ let _openStudentRow = null;    // رقم الطالب المفتوحة أزرا�
 let _dayFilter = 'all';        // all | none | done | abs
 let _shownStudentIds = [];     // ترتيب المعروض — لاختيار «التالي»
 
+/* ⏸️ (2026-11-18 ليلًا، كـFlutter _classic) الرصد في الصفّ موقوف (row_entry.js
+   ENABLED = false) ⇒ العرض القديم: كل صفٍّ مفتوح، التسميع والمراجعة والسرد في
+   لوحة الرصد، حاضر/بعذر/غائب بسؤال، ولا «افتح التالي». */
+function rowClassic() { return !window.QmcRowEntry; }
+
 function toggleStudentRow(studentId) {
+    if (rowClassic()) return;
     const id = Number(studentId);
     _openStudentRow = (_openStudentRow === id) ? null : id;
     // الرصد المضمَّن يُغلق بإغلاق صفّه أو فتح غيره
@@ -2735,7 +2745,8 @@ function toggleRowAutoNext() {
 function advanceStudentRow(studentId) {
     const ids = _shownStudentIds, at = ids.indexOf(Number(studentId));
     _openStudentRow = null;
-    if (window.QmcRowEntry && !QmcRowEntry.autoNext()) return;
+    if (rowClassic()) return; // العرض القديم: الصفوف كلّها مفتوحة، ولا «التالي»
+    if (!QmcRowEntry.autoNext()) return;
     for (let k = 1; k <= ids.length; k++) {
         const id = ids[(Math.max(at, 0) + k) % ids.length];
         if (id !== Number(studentId) && !((_dayActsCache[id] || []).length)) { _openStudentRow = id; return; }
@@ -2753,6 +2764,7 @@ async function nominateStudentForExam(studentId) {
     const input  = document.getElementById('reqStudentPicker');
     if (hidden) hidden.value = String(studentId);
     if (input)  input.value = s ? studentPickerLabel(s) : '';
+    fillReqExamTypes(); // 🏫 لجان مركز الطالب
 
     loadExamRequests();
 }
@@ -2771,14 +2783,15 @@ async function quickSaveActivity(studentId, type) {
     if (other) {
         return showAlert({
             title: "مسجَّلٌ له «" + activityTypeName(other.type) + "»",
-            message: "لتغييرها: المس شارتها في صفّ الطالب ثم «حذف»، ثم سجّل الحالة الجديدة.",
+            message: "لتغييرها: احذفها بالسلّة على شارتها في صفّ الطالب، ثم سجّل الحالة الجديدة.",
             icon: "ℹ️",
         });
     }
 
     /* (2026-11-14) اليوم: يُسجَّل فورًا بلا نافذة تأكيد، ومعه «تراجع» خمس ثوانٍ
-       (الرفع مؤجَّلٌ خلالها، فالتراجع حذفٌ محلّيّ). يومٌ مضى: سؤالٌ بالتاريخ كما كان. */
-    if (!isActToday()) {
+       (الرفع مؤجَّلٌ خلالها، فالتراجع حذفٌ محلّيّ). يومٌ مضى: سؤالٌ بالتاريخ كما كان.
+       (11-18 ليلًا) العرض القديم يُسأل دائمًا كـFlutter، و«تراجع» باقٍ بعده. */
+    if (rowClassic() || !isActToday()) {
         const ok = await showConfirm({
             title: title,
             message: `تسجيل "${title}" للطالب ${name}\nبتاريخ ${actDayLabel(day)} (${day})؟`,
@@ -4173,7 +4186,7 @@ function syncRecordsFromPage() {
           return;
         }
 
-        let okCount = 0, failCount = 0;
+        let okCount = 0, failCount = 0, netCount = 0;
 
         // ⚠️ (2026-11-14) أربعةٌ معًا لا الكلّ دفعةً: يومٌ بلا شبكة كان يفتح عشرات
         //    الجلسات على ORDS في لحظةٍ واحدة
@@ -4198,15 +4211,22 @@ function syncRecordsFromPage() {
               txUpdate.objectStore("records").put(record);
             })
             .catch(err => {
+              // 🌐 (2026-11-18) الشبكة لا السيرفر: لا خطأ أحمر كأنه رُفض — يبقى
+              //    «لم يُرفع» ويُعاد وحده (retryPendingUploads)
               record.synced = false;
-              record.syncError = "خطأ في الاتصال: " + err.message;
+              record.syncError = "";
+              netCount++;
               const txUpdate = db.transaction("records", "readwrite");
               txUpdate.objectStore("records").put(record);
             })
         )
         .then(() => {
           // رسالة صادقة: لا نقول "تمت" ما لم تُقبل فعلاً
-          if (failCount === 0) {
+          if (netCount > 0 && failCount === 0) {
+            showSyncMessage(okCount > 0
+              ? `📶 رُفع ${okCount} والشبكة ضعيفة — بقي ${netCount}، يُرفع وحده عند تحسّنها`
+              : `📶 الشبكة ضعيفة أو منقطعة — بقي ${netCount}، يُرفع وحده عند تحسّنها`);
+          } else if (failCount === 0) {
             showSyncMessage(`✅ تم رفع ${okCount} سجل بنجاح`);
           } else if (okCount === 0) {
             showSyncMessage(`❌ رفض السيرفر كل السجلات (${failCount}) — راجع عمود حالة المزامنة`);
@@ -5030,6 +5050,64 @@ function examSessionPlaces() {
         .map(p => ({ no: Number(p.place_no), name: String(p.place_name || '') }));
 }
 
+// 🏫 (2026-11-18) أنواع الاختبار التي لها لجنةٌ فعّالة — مطابق لـ _studentCenterTypes
+//   في Flutter. `sessions` إدخالٌ لكل (مركز × نوع) بأقرب لجنةٍ صاعدًا، وتصل نصّ JSON
+//   أو مصفوفة. كانت القائمة تعرض أنواع EXAM_TYPE كلّها فيُرشَّح لنوعٍ لا لجنة له
+//   ثم يرفض السيرفر بـ«لا توجد لجنة فعّالة لهذا النوع».
+function examTypedSessions() {
+    const raw = _examSession && _examSession.sessions;
+    if (!raw) return null;
+    let list = raw;
+    if (typeof raw === 'string') {
+        try { list = JSON.parse(raw); } catch (_) { return null; }
+    }
+    return Array.isArray(list) ? list : null;
+}
+
+function studentCenterNo(studentNo) {
+    const s = _studentsCache.find(x => Number(x.id) === Number(studentNo));
+    if (!s) return null;
+    const c = _circlesCache.find(x => Number(x.circleNo) === Number(s.circleNo));
+    return (c && c.centerNo != null) ? Number(c.centerNo) : null;
+}
+
+// طالبٌ مركزه معروف ⇒ أنواع لجان مركزه؛ وإلا أنواع لجان المستخدم كلّها.
+// null = لا يُعرف (سيرفرٌ أقدم) ⇒ القائمة كاملة والسيرفر حَكَم.
+function examTypesOpenFor(studentNo) {
+    const list = examTypedSessions();
+    if (!list) return null;
+    const center = studentNo ? studentCenterNo(studentNo) : null;
+    const types = new Set();
+    list.forEach(e => {
+        if (!e || e.exam_type == null) return;
+        if (center != null && String(e.center_no) !== String(center)) return;
+        types.add(String(e.exam_type).trim());
+    });
+    return types.size ? types : null;
+}
+
+// يعيد ملء «نوع الاختبار» بأنواع اللجنة — ويبقى نوع الطلب القائم عند تعديله
+function fillReqExamTypes(keepType) {
+    const sel = document.getElementById('reqExamType');
+    if (!sel) return;
+    const cur = keepType != null ? String(keepType).trim() : sel.value;
+    const studentNo = (document.getElementById('reqStudentNo') || {}).value || '';
+    const editing = !!((document.getElementById('reqEditId') || {}).value);
+    const open = examTypesOpenFor(studentNo);
+    sel.innerHTML = '<option value="">-- اختر النوع --</option>';
+    examLookup('EXAM_TYPE').forEach(it => {
+        const v = String(it.value).trim();
+        if (open && !open.has(v) && !(editing && v === cur)) return;
+        const o = document.createElement('option');
+        o.value = it.value;
+        o.textContent = it.name;
+        sel.appendChild(o);
+    });
+    sel.value = cur || '';           // نوعٌ لم يعد في القائمة ⇒ «اختر النوع»
+    if (sel.value !== cur) sel.value = '';
+    onExamTypeChange();
+}
+
 /* ===== النموذج ===== */
 
 function fillJuzSelect(id, selected) {
@@ -5107,13 +5185,16 @@ function handleRequestStudentSearch(inputEl) {
 
     let chosen = _studentsCache.find(s => studentPickerLabel(s) === raw);
     if (!chosen && q && matches.length === 1) chosen = matches[0];
+    const before = hidden.value;
     hidden.value = chosen ? String(chosen.id) : '';
+    if (hidden.value !== before) fillReqExamTypes(); // 🏫 لجان مركز الطالب
 }
 
 function clearRequestStudent() {
     const input = document.getElementById('reqStudentPicker');
     const hidden = document.getElementById('reqStudentNo');
     if (input) input.value = '';
+    if (hidden && hidden.value) { hidden.value = ''; fillReqExamTypes(); }
     if (hidden) hidden.value = '';
 }
 
@@ -5130,7 +5211,6 @@ async function openExamRequestForm(existing) {
     set('reqExamDate', existing ? (existing.examDate || '').split('T')[0] : '');
     setExamRequestStatus('', '');
 
-    fillExamLookupSelect('reqExamType', 'EXAM_TYPE', '-- اختر النوع --', existing && existing.examType);
     fillJuzSelect('reqPartFrom', existing && existing.partFrom);
     fillJuzSelect('reqPartTo', existing && existing.partTo);
 
@@ -5167,6 +5247,8 @@ async function openExamRequestForm(existing) {
         set('reqStudentNo', existing.studentNo);
         set('reqStudentPicker', s ? studentPickerLabel(s) : (existing.studentName || ''));
     }
+    // 🏫 بعد الطالب: الأنواع بلجان مركزه
+    fillReqExamTypes(existing ? existing.examType : '');
 
     const label = document.getElementById('examRequestSubmitLabel');
     if (label) label.textContent = existing ? 'حفظ التعديل' : 'ترشيح للاختبار';

@@ -179,8 +179,12 @@ window.QMC = (function () {
   // يُرجع { ok, error, tagNo, numPages } — النجاح يتطلّب status = success/ok
   // كما في تطبيق Flutter، فلا يُحسب السجل مرفوعاً إلا بتأكيد صريح.
   async function saveActivity(record) {
+    // ⏳ (2026-11-18، شكوى معتصم بركات على الصفوة) 20 ث كانت تقطع الرفع على
+    //    شبكةٍ بطيئة (سجلٌّ كل 24–31 ث). 60 ث مأمونة: إعادة طلبٍ قُطع بعد أن
+    //    حفظه السيرفر تُدمج في سجلّه (الطالب × النوع × اليوم) ولا تتكرّر.
     const res = await apiFetch("saveActivity", {
       method: "POST",
+      timeoutMs: 60000,
       body: buildSaveActivityBody(record),
     });
 

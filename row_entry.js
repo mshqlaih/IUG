@@ -684,6 +684,13 @@
         if (e) e.note = el.value;
     });
 
+    /* ⏸️ (2026-11-18 ليلًا، قرار المستخدم) موقوفٌ كليًّا كـ_inlineEnabled = false في
+       students_screen.dart: بلا QmcRowEntry تعود «الحلقة» إلى العرض القديم وحده
+       (rowClassic في app.js) — كل صفٍّ مفتوح، والتسميع والمراجعة والسرد في لوحة
+       الرصد، وحاضر/بعذر/غائب بسؤال. لإعادته: ENABLED = true (الكود باقٍ). */
+    var ENABLED = false;
+    if (!ENABLED) return;
+
     window.QmcRowEntry = {
         bodyHtml: bodyHtml,
         open: open,

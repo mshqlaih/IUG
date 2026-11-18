@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.41';
+const CACHE_NAME = 'quran-app-v2.42';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -320,7 +320,8 @@ function syncRecords() {
                 const txUpdate = dbErr.transaction("records", "readwrite");
                 const storeUpdate = txUpdate.objectStore("records");
                 record.synced = false;
-                record.syncError = "خطأ اتصال: " + err.message;
+                // 🌐 (2026-11-18) الشبكة لا السيرفر: لا خطأ أحمر كأنه رُفض
+                record.syncError = "";
                 storeUpdate.put(record);
               });
           const pump = () => (cursor < unsynced.length)
