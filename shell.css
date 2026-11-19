@@ -59,17 +59,19 @@
 .day-filter button.on { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
 
 /* ===== صفّ الطالب ===== */
-#studentsCards {
-  display: block;
-  background: var(--surface, #fff);
-  border: 1px solid var(--line-soft, #e6eaef);
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
-}
+/* (11-19، طلب المستخدم: «الخطّ الباهت بين الطلاب يُظنّ بطاقةً واحدة»)
+   كل طالبٍ بطاقةٌ مستقلّة بحدٍّ وظلٍّ وفراغٍ بينها — كـCard في Flutter */
+#studentsCards { display: flex; flex-direction: column; gap: 10px; }
 #studentsCards:empty { display: none; }
-.st-row + .st-row { border-top: 1px solid var(--line-soft, #e6eaef); }
-.st-row.open { background: #fafbfd; }
+.st-row {
+  background: var(--surface, #fff);
+  border: 1px solid #dde3ea;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .08);
+}
+.st-row.open { background: var(--surface, #fff); }
+.st-row.open:not(.classic) { border-color: var(--primary-line, #c7d7ef); box-shadow: 0 3px 10px rgba(16, 24, 40, .12); }
 .st-main {
   display: flex;
   align-items: center;
@@ -190,8 +192,49 @@
   display: grid; place-items: center; border-radius: 10px;
   background: #fff; border: 1px solid #dfe5ec; box-shadow: none; color: var(--primary);
 }
-.day-strip.compact { padding-block: 8px; }
-.day-strip.compact .day-prog { margin: 6px 0; }
+/* 📅 (11-19) رأس اليوم المختصر: شريطٌ رفيع أعلاه، سطرٌ واحد، ومرشّحاتٌ متساوية */
+#dayStrip .day-strip { padding: 0 8px 8px; overflow: visible; }
+#dayStrip .day-prog { height: 4px; margin: 0 -8px 2px; border-radius: 14px 14px 0 0; }
+#dayStrip .day-prog i { border-radius: 0; }
+#dayStrip .day-strip-top { flex-wrap: nowrap; gap: 4px; min-height: 40px; }
+#dayStrip .day-pick { white-space: nowrap; font-size: 14.5px; }
+#dayStrip .day-pick b.all-done { color: #17764a; }
+.day-act-slot { flex: 1; min-width: 0; display: flex; justify-content: flex-end; }
+.day-act {
+  width: auto; margin: 0; padding: 6px 4px; min-height: 34px;
+  background: transparent; border: 0; box-shadow: none;
+  color: var(--primary); font: inherit; font-size: 13px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; cursor: pointer;
+}
+.day-act.warn { color: #9a5600; }
+.day-act.ok { color: #17764a; }
+#dayStrip .focus-btn { margin-inline-start: 0; width: 34px; height: 34px; min-height: 34px; }
+.day-menu-wrap { position: relative; flex: none; }
+.day-more {
+  width: 30px; height: 34px; min-height: 34px; padding: 0; margin: 0;
+  background: transparent; border: 0; box-shadow: none; color: #4b5563; cursor: pointer;
+}
+.day-menu {
+  position: absolute; top: 100%; inset-inline-end: 0; z-index: 50; min-width: 210px;
+  background: var(--surface, #fff); border: 1px solid #dde3ea; border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .18); padding: 4px; display: flex; flex-direction: column;
+}
+.day-menu[hidden] { display: none; }
+.day-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; padding: 10px 12px;
+  background: transparent; border: 0; border-radius: 8px; box-shadow: none;
+  color: #1f2937; font: inherit; font-size: 14px; text-align: start; cursor: pointer;
+}
+.day-menu button:hover { background: #f1f4f8; }
+.day-menu button i { width: 18px; color: var(--primary); }
+.day-menu button.warn i { color: #e67e22; }
+.day-filter.seg { flex-wrap: nowrap; gap: 0; border: 1px solid #cfd6df; border-radius: 999px; overflow: hidden; }
+.day-filter.seg button { flex: 1 1 0; min-width: 0; border: 0; border-radius: 0; padding: 7px 4px; white-space: nowrap; }
+.day-filter.seg button + button { border-inline-start: 1px solid #cfd6df; }
+@media (max-width: 360px) {
+  #dayStrip .day-pick { font-size: 13.5px; }
+  .day-act { font-size: 12px; }
+}
 
 /* 👤 (2026-11-18) الاسم الثلاثيّ كاملًا: يلتفّ ولا يُقصّ */
 .st-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }

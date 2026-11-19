@@ -68,8 +68,12 @@ html.qmc-dark .tab-btn.active span { color: var(--primary-dark); }
 /* ===== البطاقات والنوافذ: سطحٌ أعلى من الصفحة ===== */
 html.qmc-dark .card,
 html.qmc-dark .student-card,
-html.qmc-dark #studentsCards,
+html.qmc-dark .st-row,
+html.qmc-dark .day-menu,
 html.qmc-dark .day-strip { background: var(--dk-surface); border-color: var(--dk-line); }
+html.qmc-dark .st-row { box-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+html.qmc-dark .day-menu button { color: var(--dk-text); }
+html.qmc-dark .day-menu button:hover { background: var(--dk-raised); }
 html.qmc-dark .modal-box { background: var(--dk-raised); color: var(--dk-text); }
 html.qmc-dark .modal-overlay { background: rgba(0, 0, 0, .62); }
 html.qmc-dark #activityTab.as-sheet > .card { background: var(--dk-raised); }

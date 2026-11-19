@@ -218,5 +218,12 @@
     });
   }
 
-  window.QmcPartialDays = { open: open, days: daysOf };
+  // (11-19) «سجّل الباقين» في سطر اليوم — القائمة من الشاشة لا من التنبيه
+  function remaining(date, list) {
+    injectCss();
+    var sorted = list.slice().sort(function (a, b) { return fullStudentName(a).localeCompare(fullStudentName(b), 'ar'); });
+    openRemaining({ date: date }, sorted);
+  }
+
+  window.QmcPartialDays = { open: open, days: daysOf, remaining: remaining };
 })();

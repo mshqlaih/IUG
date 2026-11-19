@@ -2299,15 +2299,16 @@ function isFemaleStudent(studentId) {
     return !!c && c.gender === 'F';
 }
 
-// «سبأ من 23 إلى 54»، «سبأ 23»، «الحجر 90 إلى النحل 12» (نظير ayaRangeSentence)
+// (11-19، كـFlutter ae04981) أرقام الآيات بين قوسين:
+// «سبأ (23-54)»، «سبأ (23)»، «المرسلات (40) إلى الإنسان (10)» (نظير ayaRangeSentence)
 function ayahRangeSentence(fromId, toId) {
     const parse = id => {
         const m = /^سورة\s+(.+?)\s+آية\s+(\d+)/.exec(AYAH_REVERSE[id] || '');
         return m ? { s: m[1].trim(), a: m[2] } : null;
     };
     const f = parse(fromId), t = parse(toId);
-    if (f && (!t || (f.s === t.s && f.a === t.a))) return `${f.s} ${f.a}`;
-    if (f && t) return f.s === t.s ? `${f.s} من ${f.a} إلى ${t.a}` : `${f.s} ${f.a} إلى ${t.s} ${t.a}`;
+    if (f && (!t || (f.s === t.s && f.a === t.a))) return `${f.s} (${f.a})`;
+    if (f && t) return f.s === t.s ? `${f.s} (${f.a}-${t.a})` : `${f.s} (${f.a}) إلى ${t.s} (${t.a})`;
     const a = compactAyahLabel(fromId), b = compactAyahLabel(toId);
     if (a && b) return a === b ? a : `${a} إلى ${b}`;
     return a || b || '';
@@ -2476,6 +2477,48 @@ function toggleRasdFocus() {
     renderStudentCards();
 }
 
+/* 📋 (11-19، كـFlutter _todayGaps) الباقون بلا تسجيل اليوم في حلقةٍ انعقدت:
+   حلقةٌ سُجّل اليوم لبعض طلابها ⇒ من لم يُسجَّل له شيءٌ فيها. */
+function todayGaps(students) {
+    if (!isActToday()) return [];
+    const byStu = _dayActsCache || dayActsByStudent();
+    const met = {};
+    students.forEach(s => { if ((byStu[Number(s.id)] || []).length) met[Number(s.circleNo)] = 1; });
+    return students.filter(s => met[Number(s.circleNo)] && !(byStu[Number(s.id)] || []).length);
+}
+
+function recordRemainingToday() {
+    const list = todayGaps(studentsInMyCircles());
+    if (!list.length) return showToast('لا أحد بقي بلا تسجيل اليوم');
+    if (window.QmcPartialDays && QmcPartialDays.remaining) QmcPartialDays.remaining(ymdLocal(new Date()), list);
+}
+
+// ⋮ قائمة سطر اليوم — تُغلق بلمسٍ خارجها
+function toggleDayMenu(ev) {
+    if (ev) ev.stopPropagation();
+    const m = document.getElementById('dayMenu');
+    if (!m) return;
+    const show = m.hidden;
+    m.hidden = !show;
+    if (show) setTimeout(() => document.addEventListener('click', function close(e) {
+        if (!m.contains(e.target)) m.hidden = true;
+        document.removeEventListener('click', close);
+    }), 0);
+}
+
+function pickOtherActDay() {
+    const m = document.getElementById('dayMenu');
+    if (m) m.hidden = true;
+    const inp = document.getElementById('actDayInput');
+    if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); return; } catch (_) {} }
+    if (inp) { try { inp.focus(); inp.click(); } catch (_) {} }
+}
+
+/* 📅 رأس اليوم (11-19، كـFlutter a2a4fbb «نصف الشاشة امتلأ برصدٍ واحد»):
+   شكلٌ واحد ثابت في كل الأحوال وفي التركيز أيضًا — شريط تقدّمٍ رفيع، وسطرٌ:
+   اليوم وكم رُصد · رابطٌ واحد بحسب الحال · ⛶ · ⋮، ثم ثلاثة مرشّحاتٍ متساوية.
+   «حضر (سمّعوا…)» في بطاقة المشاركة، والمشاركة واختيار اليوم والرفع في ⋮
+   — والمشاركة تعود ظاهرةً متى اكتمل. */
 function renderDayStrip(students) {
     const el = document.getElementById('dayStrip');
     if (!el) return;
@@ -2486,69 +2529,54 @@ function renderDayStrip(students) {
     el.style.display = '';
     const byStu = dayActsByStudent();
     const day = actDay(), label = actDayLabel(day);
-    const focusBtn = `<button type="button" class="focus-btn" onclick="toggleRasdFocus()" title="${focus ? 'إظهار البحث وسطر اليوم' : 'التركيز على الرصد'}" ` +
-        `aria-label="${focus ? 'إظهار البحث وسطر اليوم' : 'التركيز على الرصد'}"><i class="fas ${focus ? 'fa-compress' : 'fa-expand'}"></i></button>`;
-    if (focus) {
-        let doneF = 0;
-        students.forEach(s => { if ((byStu[Number(s.id)] || []).length) doneF++; });
-        const totalF = students.length;
-        el.innerHTML = `<div class="day-strip compact${isActToday() ? '' : ' past'}"><div class="day-strip-top">` +
-            `<b>${escapeHtml(label)} · رُصد ${doneF} من ${totalF}</b>${focusBtn}</div>` +
-            `<div class="day-prog"><i style="width:${totalF ? Math.round(doneF / totalF * 100) : 0}%"></i></div>` +
-            '<div class="day-filter">' +
-            [['all', 'الكل', totalF], ['none', 'لم يُرصد', totalF - doneF], ['rec', 'رُصد', doneF]].map(f =>
-                `<button type="button" class="${_dayFilter === f[0] ? 'on' : ''}" aria-pressed="${_dayFilter === f[0]}" onclick="setDayFilter('${f[0]}')">${f[1]} ${f[2]}</button>`).join('') +
-            '</div></div>';
-        return;
-    }
-    let recited = 0, present = 0, absent = 0, unsynced = 0, any = 0;
+    let done = 0, unsynced = 0, any = 0;
     students.forEach(s => {
         const acts = byStu[Number(s.id)] || [];
         if (!acts.length) return;
+        done++;
         any += acts.length;
         unsynced += acts.filter(a => !a.synced).length;
-        const types = acts.map(a => Number(a.type));
-        if (types.some(t => [1, 2, 6, 7, SECOND_REVIEW_TYPE].indexOf(t) !== -1)) recited++;
-        else if (types.indexOf(3) !== -1) present++;
-        else absent++;
     });
+    const total = students.length, none = total - done;
+    const remaining = todayGaps(students);
     const prev = any ? null : previousActiveDay(students);
-    let h = `<div class="day-strip${isActToday() ? '' : ' past'}"><div class="day-strip-top">` +
+
+    // رابطٌ واحد في طرف السطر — الأهمّ في الحال الحاضرة
+    let action = '';
+    if (!isActToday()) action = '<button type="button" class="day-act" onclick="showActDay(null)"><i class="fas fa-calendar-day"></i> عودة إلى اليوم</button>';
+    else if (remaining.length) action = '<button type="button" class="day-act warn" onclick="recordRemainingToday()"><i class="fas fa-list-check"></i> سجّل الباقين</button>';
+    else if (any && !none) action = '<button type="button" class="day-act ok" onclick="shareActDay()"><i class="fas fa-circle-check"></i> اكتمل · مشاركة</button>';
+    else if (prev) action = `<button type="button" class="day-act" onclick="showActDay('${prev}')"><i class="fas fa-clock-rotate-left"></i> آخر يوم: ${escapeHtml(actDayLabel(prev))}</button>`;
+    else if (_pullInFlight) action = '<span class="day-none">جارٍ الجلب…</span>';
+
+    const focusLbl = focus ? 'إظهار البحث وعنوان الشاشة' : 'التركيز على الرصد';
+    const menu = (any ? '<button type="button" onclick="toggleDayMenu();shareActDay()"><i class="fas fa-share-nodes"></i> مشاركة نشاط ' + escapeHtml(label) + '</button>' : '') +
+        '<button type="button" onclick="pickOtherActDay()"><i class="fas fa-calendar-days"></i> نشاط يومٍ آخر</button>' +
+        (unsynced ? `<button type="button" class="warn" onclick="toggleDayMenu();uploadUnsyncedFromStudents()"><i class="fas fa-cloud-arrow-up"></i> رفع ${unsynced} لم يُرفع</button>` : '');
+
+    el.innerHTML = `<div class="day-strip${isActToday() ? '' : ' past'}">` +
+        `<div class="day-prog" title="رُصد ${done} من ${total}"><i style="width:${total ? Math.round(done / total * 100) : 0}%"></i></div>` +
+        '<div class="day-strip-top">' +
         // حقل التاريخ شفّافٌ فوق الزرّ نفسه: اللمس يفتح منتقي النظام (iOS لا يفتحه برمجيًّا)
-        `<span class="day-pick-wrap"><span class="day-pick"><i class="fas fa-calendar-days"></i> نشاط ${escapeHtml(label)} <i class="fas fa-caret-down"></i></span>` +
+        `<span class="day-pick-wrap"><span class="day-pick"><i class="fas fa-calendar-days"></i> ${escapeHtml(label)}&nbsp; ` +
+        `<b class="${total && !none ? 'all-done' : ''}">${done}/${total}</b></span>` +
         `<input type="date" id="actDayInput" class="day-input" value="${day}" max="${ymdLocal(new Date())}" ` +
-        'onclick="pickActDay(event)" onchange="showActDay(this.value)" aria-label="نشاط أيّ يوم؟"></span>';
-    if (!any) h += '<span class="day-none">لم يُسجَّل شيء</span>';
-    else {
-        // «حضر» يشمل من سمّع — كان «سمّع 12 حضر 4» يُقرأ أنّ الحاضرين 4
-        // وهم من حضر بلا تسميع (2026-11-13، ومثله أندرويد)
-        const attended = recited + present;
-        if (attended) {
-            const detail = recited && present ? `سمّع ${recited} · لم يُسمّع ${present}`
-                         : recited ? 'سمّعوا جميعًا' : 'لم يُسمّع أحد';
-            h += `<span><b style="color:#00796b">حضر ${attended}</b> <span style="color:#6b7280;font-weight:normal">(${detail})</span></span>`;
-        }
-        if (absent) h += `<b style="color:#c62828">غاب ${absent}</b>`;
-    }
-    h += focusBtn;
-    // (2026-11-14) أين وصلتُ؟ شريط تقدّم، وشرائح تُبقي مجموعةً واحدة (لم يُرصد…)
-    const total = students.length, doneN = recited + present, noneN = Math.max(0, total - doneN - absent);
-    h += `</div><div class="day-prog" title="رُصد ${total - noneN} من ${total}"><i style="width:${total ? Math.round((total - noneN) / total * 100) : 0}%"></i></div>` +
-        '<div class="day-filter">' +
-        [['all', 'الكل', total], ['none', 'لم يُرصد', noneN], ['rec', 'رُصد', total - noneN], ['done', 'حضر', doneN], ['abs', 'غاب', absent]].map(f =>
+        'onclick="pickActDay(event)" onchange="showActDay(this.value)" aria-label="نشاط أيّ يوم؟"></span>' +
+        `<span class="day-act-slot">${action}</span>` +
+        `<button type="button" class="focus-btn" onclick="toggleRasdFocus()" title="${focusLbl}" aria-label="${focusLbl}"><i class="fas ${focus ? 'fa-compress' : 'fa-expand'}"></i></button>` +
+        '<span class="day-menu-wrap"><button type="button" class="day-more" onclick="toggleDayMenu(event)" title="المزيد" aria-label="المزيد"><i class="fas fa-ellipsis-vertical"></i></button>' +
+        `<div id="dayMenu" class="day-menu" hidden>${menu}</div></span>` +
+        '</div>' +
+        // المرشّحات أجزاءٌ متساوية بعرض الشاشة — لا تنكسر إلى سطرٍ ثانٍ
+        '<div class="day-filter seg">' +
+        [['all', 'الكل', total], ['none', 'بقي', none], ['rec', 'رُصد', done]].map(f =>
             `<button type="button" class="${_dayFilter === f[0] ? 'on' : ''}" aria-pressed="${_dayFilter === f[0]}" onclick="setDayFilter('${f[0]}')">${f[1]} ${f[2]}</button>`).join('') +
         '</div>' +
         (window.QmcRowEntry
             ? `<button type="button" class="row-next-switch" role="switch" aria-checked="${QmcRowEntry.autoNext()}" onclick="toggleRowAutoNext()">` +
               '<i aria-hidden="true"></i>بعد الحفظ افتح الطالب التالي</button>'
             : '') +
-        '<div class="day-strip-acts">';
-    if (!isActToday()) h += '<button type="button" onclick="showActDay(null)"><i class="fas fa-calendar-day"></i> عودة إلى اليوم</button>';
-    if (prev) h += `<button type="button" onclick="showActDay('${prev}')"><i class="fas fa-clock-rotate-left"></i> آخر يومٍ مسجَّل: ${escapeHtml(actDayLabel(prev))}</button>`;
-    if (unsynced) h += `<button type="button" class="warn" onclick="uploadUnsyncedFromStudents()"><i class="fas fa-cloud-arrow-up"></i> رفع ${unsynced} لم يُرفع</button>`;
-    if (any) h += '<button type="button" class="share" onclick="shareActDay()"><i class="fas fa-share-nodes"></i> مشاركة</button>';
-    h += '</div></div>';
-    el.innerHTML = h;
+        '</div>';
 }
 
 function studentCardHtml(s) {
@@ -2709,6 +2737,8 @@ function renderStudentCards() {
 
     // 📅 سطر «نشاط اليوم» وشاراته (بديل «تقرير الأنشطة»)
     _dayActsCache = dayActsByStudent();
+    // (11-19) المرشّحات ثلاثة كـFlutter — «حضر/غاب» أُزيلا
+    if (['all', 'none', 'rec'].indexOf(_dayFilter) === -1) _dayFilter = 'all';
     renderDayStrip(scoped);
     // مرشّح حالة اليوم (شرائح سطر «نشاط اليوم»)
     if (_dayFilter !== 'all') {
