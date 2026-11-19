@@ -1714,7 +1714,8 @@ function paintSheetHead(studentId, type) {
     if (!el) return;
     const s = _studentsCache.find(x => Number(x.id) === Number(studentId));
     const act = _lastActivityByStudent[Number(studentId)];
-    const name = fullStudentName(s) || ('الطالب ' + studentId);
+    // 👤 (11-19) الثلاثيّ كصفّ الطالب في تبويب الحلقة (لا الرباعيّ)
+    const name = tripleStudentName(s) || fullStudentName(s) || ('الطالب ' + studentId);
     el.innerHTML = `<span class="st-av">${escapeHtml(name.charAt(0))}</span>` +
         `<div class="sheet-head-text"><b>${escapeHtml(activityTypeName(type))} · ${escapeHtml(name)}</b>` +
         `<span>${escapeHtml(act ? 'آخر نشاط: ' + formatActivitySummary(act) : 'لا يوجد نشاط مسجّل')}</span></div>` +
@@ -2286,18 +2287,54 @@ function dayActsByStudent() {
     return out;
 }
 
-// «تسميع: البقرة (155-176)» — ونصّ النوع وحده للحضور والغياب
+/* 🗣 (11-19، كـFlutter _chipLabel) جملةٌ تُقرأ لا عنوانٌ ونقطتان، والفعل بجنس
+   الطالب: «سمّع سبأ من 23 إلى 54»، «راجعت …»، «اُختبر في الجزء الثلاثون»،
+   «غاب بعذر»، «حضرت بدون تسميع». الجنس من الطالب إن عُرف، وإلا من حلقته
+   (getUserCircles.gender)؛ المختلطة والمجهولة ⇒ المذكّر. */
+function isFemaleStudent(studentId) {
+    const s = _studentsCache.find(x => Number(x.id) === Number(studentId));
+    const g = String((s && s.gender) || '').toUpperCase();
+    if (g === 'F' || g === 'M') return g === 'F';
+    const c = s && _circlesCache.find(x => Number(x.circleNo) === Number(s.circleNo));
+    return !!c && c.gender === 'F';
+}
+
+// «سبأ من 23 إلى 54»، «سبأ 23»، «الحجر 90 إلى النحل 12» (نظير ayaRangeSentence)
+function ayahRangeSentence(fromId, toId) {
+    const parse = id => {
+        const m = /^سورة\s+(.+?)\s+آية\s+(\d+)/.exec(AYAH_REVERSE[id] || '');
+        return m ? { s: m[1].trim(), a: m[2] } : null;
+    };
+    const f = parse(fromId), t = parse(toId);
+    if (f && (!t || (f.s === t.s && f.a === t.a))) return `${f.s} ${f.a}`;
+    if (f && t) return f.s === t.s ? `${f.s} من ${f.a} إلى ${t.a}` : `${f.s} ${f.a} إلى ${t.s} ${t.a}`;
+    const a = compactAyahLabel(fromId), b = compactAyahLabel(toId);
+    if (a && b) return a === b ? a : `${a} إلى ${b}`;
+    return a || b || '';
+}
+
 function actChipLabel(r) {
     const t = Number(r.type);
-    const name = activityTypeName(t);
-    let from = '', to = '';
-    if (t === 6 || t === 7) { from = JUZ_NAMES[r.partFrom] || ''; to = JUZ_NAMES[r.partTo] || ''; }
-    else if (ATTENDANCE_ONLY_TYPES.indexOf(t) === -1) {
-        const range = ayahRangeLabel(r.fromRange, r.toRange, ' – ');
-        return range ? `${name}: ${range}` : name;
+    const g = (m, f) => isFemaleStudent(r.student) ? f : m;
+    if (t === 3) return g('حضر بدون تسميع', 'حضرت بدون تسميع');
+    if (t === 4) return g('غاب بعذر', 'غابت بعذر');
+    if (t === 5) return g('غاب بدون عذر', 'غابت بدون عذر');
+    let range = '';
+    if (t === 6 || t === 7) {
+        const from = JUZ_NAMES[r.partFrom] || '', to = JUZ_NAMES[r.partTo] || '';
+        range = (!to || to === from) ? from : (from ? `${from} إلى ${to}` : to);
+    } else if ([1, 2, SECOND_REVIEW_TYPE].indexOf(t) !== -1) {
+        range = ayahRangeSentence(r.fromRange, r.toRange);
+    } else {
+        return activityTypeName(t);
     }
-    if (!from) return name;
-    return (!to || to === from) ? `${name}: ${from}` : `${name}: ${from} – ${to}`;
+    const verb = t === 1 ? g('سمّع', 'سمّعت')
+        : t === 2 ? g('راجع', 'راجعت')
+        : t === SECOND_REVIEW_TYPE ? g('راجع مراجعةً ثانية', 'راجعت مراجعةً ثانية')
+        : t === 6 ? g('اُختبر', 'اُختبرت')
+        : g('سرد', 'سردت');
+    if (!range) return verb;
+    return t === 6 ? `${verb} في ${range}` : `${verb} ${range}`;
 }
 
 function actChipHtml(r) {
@@ -2309,6 +2346,8 @@ function actChipHtml(r) {
     const id = Number(r.id);
     return `<span class="act-chip"><button type="button" class="act-chip-main" title="${r.synced ? 'عرض / تعديل' : 'لم يُرفع بعد'}" ` +
         `onclick="${r.synced ? 'editActChip' : 'openActChipMenu'}(${id})">${activityIconHtml(r.type)}<span>${escapeHtml(actChipLabel(r))}</span>${cloud}</button>` +
+        // ✏️ (11-19، كـFlutter) التعديل ظاهرٌ بجانب السلّة — لمس الشارة لا يدلّ عليه
+        `<button type="button" class="act-chip-del act-chip-edit" title="تعديل" aria-label="تعديل" onclick="editActChip(${id})"><i class="fas fa-pen"></i></button>` +
         `<button type="button" class="act-chip-del" title="حذف" aria-label="حذف" onclick="deleteRecord(${id})"><i class="fas fa-trash-can"></i></button></span>`;
 }
 
@@ -2334,7 +2373,7 @@ async function openActChipMenu(id) {
     o.setAttribute('aria-modal', 'true');
     o.style.display = 'flex';
     o.innerHTML = '<div class="modal-box" style="text-align:start;max-width:440px">' +
-        `<h4 class="modal-title">${escapeHtml(fullStudentName(student) || ('الطالب ' + r.student))}</h4>` +
+        `<h4 class="modal-title">${escapeHtml(tripleStudentName(student) || fullStudentName(student) || ('الطالب ' + r.student))}</h4>` +
         `<div style="font-size:13.5px;color:#475569;margin-bottom:8px">${escapeHtml(formatActivitySummary(r))}</div>` +
         (r.synced
             ? '<div class="act-menu-row off"><i class="fas fa-cloud" style="color:#2e7d32"></i><span>مرفوعٌ إلى السيرفر</span></div>'
@@ -2548,19 +2587,33 @@ function studentCardHtml(s) {
         if (s.idNo && String(s.idNo) !== String(id)) ids.push('رقم الطالب ' + id);
         // (2026-11-18 طلب المستخدم) ما سُجّل له اليوم سطرٌ وحده فوق الأزرار، ثم
         //   الأزرار الخمسة، ثم اختبار الجزء والسرد والترشيح معًا في سطرٍ واحد
+        /* 🙈 (11-19، كـFlutter _actionsRow) ما سُجّل في اليوم المعروض لا يُعرض
+           زرّه ثانيةً (يُعدَّل من شارته): لا يتكرّر نوعٌ للطالب في يومٍ واحد
+           البتّة (فُحص الحيّ: صفر تكرار). المراجعة الأولى ⇒ الزرّ «مراجعة ثانية»
+           (النوع 22 مباشرةً في اللوحة)، وبعد الثانية يختفي. والحالة واحدةٌ في
+           اليوم: أيّ نشاطٍ مسجَّل ⇒ تختفي حاضر/بعذر/غائب. */
+        const has = t => dayActs.some(a => Number(a.type) === t);
+        const firstRev = has(2), secondRev = has(SECOND_REVIEW_TYPE);
+        const revType = firstRev ? SECOND_REVIEW_TYPE : 2;
+        // الرصد في الصفّ يحوّل 2 إلى الثانية وحده؛ اللوحة تُعطى النوع صريحًا
+        const revBtn = firstRev && !window.QmcRowEntry
+            ? `<button type="button" class="st-act rec" title="${escapeHtml(SECOND_REVIEW_NAME)}" onclick="openActivityForStudent(${id}, ${SECOND_REVIEW_TYPE})">` +
+              `<i class="fas fa-repeat"></i><span>${escapeHtml(SECOND_REVIEW_NAME)}</span></button>`
+            : btn(2, 'rec', revType === 2 ? 'fa-rotate' : 'fa-repeat', revType === 2 ? activityTypeName(2) : SECOND_REVIEW_NAME);
         body = (dayActs.length
                 // شارات نشاط اليوم: لمسُها يعدّل، والسلّة تحذف، والسحابة: لم يُرفع
                 ? '<div class="st-more st-day">' + dayActs.map(actChipHtml).join('') + '</div>'
                 : '') +
             '<div class="st-acts">' +
-            btn(1, 'rec', 'fa-microphone', activityTypeName(1)) +
-            btn(2, 'rec', 'fa-rotate', activityTypeName(2)) +
-            btn(3, 'ok', 'fa-user-check', 'حاضر', true) +
-            btn(4, 'warn', 'fa-envelope', 'بعذر', true) +
-            btn(5, 'bad', 'fa-xmark', 'غائب', true) +
+            (has(1) ? '' : btn(1, 'rec', 'fa-microphone', activityTypeName(1))) +
+            (firstRev && secondRev ? '' : revBtn) +
+            (dayActs.length ? '' :
+                btn(3, 'ok', 'fa-user-check', 'حاضر', true) +
+                btn(4, 'warn', 'fa-envelope', 'بعذر', true) +
+                btn(5, 'bad', 'fa-xmark', 'غائب', true)) +
             '</div><div class="st-tools">' +
-            `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 6)"><i class="fas fa-trophy"></i> ${escapeHtml(activityTypeName(6))}</button>` +
-            `<button type="button" class="st-chip" onclick="${recFn}(${id}, 7)"><i class="fas fa-book-open"></i> ${escapeHtml(activityTypeName(7))}</button>` +
+            (has(6) ? '' : `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 6)"><i class="fas fa-trophy"></i> ${escapeHtml(activityTypeName(6))}</button>`) +
+            (has(7) ? '' : `<button type="button" class="st-chip" onclick="${recFn}(${id}, 7)"><i class="fas fa-book-open"></i> ${escapeHtml(activityTypeName(7))}</button>`) +
             `<button type="button" class="st-chip" onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check"></i> ترشيح للاختبار</button>` +
             '</div>' +
             (ids.length ? `<div class="st-more"><span class="st-ids">${escapeHtml(ids.join(' · '))}</span></div>` : '');
@@ -2581,13 +2634,16 @@ function dayStateOf(acts) {
     if (!acts || !acts.length) return ['لم يُرصد', 'mute'];
     const types = acts.map(a => Number(a.type));
     const has = (t) => types.indexOf(t) !== -1;
-    if (has(1)) return ['سمّع', 'ok'];
-    if (has(2) || has(SECOND_REVIEW_TYPE)) return ['راجع', 'ok'];
-    if (has(6)) return ['اختبار جزء', 'ok'];
-    if (has(7)) return ['سرد', 'ok'];
-    if (has(3)) return ['حضر ولم يُسمّع', 'brand'];
-    if (has(4)) return ['غاب بعذر', 'warn'];
-    return ['غاب', 'bad'];
+    // (11-19) بجنس الطالب كالشارات
+    const fem = isFemaleStudent(acts[0].student);
+    const g = (m, f) => fem ? f : m;
+    if (has(1)) return [g('سمّع', 'سمّعت'), 'ok'];
+    if (has(2) || has(SECOND_REVIEW_TYPE)) return [g('راجع', 'راجعت'), 'ok'];
+    if (has(6)) return [g('اُختبر', 'اُختبرت'), 'ok'];
+    if (has(7)) return [g('سرد', 'سردت'), 'ok'];
+    if (has(3)) return [g('حضر بدون تسميع', 'حضرت بدون تسميع'), 'brand'];
+    if (has(4)) return [g('غاب بعذر', 'غابت بعذر'), 'warn'];
+    return [g('غاب', 'غابت'), 'bad'];
 }
 
 // مجموعة المرشّح: none لم يُرصد · done حضر (سمّع أو لم يُسمّع) · abs غاب
@@ -3617,6 +3673,8 @@ async function fetchAndStoreCircles() {
                 centerNo  : (it.center_no != null) ? Number(it.center_no) : null,
                 centerName: it.center_name || '',
                 empRole   : (it.emp_role != null) ? String(it.emp_role) : '',
+                // (11-19) M | F | B — لصياغة الفعل بجنس الطالب («سمّعت»، «غابت»)
+                gender    : String(it.gender || '').trim().toUpperCase(),
             }));
             tx.oncomplete = resolve;
             tx.onerror = () => reject(tx.error);

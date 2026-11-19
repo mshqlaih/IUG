@@ -166,6 +166,8 @@
 /* (2026-11-18) ما سُجّل اليوم سطرٌ فوق الأزرار، والأدوات الثلاث سطرٌ واحد تحتها */
 .st-more.st-day { padding: 0 12px 8px; }
 .st-day .act-chip { max-width: 100%; }
+/* (11-19) نصّ الشارة جملةٌ («سمّع سبأ من 23 إلى 54») ⇒ يلتفّ سطرين ولا يُقصّ */
+.st-more .act-chip-main span { white-space: normal; line-height: 1.45; text-align: start; }
 .st-tools { display: grid; grid-template-columns: auto auto 1fr; gap: 6px; padding: 0 12px 10px; }
 .st-tools .st-chip { justify-content: center; padding: 6px 8px; white-space: nowrap; min-width: 0; }
 @media (max-width: 350px) {

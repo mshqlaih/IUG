@@ -921,6 +921,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .act-chip { padding: 0; gap: 0; cursor: default; overflow: hidden; }
 .act-chip-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; background: none; border: 0; padding: 5px 10px; font: inherit; color: inherit; cursor: pointer; }
 .act-chip-del { flex: none; align-self: stretch; background: none; border: 0; border-inline-start: 1px solid #e2e8f0; padding: 0 10px; color: #c5221f; cursor: pointer; font-size: 14px; }
+/* (11-19) ✏️ التعديل بجانب السلّة — بلون التطبيق */
+.act-chip-del.act-chip-edit { color: var(--primary); }
 .act-menu-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: start; background: #fff; border: 0; border-bottom: 1px solid #f0f0f0; padding: 12px 4px; font: inherit; font-size: 15px; color: inherit; cursor: pointer; }
 .act-menu-row.off { cursor: default; color: #2e7d32; }
 /* نافذتا الشارة والحلقة: هامشٌ بين الأزرار وما فوقها */
