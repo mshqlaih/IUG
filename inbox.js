@@ -202,6 +202,21 @@
     '.is-rows table{border-collapse:collapse;width:100%;font-size:12px}',
     '.is-rows th{background:#f1f3f4;font-weight:700;text-align:right;padding:6px;white-space:nowrap}',
     '.is-rows td{padding:5px 6px;border-top:1px solid #f1f3f4}',
+    '.is-lt{margin-top:6px;border:1px solid var(--primary-line,#c7d7ef);border-radius:10px;overflow:hidden}',
+    '.is-lt summary{display:flex;align-items:center;gap:8px;padding:9px 10px;background:var(--primary-wash,#e8f0fe);',
+    'font-size:13.5px;font-weight:700;color:#202124;cursor:pointer;list-style:none}',
+    '.is-lt summary::-webkit-details-marker{display:none}',
+    '.is-lt summary span{flex:1;min-width:0;line-height:1.5}',
+    '.is-lt summary i{color:var(--primary);transition:transform .2s}',
+    '.is-lt[open] summary i{transform:rotate(180deg)}',
+    '.is-lt-row{display:grid;gap:6px;padding:6px 10px;font-size:13px;line-height:1.4;color:#3c4043}',
+    '.is-lt-row:nth-child(odd){background:#f8f9fb}',
+    '.is-lt-row span{min-width:0;overflow-wrap:anywhere;text-align:center}',
+    '.is-lt-row span:first-child{text-align:start;font-weight:600}',
+    '.is-lt-row small{display:block;font-size:11px;color:#80868b;font-weight:normal}',
+    '.is-lt-h{background:#f1f3f4 !important;font-size:11.5px;font-weight:700;color:#455a64}',
+    '.is-lt-h span:first-child{font-weight:700}',
+    '.is-lt-more{padding:6px 10px;font-size:11.5px;color:#80868b}',
     '.is-empty{text-align:center;color:#5f6368;padding:28px 8px;line-height:1.8}',
     '.is-sec{font-weight:700;color:#455a64;font-size:14px;margin:20px 0 8px}',
     '.is-push{background:#fff;border:1px solid #e0e3e7;border-radius:14px;padding:14px;line-height:1.7;font-size:14px;color:#3c4043}',
@@ -387,6 +402,114 @@
     return h + '</table></div>';
   }
 
+  /* ---------- 🗂 التنبيهات المجمّعة جدولًا مطويًّا (11-19، نظير inbox_list_table.dart) ----------
+     المتن نصٌّ يجمعه السيرفر بـLISTAGG (QMC_INBOX_PKG)؛ نمط كل سطرٍ هنا نظيرُ
+     _specs في Flutter — أيّ تغييرٍ في العبارة يُنقل إلى الموضعين. وما لم يُفهم
+     يبقى نصًّا كما كان. مطويٌّ إلى سطرٍ بالعدد متى زاد على 3. */
+  function arCount(n, one, two, few, many, hundred) {
+    var a = Math.abs(n);
+    if (a === 1) return one;
+    if (a === 2) return two;
+    var r = a % 100;
+    return a + ' ' + (r >= 3 && r <= 10 ? few : r >= 11 ? many : hundred);
+  }
+  function studentsN(n) { return arCount(n, 'طالب واحد', 'طالبان', 'طلاب', 'طالبًا', 'طالب'); }
+  function opt(s) { s = (s || '').trim(); return s || null; }
+  var DASH = '\\s+[—–-]\\s+';
+  var LIST_SPECS = {
+    // «الاسم: الحالة DD/MM — السبب»
+    STUDENT_STATUS_CHANGED: {
+      headers: ['الطالب', 'الحالة', 'السبب'], flex: [4, 3, 4],
+      re: new RegExp('^(.+?):\\s+(.+?)\\s+(\\d{1,2}/\\d{1,2})(?:' + DASH + '(.+))?$'),
+      cells: function (m) { return [[m[1].trim()], [m[2].trim(), m[3]], [opt(m[4]) || '—']]; },
+      group: 1, lead: studentsN
+    },
+    // «حلقة «X»: المعتمدون 3 من 5 — رقِّ من الإضافيّين (2)»
+    APPROVED_SHORT: {
+      headers: ['الحلقة / الدورة', 'المعتمدون', 'الإضافيّون'], flex: [5, 3, 3],
+      re: new RegExp('^(حلقة|دورة)\\s+«(.+)»:\\s+المعتمدون\\s+(\\d+)\\s+من\\s+(\\d+)(?:' + DASH + '.*?\\((\\d+)\\))?$'),
+      cells: function (m) { return [[m[2].trim(), m[1]], [m[3] + ' من ' + m[4]], [m[5] || '0']]; },
+      group: null, lead: function (n) { return 'دون السقف: ' + n; }
+    },
+    // «"الدورة" DD/MM: العذر»
+    COURSE_EXCUSED_DAYS: {
+      headers: ['الدورة', 'اليوم', 'العذر'], flex: [4, 2, 5],
+      re: /^«(.+?)»\s+(\d{1,2}\/\d{1,2}):\s+(.+)$/,
+      cells: function (m) { return [[m[1].trim()], [m[2]], [m[3].trim()]]; },
+      group: 0, lead: function (n) { return arCount(n, 'يوم واحد', 'يومان', 'أيام', 'يومًا', 'يوم'); }
+    },
+    // «الاسم: منقطع — الحلقة»
+    STATUS_REQUESTS: {
+      headers: ['الطالب', 'الطلب', 'الحلقة'], flex: [4, 3, 4],
+      re: new RegExp('^(.+?):\\s+(.+?)' + DASH + '(.+)$'),
+      cells: function (m) { return [[m[1].trim()], [m[2].trim()], [m[3].trim()]]; },
+      group: 1, lead: studentsN
+    },
+    // «الاسم: وُوفق (منقطع) — الملاحظة»
+    STATUS_REQ_DECIDED: {
+      headers: ['الطالب', 'النتيجة', 'الملاحظة'], flex: [4, 3, 4],
+      re: new RegExp('^(.+?):\\s+(\\S+)\\s+\\((.+?)\\)(?:' + DASH + '(.+))?$'),
+      cells: function (m) { return [[m[1].trim()], [m[2], m[3]], [opt(m[4]) || '—']]; },
+      group: 1, lead: studentsN
+    },
+    // «اليوم: الاسم · غدًا: الاسم»
+    GUARDIAN_ABSENCE_NOTICES: {
+      headers: ['الطالب', 'الغياب'], flex: [5, 2],
+      re: /^(اليوم|غدًا):\s+(.+)$/,
+      cells: function (m) { return [[m[2].trim()], [m[1]]]; },
+      group: 1, lead: studentsN
+    }
+  };
+  var OVERFLOW = /^(?:\.\.\.|…)\s*(?:\((\d+)\))?$/;
+
+  function listTableHtml(m) {
+    var spec = isAlert(m) && LIST_SPECS[m.code];
+    if (!spec || !m.body) return null;
+    var lines = m.body.split(m.code === 'GUARDIAN_ABSENCE_NOTICES' ? ' · ' : '؛')
+      .map(function (s) { return s.trim(); }).filter(Boolean);
+    if (lines.length < 2) return null;
+    var rows = [], truncated = null;
+    for (var i = 0; i < lines.length; i++) {
+      var mm = spec.re.exec(lines[i]);
+      if (mm) { rows.push(spec.cells(mm)); continue; }
+      if (i !== lines.length - 1) return null;   // سطرٌ لا يُفهم في الوسط ⇒ النصّ كما هو
+      var o = OVERFLOW.exec(lines[i]);           // الأخير قد يقصّه السيرفر
+      truncated = o ? (parseInt(o[1] || '0', 10) || 0) : 0;
+    }
+    if (rows.length < 2) return null;
+    // عمودٌ كلّه «—» لا يُعرض
+    var cols = spec.headers.map(function (_, c) { return c; }).filter(function (c) {
+      return c === 0 || rows.some(function (r) { return r[c][0] !== '—'; });
+    });
+    var summary = spec.lead(rows.length);
+    if (spec.group != null) {
+      var by = {}, order = [];
+      rows.forEach(function (r) {
+        var k = r[spec.group][0];
+        if (!(k in by)) { by[k] = 0; order.push(k); }
+        by[k]++;
+      });
+      if (order.length > 1 || spec.group !== 0) {
+        summary += '  ·  ' + order.sort(function (a, b) { return by[b] - by[a]; })
+          .map(function (k) { return k + ' ' + by[k]; }).join(' · ');
+      }
+    }
+    var tpl = cols.map(function (c) { return spec.flex[c] + 'fr'; }).join(' ');
+    var h = '<details class="is-lt"' + (rows.length <= 3 ? ' open' : '') + '>' +
+      '<summary><span>' + esc(summary) + '</span><i class="fas fa-chevron-down"></i></summary>' +
+      '<div class="is-lt-row is-lt-h" style="grid-template-columns:' + tpl + '">' +
+      cols.map(function (c) { return '<span>' + esc(spec.headers[c]) + '</span>'; }).join('') + '</div>';
+    rows.forEach(function (r) {
+      h += '<div class="is-lt-row" style="grid-template-columns:' + tpl + '">' + cols.map(function (c) {
+        return '<span>' + esc(r[c][0]) + (r[c][1] ? '<small>' + esc(r[c][1]) + '</small>' : '') + '</span>';
+      }).join('') + '</div>';
+    });
+    if (truncated != null) {
+      h += '<div class="is-lt-more">' + (truncated > 0 ? 'و' + truncated + ' غيرهم لم يتّسع لهم التنبيه' : 'وغيرهم لم يتّسع لهم التنبيه') + '</div>';
+    }
+    return h + '</details>';
+  }
+
   /* ---------- 🎯 التنبيه وشاشته (نظير inboxHasTarget/openInboxTarget) ----------
      تنبيهٌ يُنجَز من شاشةٍ بعينها ⇒ زرّه في الصندوق وفي «يحتاج تدخّلك» يفتحها
      مباشرةً. ما ليس في IUG (طلبات التصحيح، المحاضر) يبقى بلا زرّ. */
@@ -453,14 +576,14 @@
            'لا رسائل الآن.</div>';
     }
     items.forEach(function (m) {
-      var read = isRead(m), scope = scopeLabel(m);
+      var read = isRead(m), scope = scopeLabel(m), lt = listTableHtml(m);
       var rows = (m.data && Array.isArray(m.data.rows)) ? m.data.rows.filter(function (r) {
         return r && typeof r === 'object';
       }) : [];
       h += '<div class="is-card' + (m.severity === 'URGENT' ? ' URGENT' : (!read && isAnn(m) ? ' unread' : '')) + '">' +
         '<div class="t">' + (isAlert(m) ? '🔔 ' : '📢 ') + esc(m.title) + '</div>' +
         (scope ? '<div class="s">' + esc(scope) + '</div>' : '') +
-        (m.body ? '<div class="b">' + esc(m.body) + '</div>' : '') +
+        (lt || (m.body ? '<div class="b">' + esc(m.body) + '</div>' : '')) +
         (rows.length ? rowsTable(rows) : '') +
         '<div class="f"><span>' + esc(m.created_at ? stamp(m.created_at) : (isAlert(m) ? 'تنبيه محسوب' : '')) +
         (m.data && m.data.end_at ? ' · حتى ' + esc(m.data.end_at) : '') + '</span>' +
