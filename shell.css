@@ -143,6 +143,12 @@
 .st-act.warn { background: #fcefd9; color: #9a5600; }
 .st-act.bad { background: #fbe6e9; color: #a3263a; }
 .st-act:active { transform: scale(.97); }
+/* 🔘 (11-19) الأزرار في أماكنها: «مُنجَز» = سُجّل (✓ خضراء)، «معطَّل» = لا ينطبق */
+.st-act.is-done, .st-chip.is-done { opacity: .6; cursor: default; }
+.st-act.is-done { background: #eef7f1; color: #17764a; }
+.st-chip.is-done i { color: #17764a; }
+.st-act.is-off { opacity: .35; filter: grayscale(1); cursor: default; }
+.st-act.is-done:active, .st-act.is-off:active { transform: none; }
 
 .st-more { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 12px 12px; }
 .st-chip {

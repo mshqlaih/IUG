@@ -2577,10 +2577,22 @@ function studentCardHtml(s) {
     if (inline) {
         body = (dayActs.length ? '<div class="st-more">' + dayActs.map(actChipHtml).join('') + '</div>' : '') + inline;
     } else if (open) {
-        const btn = (t, cls, icon, text, quick) =>
-            `<button type="button" class="st-act ${cls}" title="${escapeHtml(activityTypeName(t))}" ` +
-            `onclick="${quick ? 'quickSaveActivity' : recFn}(${id}, ${t})">` +
-            `<i class="fas ${icon}"></i><span>${escapeHtml(text)}</span></button>`;
+        /* 🔘 (11-19، المستخدم بعد تجربة الإخفاء: «الشاشة قرعاء والترشيح ممتدّ وحده»)
+           الأزرار في أماكنها دائمًا — يد المعلّم تعرف موضعها. ما سُجّل «مُنجَز»
+           (✓ خضراء) وما لا ينطبق «معطَّل» (رماديّ)، ولمسُهما يشرح ولا يُدخل. */
+        const isFem = isFemaleStudent(id);
+        const doneMsg = (t) => `سُجّل ${isFem ? 'لها' : 'له'} «${activityTypeName(t)}» ${actDayLabel(actDay())} — عدّله من ✏️ على شارته`;
+        const statusRec = dayActs.find(a => [3, 4, 5].indexOf(Number(a.type)) !== -1);
+        const offMsg = statusRec
+            ? `${isFem ? 'حالتها' : 'حالته'} ${actDayLabel(actDay())} «${actChipLabel(statusRec)}» — لتغييرها عدّل شارتها`
+            : `${isFem ? 'حضرت' : 'حضر'} ${actDayLabel(actDay())} — ${isFem ? 'لها' : 'له'} نشاطٌ مسجَّل، فلا حضور ولا غياب يُضاف`;
+        const dimAttr = (state, msg) => state
+            ? ` is-${state}" aria-disabled="true" data-msg="${escapeHtml(msg)}" onclick="showToast(this.dataset.msg)`
+            : '';
+        const btn = (t, cls, icon, text, quick, state, msg) =>
+            `<button type="button" class="st-act ${cls}${state ? dimAttr(state, msg) : ''}" title="${escapeHtml(activityTypeName(t))}" ` +
+            (state ? '>' : `onclick="${quick ? 'quickSaveActivity' : recFn}(${id}, ${t})">`) +
+            `<i class="fas ${state === 'done' ? 'fa-circle-check' : icon}"></i><span>${escapeHtml(text)}</span></button>`;
         // لا نعرض «رقم الطالب» إن كان هو نفسه رقم الهوية — تكرار بلا معنى
         const ids = [];
         if (s.idNo) ids.push('الهوية ' + s.idNo);
@@ -2594,26 +2606,35 @@ function studentCardHtml(s) {
            اليوم: أيّ نشاطٍ مسجَّل ⇒ تختفي حاضر/بعذر/غائب. */
         const has = t => dayActs.some(a => Number(a.type) === t);
         const firstRev = has(2), secondRev = has(SECOND_REVIEW_TYPE);
-        const revType = firstRev ? SECOND_REVIEW_TYPE : 2;
         // الرصد في الصفّ يحوّل 2 إلى الثانية وحده؛ اللوحة تُعطى النوع صريحًا
-        const revBtn = firstRev && !window.QmcRowEntry
+        const revBtn = firstRev && secondRev
+            ? btn(SECOND_REVIEW_TYPE, 'rec', 'fa-repeat', SECOND_REVIEW_NAME, false, 'done', doneMsg(SECOND_REVIEW_TYPE))
+            : firstRev && !window.QmcRowEntry
             ? `<button type="button" class="st-act rec" title="${escapeHtml(SECOND_REVIEW_NAME)}" onclick="openActivityForStudent(${id}, ${SECOND_REVIEW_TYPE})">` +
               `<i class="fas fa-repeat"></i><span>${escapeHtml(SECOND_REVIEW_NAME)}</span></button>`
-            : btn(2, 'rec', revType === 2 ? 'fa-rotate' : 'fa-repeat', revType === 2 ? activityTypeName(2) : SECOND_REVIEW_NAME);
+            : btn(2, 'rec', firstRev ? 'fa-repeat' : 'fa-rotate', firstRev ? SECOND_REVIEW_NAME : activityTypeName(2));
+        // الحالة واحدةٌ في اليوم: المسجَّلة «مُنجَزة»، وأخواتها معطَّلة
+        const stState = t => has(t) ? 'done' : dayActs.length ? 'off' : '';
+        const stMsg = t => has(t) ? doneMsg(t) : offMsg;
+        const tool = (t, icon, fn) => {
+            const st = has(t) ? 'done' : '';
+            return `<button type="button" class="st-chip${st ? dimAttr(st, doneMsg(t)) : ''}"` +
+                (st ? '>' : ` onclick="${fn}(${id}, ${t})">`) +
+                `<i class="fas ${st ? 'fa-circle-check' : icon}"></i> ${escapeHtml(activityTypeName(t))}</button>`;
+        };
         body = (dayActs.length
                 // شارات نشاط اليوم: لمسُها يعدّل، والسلّة تحذف، والسحابة: لم يُرفع
                 ? '<div class="st-more st-day">' + dayActs.map(actChipHtml).join('') + '</div>'
                 : '') +
             '<div class="st-acts">' +
-            (has(1) ? '' : btn(1, 'rec', 'fa-microphone', activityTypeName(1))) +
-            (firstRev && secondRev ? '' : revBtn) +
-            (dayActs.length ? '' :
-                btn(3, 'ok', 'fa-user-check', 'حاضر', true) +
-                btn(4, 'warn', 'fa-envelope', 'بعذر', true) +
-                btn(5, 'bad', 'fa-xmark', 'غائب', true)) +
+            btn(1, 'rec', 'fa-microphone', activityTypeName(1), false, has(1) ? 'done' : '', doneMsg(1)) +
+            revBtn +
+            btn(3, 'ok', 'fa-user-check', 'حاضر', true, stState(3), stMsg(3)) +
+            btn(4, 'warn', 'fa-envelope', 'بعذر', true, stState(4), stMsg(4)) +
+            btn(5, 'bad', 'fa-xmark', 'غائب', true, stState(5), stMsg(5)) +
             '</div><div class="st-tools">' +
-            (has(6) ? '' : `<button type="button" class="st-chip" onclick="openActivityForStudent(${id}, 6)"><i class="fas fa-trophy"></i> ${escapeHtml(activityTypeName(6))}</button>`) +
-            (has(7) ? '' : `<button type="button" class="st-chip" onclick="${recFn}(${id}, 7)"><i class="fas fa-book-open"></i> ${escapeHtml(activityTypeName(7))}</button>`) +
+            tool(6, 'fa-trophy', 'openActivityForStudent') +
+            tool(7, 'fa-book-open', recFn) +
             `<button type="button" class="st-chip" onclick="nominateStudentForExam(${id})"><i class="fas fa-clipboard-check"></i> ترشيح للاختبار</button>` +
             '</div>' +
             (ids.length ? `<div class="st-more"><span class="st-ids">${escapeHtml(ids.join(' · '))}</span></div>` : '');
