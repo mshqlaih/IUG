@@ -556,7 +556,10 @@ function renderMoreMenu() {
     show('moreSchedule', circle);
     show('moreStatus', circle);
     show('moreReport', circle);
-    show('moreCircleGroup', circle || tabAllowed('requestsTab'));
+    // 📊 تقارير الحلقة (reports.js): حلقةٌ على الجهاز وتقريرٌ ممنوحٌ واحدٌ على الأقل
+    const reps = !!(window.QmcReports && QmcReports.anyVisible());
+    show('moreCircleReports', reps);
+    show('moreCircleGroup', circle || tabAllowed('requestsTab') || reps);
     // 🚌 مصروفاتي لمن يملك LEDGER_CLAIM — ومن له مطالباتٌ لم تُرسل يراها ولو سُحبت القدرة
     const pendClaims = window.QmcClaims ? QmcClaims.pendingCount() : 0;
     show('moreClaims', hasCapability('LEDGER_CLAIM') || pendClaims > 0);
@@ -633,6 +636,8 @@ function openCircleActions() {
         row('schedule', 'fa-calendar-days', 'موعد الحلقة', 'وصلتُ · انصرفتُ · مواعيد الأسبوع') +
         row('status', 'fa-id-card', 'حالات الطلاب', 'طلب «منقطع» أو تغيير التصنيف') +
         row('report', 'fa-chart-simple', 'تقرير الأنشطة', 'Excel · PDF · مشاركة') +
+        (window.QmcReports && QmcReports.anyVisible()
+            ? row('reports', 'fa-file-lines', 'تقارير الحلقة', 'التسكين · الحضور والتسميع · الشهري · الكشف') : '') +
         row('add', 'fa-user-plus', 'طالب جديد', 'برقم الهوية ويُجلب الاسم') +
         '<div class="modal-actions"><button type="button" class="modal-btn modal-cancel" data-close>إغلاق</button></div></div>';
     o.addEventListener('click', ev => {
@@ -644,6 +649,7 @@ function openCircleActions() {
         if (d === 'schedule' && typeof openCircleSchedule === 'function') openCircleSchedule();
         else if (d === 'status' && typeof openCircleStatus === 'function') openCircleStatus();
         else if (d === 'report') openActivityReport();
+        else if (d === 'reports' && typeof openCircleReports === 'function') openCircleReports();
         else if (d === 'add') toggleAddStudentForm();
     });
     document.body.appendChild(o);

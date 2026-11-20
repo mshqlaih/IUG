@@ -997,6 +997,10 @@
                     <button type="button" id="moreReport" onclick="openActivityReport()">
                         <span class="more-ic"><i class="fas fa-chart-simple"></i></span>
                         <span class="more-t"><b>تقرير الأنشطة</b><small>Excel · PDF · مشاركة</small></span><i class="fas fa-chevron-left more-go"></i></button>
+                    <!-- 📊 تقارير الحلقة كما في Flutter — renderMoreMenu يُظهرها لمن مُنح منها شيئًا -->
+                    <button type="button" id="moreCircleReports" style="display:none" onclick="openCircleReports()">
+                        <span class="more-ic"><i class="fas fa-file-lines"></i></span>
+                        <span class="more-t"><b>تقارير الحلقة</b><small>التسكين · الحضور والتسميع · الشهري · الكشف · الاختبارات</small></span><i class="fas fa-chevron-left more-go"></i></button>
                 </div>
             </div>
 
@@ -1495,6 +1499,8 @@
     <script src="partial_days.js"></script>
     <!-- ✍️ الرصد في صفّ الطالب (بعد app.js: persistRecord وstudentCardHtml وQURAN_DATA) -->
     <script src="row_entry.js"></script>
+    <!-- 📊 تقارير الحلقة: التسكين والحضور والشهري والملخّص والكشف والاختبارات (بعد app.js: _circlesCache وhasCapability وcrDeliverFile) -->
+    <script src="reports.js"></script>
     <!-- 🏠 الرئيسية (بعد app.js وinbox.js وhelp.js: USER_ACCESS وopenInbox و_helpMarkDots) -->
     <script src="welcome.js"></script>
 
