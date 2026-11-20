@@ -2301,7 +2301,19 @@ function printCourseSheet() {
 
 /* تسليم ملفّ: المشاركة أوّلًا (iPhone: حفظ في الملفات/واتساب/طباعة)، وإلّا تنزيل.
    ⚠️ المشاركة بعد عملٍ غير متزامن قد تُرفض لانقضاء «لمسة المستخدم» — فيُنزَّل. */
-function crDeliverFile(blob, fileName, type) {
+/* 🔤 (2026-11-20) Chrome أندرويد يرسل اسم الملف العربيّ في المشاركة بترميزٍ خاطئ
+   فيصل واتساب «ØªÙ‚Ø±ÙŠØ±» بدل «تقرير» ⇒ اسمٌ لاتينيّ في المشاركة على أندرويد وحده.
+   [asciiName] يقترحه المستدعي (Placement-601-2026-11)، وإلا Safwa-<التاريخ والوقت>. */
+function crShareName(fileName, asciiName) {
+    if (!/Android/i.test(navigator.userAgent || '') || /^[ -~]*$/.test(fileName)) return fileName;
+    const dot = fileName.lastIndexOf('.');
+    const ext = dot > 0 ? fileName.slice(dot) : '';
+    if (asciiName) return asciiName + ext;
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return 'Safwa-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + ext;
+}
+
+function crDeliverFile(blob, fileName, type, asciiName) {
     const download = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -2314,9 +2326,9 @@ function crDeliverFile(blob, fileName, type) {
     };
     try {
         if (typeof File !== 'undefined' && navigator.canShare && navigator.share) {
-            const file = new File([blob], fileName, { type: type });
+            const file = new File([blob], crShareName(fileName, asciiName), { type: type });
             if (navigator.canShare({ files: [file] })) {
-                navigator.share({ title: fileName, files: [file] }).catch(err => {
+                navigator.share({ files: [file] }).catch(err => {
                     if (!err || err.name !== 'AbortError') download();
                 });
                 return;

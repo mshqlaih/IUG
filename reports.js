@@ -399,8 +399,9 @@
       } else {
         ui.msg = out.count + ' — جارٍ إعداد الملف…';
         render();
-        if (kind === 'pdf') await toPdf(out.pdf(), out.fileName + '.pdf', out.landscape);
-        else await toXlsx(out.xlsx(), out.fileName + '.xlsx');
+        var ascii = asciiName(rep.id);
+        if (kind === 'pdf') await toPdf(out.pdf(), out.fileName + '.pdf', out.landscape, ascii);
+        else await toXlsx(out.xlsx(), out.fileName + '.xlsx', ascii);
         ui.msg = out.count + (out.warn ? ' · ' + out.warn : '');
       }
     } catch (err) {
@@ -413,11 +414,41 @@
   }
 
   /* ---------- الإخراج ---------- */
-  function fileSafe(s) { return String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'تقرير'; }
+  // 🏷 اسم الملف مقروءٌ في الجوال (11-20: «خرابيش»): بلا تشكيل ولا تواريخ بشَرطات —
+  //    العربيّ المخلوط بـ«2026-11-01» ينقلب ترتيبه في مدير الملفات وواتساب
+  function fileSafe(s) {
+    return String(s || '').replace(TASHKEEL, '').replace(/[\\/:*?"<>|«»]+/g, ' ')
+      .replace(/\s+/g, ' ').trim().slice(0, 80) || 'تقرير';
+  }
+  var MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  // «نوفمبر 2026» لشهرٍ واحد، وإلا «من 1 أكتوبر إلى 19 نوفمبر 2026» — رقمٌ بين كلمتين لا ينقلب
+  function periodName(from, to) {
+    var a = parseYmd(from), b = parseYmd(to);
+    if (!a && !b) return '';
+    if (!a) return 'حتى ' + b.getDate() + ' ' + MONTHS[b.getMonth()] + ' ' + b.getFullYear();
+    if (!b) return 'من ' + a.getDate() + ' ' + MONTHS[a.getMonth()] + ' ' + a.getFullYear();
+    if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) {
+      var last = new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate();
+      if (a.getDate() === 1 && (b.getDate() === last || to === ymd(new Date()))) return MONTHS[a.getMonth()] + ' ' + a.getFullYear();
+      return 'من ' + a.getDate() + ' إلى ' + b.getDate() + ' ' + MONTHS[b.getMonth()] + ' ' + b.getFullYear();
+    }
+    return 'من ' + a.getDate() + ' ' + MONTHS[a.getMonth()] + (a.getFullYear() !== b.getFullYear() ? ' ' + a.getFullYear() : '') +
+      ' إلى ' + b.getDate() + ' ' + MONTHS[b.getMonth()] + ' ' + b.getFullYear();
+  }
 
   // 🖨 كل قسمٍ (حلقة/مؤسسة) يُرسم وحده ثم يُضاف إلى الملف نفسه — لا لوحةٌ واحدة
   //    للتقرير كلّه: الجوال الضعيف (J7) لا يحتمل canvas بطول عشرات الصفحات.
-  async function toPdf(sections, name, landscape) {
+  // 🔤 اسم المشاركة على أندرويد (crShareName): «Placement-601-2026-11» — العربيّ يصل واتساب مشوَّهًا
+  var SLUG = { placement: 'Placement', recitation: 'Attendance', monthly: 'Monthly-Detail', summary: 'Circles-Summary', roster: 'Students', exams: 'Exams-Summary' };
+  function asciiName(id) {
+    var parts = ['Safwa', SLUG[id] || 'Report'];
+    if (crit.circle) parts.push(String(crit.circle));
+    var a = crit.from ? crit.from.slice(0, 7) : '', b = crit.to ? crit.to.slice(0, 7) : '';
+    if (a || b) parts.push(a && b && a !== b ? a + '_' + b : (a || b));
+    return parts.join('-');
+  }
+
+  async function toPdf(sections, name, landscape, ascii) {
     if (typeof ensurePdfLibrary === 'function' && !await ensurePdfLibrary()) throw new Error('تعذّر تحميل مكتبة PDF — تأكّد من الاتصال ثم أعد المحاولة.');
     var opt = {
       margin: landscape ? [0.6, 0.6, 0.6, 0.6] : [0.7, 0.6, 0.7, 0.6],
@@ -432,10 +463,10 @@
       w = w.get('pdf').then(function (pdf) { pdf.addPage(); }).from(s, 'string').toContainer().toCanvas().toPdf();
     });
     var blob = await w.outputPdf('blob');
-    crDeliverFile(blob, name, 'application/pdf');
+    crDeliverFile(blob, name, 'application/pdf', ascii);
   }
 
-  async function toXlsx(sheets, name) {
+  async function toXlsx(sheets, name, ascii) {
     try { await loadScriptOnce('xlsx.full.min.js'); }
     catch (_) { throw new Error('تعذّر تحميل مكتبة Excel — تأكّد من الاتصال ثم أعد المحاولة.'); }
     var wb = XLSX.utils.book_new();
@@ -450,7 +481,7 @@
     wb.Workbook.Views = [{ RTL: true }];
     var out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     var type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    crDeliverFile(new Blob([out], { type: type }), name, type);
+    crDeliverFile(new Blob([out], { type: type }), name, type, ascii);
   }
 
   // اسم ورقة صالح وفريد (≤31 حرفًا، بلا \ / ? * [ ] :)
@@ -564,7 +595,7 @@
   }
   function filePart() {
     var c = crit.circle ? circleOf(crit.circle) : null;
-    return (c ? c.circleName + ' - ' : '') + crit.from + ' إلى ' + crit.to;
+    return (c ? c.circleName + ' - ' : '') + periodName(crit.from, crit.to);
   }
 
   var PDF_CSS = '<style>' +
@@ -1236,7 +1267,7 @@
 
     return {
       count: rows.length + ' طالبًا', landscape: built[0].landscape,
-      fileName: fileSafe(title + (chosen ? ' - ' + chosen.circleName : '') + ' - ' + ymd(new Date())),
+      fileName: fileSafe(title + (chosen ? ' - ' + chosen.circleName : '')),
       pdf: function () { return built.map(function (b) { return b.html; }); },
       xlsx: sheets,
     };
@@ -1341,7 +1372,7 @@
 
     return {
       count: rows.length + ' طالبًا · ' + exams + ' اختبارًا ناجحًا', landscape: true,
-      fileName: fileSafe(title + (chosen ? ' - ' + chosen.circleName : '') + (period ? ' - ' + (crit.from || '') + ' إلى ' + (crit.to || '') : '')),
+      fileName: fileSafe(title + (chosen ? ' - ' + chosen.circleName : '') + (period ? ' - ' + periodName(crit.from, crit.to) : '')),
       pdf: function () { return groups.map(section); },
       xlsx: sheets,
     };
