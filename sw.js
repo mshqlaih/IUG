@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.47';
+const CACHE_NAME = 'quran-app-v2.48';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -67,13 +67,35 @@ function allDone(promises) {
   return Promise.all(promises.map((p) => Promise.resolve(p).catch(() => null)));
 }
 
-// تثبيت الملفات في الذاكرة (مرن: فشل ملف لا يكسر الكل)
+// 🛟 (2026-11-20) نسخة الملفّ من كاشٍ سابق — قبل أن يحذفه activate.
+// كان فشل تنزيل ملفٍّ أثناء التحديث (شبكة ضعيفة) يُتجاوز بصمت ثم يُحذف الكاش
+// القديم كلّه ⇒ ضاع fa-solid-900.woff2 على J7 فصارت كل الأيقونات مربّعات دون اتصال.
+async function keepOld(cache, u) {
+  try {
+    if (await cache.match(u, { ignoreSearch: true })) return;
+    const old = await caches.match(u, { ignoreSearch: true });
+    if (old) await cache.put(u, old);
+  } catch (_) {}
+}
+
+// الجديد من الشبكة، وإلا يبقى القديم
+async function addOrKeep(cache, u) {
+  try {
+    await cache.add(freshRequest(u));
+  } catch (_) {
+    await keepOld(cache, u);
+  }
+}
+
+// تثبيت الملفات في الذاكرة (مرن: فشل ملف لا يكسر الكل، ولا يُضيّع نسخته القديمة)
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await allDone(SHELL.concat(ASSETS).map((u) => cache.add(freshRequest(u))));
-    allDone(OPTIONAL.map((u) => cache.add(freshRequest(u))));  // في الخلفية
+    await allDone(SHELL.concat(ASSETS).map((u) => addOrKeep(cache, u)));
+    // الثقيلة: نسختها القديمة تُنسخ الآن (سريع، قبل الحذف)، والجديدة في الخلفية
+    await allDone(OPTIONAL.map((u) => keepOld(cache, u)));
+    allDone(OPTIONAL.map((u) => cache.add(freshRequest(u))));
   })());
 });
 
@@ -125,6 +147,11 @@ async function fetchWithTimeout(req, ms) {
 async function cacheFallback(cache, req) {
   const cached = await cache.match(req, { ignoreSearch: true });
   if (cached) return cached;
+  // 🛟 ثم أيّ كاشٍ على الجهاز (نسخةٌ سابقة لم تُحذف بعد)
+  try {
+    const any = await caches.match(req, { ignoreSearch: true });
+    if (any) return any;
+  } catch (_) {}
   if (req.mode === 'navigate') {
     return (await cache.match('./index.html', { ignoreSearch: true })) || Response.error();
   }

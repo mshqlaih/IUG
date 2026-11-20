@@ -60,7 +60,7 @@ button, input, select, textarea { font-family: inherit; }
 .app-header::after {
   content: "";
   position: absolute;
-  inset-inline: 0;
+  left: 0; right: 0;   /* لا inset-inline: المتصفّحات القديمة (J7) تتجاهلها */
   bottom: 0;
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--gold) 20%, #e9cf86 50%, var(--gold) 80%, transparent);
@@ -388,7 +388,7 @@ tbody tr:nth-child(even) td { background: #fafbfc; }
 .card.app-about::after {
   content: "";
   position: absolute;
-  inset-inline: 0;
+  left: 0; right: 0;
   top: 0;
   height: 3px;
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
