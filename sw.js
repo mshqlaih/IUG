@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.52';
+const CACHE_NAME = 'quran-app-v2.53';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -202,12 +202,20 @@ self.addEventListener('fetch', (e) => {
 
 // جسم saveActivity — نسخة مطابقة لِما في api.js (الـ SW لا يستطيع استيراده).
 // أي تعديل هنا يجب أن يُطبَّق في buildSaveActivityBody داخل api.js والعكس.
+// 🔴 الجزء ⇒ أوّل آيةٍ فيه وآخر آية (TAGNO) كما في api.js — لا رقم الجزء نفسه
+const JUZ_FIRST_AYA = [0, 1, 149, 260, 386, 517, 641, 751, 900, 1042, 1201, 1328, 1479, 1649, 1803,
+  2030, 2215, 2484, 2674, 2876, 3215, 3386, 3564, 3733, 4090, 4265, 4511, 4706, 5105, 5242, 5673, 6237];
+function juzAya(part, last) {
+  const p = Number(part);
+  if (!(p >= 1 && p <= 30)) return part;
+  return last ? JUZ_FIRST_AYA[p + 1] - 1 : JUZ_FIRST_AYA[p];
+}
 function buildSaveActivityBody(record) {
   const type = Number(record.type);
   const isPartMode = (type === 6 || type === 7);
 
-  const from = isPartMode ? record.partFrom : record.fromRange;
-  const to   = isPartMode ? record.partTo   : record.toRange;
+  const from = isPartMode ? juzAya(record.partFrom, false) : record.fromRange;
+  const to   = isPartMode ? juzAya(record.partTo, true)    : record.toRange;
 
   const num = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
   const numOr0 = (v) => { const n = num(v); return n === null ? 0 : n; };

@@ -138,14 +138,23 @@ window.QMC = (function () {
   }
 
   // --- بناء جسم saveActivity من سجل IUG (نفس عقد QMC_API_SAVE_ACTIVITY) ---
-  // ملاحظة: في اختبار الجزء والسرد (6/7) يحمل حقلا الآيات رقمَي الجزء،
-  //         تماماً كما يفعل تطبيق Flutter.
+  // 🔴 في اختبار الجزء والسرد (6/7) يُرسَل رقم أوّل آيةٍ في «الجزء من» وآخر آيةٍ في
+  //    «الجزء إلى» (TAGNO في QMC_AYAT) كما يفعل Flutter (firstAyaTagOfPart) — لا رقم
+  //    الجزء نفسه: كان يُرسَل فخزّن السيرفر «2» آيةً = الفاتحة (2) وصفحاتٍ 0.1 (2026-11-20).
+  //    الجدول نفسه في sw.js — أي تعديلٍ هنا يُطبَّق هناك.
+  const JUZ_FIRST_AYA = [0, 1, 149, 260, 386, 517, 641, 751, 900, 1042, 1201, 1328, 1479, 1649, 1803,
+    2030, 2215, 2484, 2674, 2876, 3215, 3386, 3564, 3733, 4090, 4265, 4511, 4706, 5105, 5242, 5673, 6237];
+  function juzAya(part, last) {
+    const p = Number(part);
+    if (!(p >= 1 && p <= 30)) return part;
+    return last ? JUZ_FIRST_AYA[p + 1] - 1 : JUZ_FIRST_AYA[p];
+  }
   function buildSaveActivityBody(record) {
     const type = Number(record.type);
     const isPartMode = (type === 6 || type === 7);
 
-    const from = isPartMode ? record.partFrom : record.fromRange;
-    const to   = isPartMode ? record.partTo   : record.toRange;
+    const from = isPartMode ? juzAya(record.partFrom, false) : record.fromRange;
+    const to   = isPartMode ? juzAya(record.partTo, true)    : record.toRange;
 
     const num = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
     // ملاحظة توافق: نتجنّب ?? و?. لأن متصفحات أندرويد القديمة (Chrome < 80)
