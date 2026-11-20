@@ -2304,8 +2304,15 @@ function printCourseSheet() {
 /* 🔤 (2026-11-20) Chrome أندرويد يرسل اسم الملف العربيّ في المشاركة بترميزٍ خاطئ
    فيصل واتساب «ØªÙ‚Ø±ÙŠØ±» بدل «تقرير» ⇒ اسمٌ لاتينيّ في المشاركة على أندرويد وحده.
    [asciiName] يقترحه المستدعي (Placement-601-2026-11)، وإلا Safwa-<التاريخ والوقت>. */
+// ⚠️ بقي مشوَّهًا بعد حصره في «Android» (11-20): Chrome بوضع «سطح المكتب» لا يذكر
+//    Android، والتنزيل ثم المشاركة من الملفات يحمل الاسم نفسه ⇒ كل جهازٍ غير iOS،
+//    وفي التنزيل والمشاركة معًا. iOS وحده يحمل الاسم العربيّ سليمًا.
+function crIsIos() {
+    const ua = navigator.userAgent || '';
+    return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+}
 function crShareName(fileName, asciiName) {
-    if (!/Android/i.test(navigator.userAgent || '') || /^[ -~]*$/.test(fileName)) return fileName;
+    if (crIsIos() || /^[ -~]*$/.test(fileName)) return fileName;
     const dot = fileName.lastIndexOf('.');
     const ext = dot > 0 ? fileName.slice(dot) : '';
     if (asciiName) return asciiName + ext;
@@ -2318,7 +2325,7 @@ function crDeliverFile(blob, fileName, type, asciiName) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = fileName;
+        a.download = crShareName(fileName, asciiName);
         document.body.appendChild(a);
         a.click();
         a.parentNode.removeChild(a);
