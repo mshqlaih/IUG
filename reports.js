@@ -438,7 +438,8 @@
 
   // 🖨 كل قسمٍ (حلقة/مؤسسة) يُرسم وحده ثم يُضاف إلى الملف نفسه — لا لوحةٌ واحدة
   //    للتقرير كلّه: الجوال الضعيف (J7) لا يحتمل canvas بطول عشرات الصفحات.
-  // 🔤 اسم المشاركة على أندرويد (crShareName): «Placement-601-2026-11» — العربيّ يصل واتساب مشوَّهًا
+  // 🔤 اسمٌ لاتينيّ احتياطيّ يُمرَّر لـcrDeliverFile — لا يُستعمل الآن: الاسم العربيّ يُنزَّل
+  //    على الكمبيوتر ويُشارَك على الجوال (التشويه كان من مشاركة ويندوز وحدها)
   var SLUG = { placement: 'Placement', recitation: 'Attendance', monthly: 'Monthly-Detail', summary: 'Circles-Summary', roster: 'Students', exams: 'Exams-Summary' };
   function asciiName(id) {
     var parts = ['Safwa', SLUG[id] || 'Report'];
@@ -446,6 +447,31 @@
     var a = crit.from ? crit.from.slice(0, 7) : '', b = crit.to ? crit.to.slice(0, 7) : '';
     if (a || b) parts.push(a && b && a !== b ? a + '_' + b : (a || b));
     return parts.join('-');
+  }
+
+  /* 🎨 (2026-11-20) كتلة <style> داخل الورقة كانت تسقط في الـPDF الحقيقيّ (نسخة
+     html2canvas وlightClone) ⇒ لا خطوط ولا شريط عنوان، وألوان جداول التطبيق فوقها.
+     فتُكتب كل قاعدةٍ على عناصرها **مضمّنةً** قبل الإخراج: القواعد بترتيبها أوّلًا ثم نمط
+     العنصر نفسه (يغلبها كما في المتصفّح)، و!important مضمّنًا يغلب app.css. */
+  function inlined(html) {
+    var css = '';
+    html = String(html).replace(/<style[^>]*>([\s\S]*?)<\/style>/g, function (_, c) { css += c; return ''; });
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    var re = /([^{}]+)\{([^{}]*)\}/g, m, acc = [];
+    while ((m = re.exec(css))) {
+      var sel = m[1].trim(), decl = m[2].trim();
+      if (!sel || sel.charAt(0) === '@') continue;
+      var nodes;
+      try { nodes = box.querySelectorAll(sel); } catch (_) { continue; }
+      for (var i = 0; i < nodes.length; i++) {
+        var e = nodes[i], k = acc.indexOf(e);
+        if (k === -1) { acc.push(e); e.__rp = ''; }
+        e.__rp += decl + ';';
+      }
+    }
+    acc.forEach(function (e) { e.setAttribute('style', e.__rp + (e.getAttribute('style') || '')); delete e.__rp; });
+    return box;
   }
 
   async function toPdf(sections, name, landscape, ascii) {
@@ -458,9 +484,9 @@
       jsPDF: { unit: 'cm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' },
       pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.rp-keep'] },
     };
-    var w = html2pdf().set(opt).from(sections[0], 'string').toPdf();
+    var w = html2pdf().set(opt).from(inlined(sections[0])).toPdf();
     sections.slice(1).forEach(function (s) {
-      w = w.get('pdf').then(function (pdf) { pdf.addPage(); }).from(s, 'string').toContainer().toCanvas().toPdf();
+      w = w.get('pdf').then(function (pdf) { pdf.addPage(); }).from(inlined(s)).toContainer().toCanvas().toPdf();
     });
     var blob = await w.outputPdf('blob');
     crDeliverFile(blob, name, 'application/pdf', ascii);
@@ -743,13 +769,17 @@
     var groups = groupBy(rows, function (r) { return r.circleNo; });
     var period = periodText();
 
+    // عروض الأعمدة صراحةً: table-layout:fixed يأخذها من الصفّ الأوّل وحده، وفيه خاناتٌ مدموجة
+    var COLS = '<colgroup><col style="width:22px"><col style="width:132px">' +
+      RANGE_KEYS.map(function () { return '<col><col style="width:34px"><col style="width:42px">'; }).join('') +
+      COUNT_KEYS.map(function () { return '<col style="width:36px">'; }).join('') + '</colgroup>';
     function head() {
-      return '<thead><tr><th rowspan="2" style="width:22px;background:#e0e0e0">م</th><th rowspan="2" style="width:132px;background:#e0e0e0">اسم الطالب</th>' +
+      return COLS + '<thead><tr><th rowspan="2" style="width:22px;background:#e0e0e0">م</th><th rowspan="2" style="width:132px;background:#e0e0e0">اسم الطالب</th>' +
         RANGE_KEYS.map(function (k) { return '<th colspan="3" style="background:' + col(k) + '">' + actLabel(k) + '</th>'; }).join('') +
         COUNT_KEYS.map(function (k) { return '<th rowspan="2" style="width:34px;background:' + col(k) + ';font-size:9px">' + COUNT_HEAD[k] + '</th>'; }).join('') +
         '</tr><tr>' + RANGE_KEYS.map(function (k) {
           var b = ' style="background:' + col(k) + '"';
-          return '<th' + b + '>من - إلى</th><th style="width:28px;background:' + col(k) + '">مرات</th><th style="width:32px;background:' + col(k) + '">صفحات</th>';
+          return '<th' + b + '>من - إلى</th><th style="font-size:9px;background:' + col(k) + '">مرات</th><th style="font-size:9px;background:' + col(k) + '">صفحات</th>';
         }).join('') + '</tr></thead>';
     }
 
@@ -872,7 +902,11 @@
         return '<div style="flex:1;background:#FFF8E1;border:1px solid #CBB273;padding:6px;font-size:11px"><b style="font-size:12.5px">' + title + '</b>' +
           (lines.length ? lines.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('') : '<div>' + esc(empty) + '</div>') + '</div>';
       };
-      var head = '<thead><tr><th rowspan="2" style="width:22px;background:#e0e0e0">م</th>' +
+      var head = '<colgroup><col style="width:22px"><col style="width:150px"><col style="width:132px"><col style="width:42px">' +
+        RANGE_KEYS.map(function () { return '<col><col>'; }).join('') +
+        COUNT_KEYS.map(function () { return '<col style="width:36px">'; }).join('') +
+        '<col style="width:42px"><col style="width:42px"><col style="width:150px"></colgroup>' +
+        '<thead><tr><th rowspan="2" style="width:22px;background:#e0e0e0">م</th>' +
         '<th rowspan="2" style="width:150px;background:#e0e0e0">' + (byCenter ? 'المركز' : 'الحلقة') + '</th>' +
         '<th rowspan="2" style="width:132px;background:#e0e0e0">' + (byCenter ? 'الحلقة المتميّزة' : 'المعلّم') + '</th>' +
         '<th rowspan="2" style="width:42px;background:#e0e0e0;font-size:9.5px">الطلاب</th>' +
