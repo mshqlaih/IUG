@@ -350,6 +350,7 @@
       var ok = await showConfirm({
         title: m.title || 'رسالة',
         message: (scope ? scope + '\n\n' : '') + m.body + extra,
+        linkify: true,
         icon: m.severity === 'URGENT' ? '🔴' : (isAlert(m) ? '🔔' : '📢'),
         confirmText: isAnn(m) ? 'اطّلعت' : (tgt ? targetLabel(m) : 'الرسائل'),
         cancelText: 'لاحقًا'
@@ -583,7 +584,7 @@
       h += '<div class="is-card' + (m.severity === 'URGENT' ? ' URGENT' : (!read && isAnn(m) ? ' unread' : '')) + '">' +
         '<div class="t">' + (isAlert(m) ? '🔔 ' : '📢 ') + esc(m.title) + '</div>' +
         (scope ? '<div class="s">' + esc(scope) + '</div>' : '') +
-        (lt || (m.body ? '<div class="b">' + esc(m.body) + '</div>' : '')) +
+        (lt || (m.body ? '<div class="b">' + (window.qmcLinkify ? qmcLinkify(m.body) : esc(m.body)) + '</div>' : '')) +
         (rows.length ? rowsTable(rows) : '') +
         '<div class="f"><span>' + esc(m.created_at ? stamp(m.created_at) : (isAlert(m) ? 'تنبيه محسوب' : '')) +
         (m.data && m.data.end_at ? ' · حتى ' + esc(m.data.end_at) : '') + '</span>' +

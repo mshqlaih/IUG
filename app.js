@@ -4452,6 +4452,11 @@ function showModal(opts) {
 
     set('modalTitle', o.title || 'تأكيد');
     set('modalMessage', o.message || '');
+    // 🔗 (2026-11-21) linkify: الروابط في نصّ الرسالة تُلمس (إعلانٌ يكتبه إنسان)
+    if (o.linkify && o.message) {
+        const mm = document.getElementById('modalMessage');
+        if (mm) mm.innerHTML = qmcLinkify(o.message);
+    }
 
     const confirmBtn = document.getElementById('modalConfirmBtn');
     const cancelBtn  = document.getElementById('modalCancelBtn');
@@ -4468,6 +4473,28 @@ function showModal(opts) {
 
     return new Promise(resolve => { _modalResolve = resolve; });
 }
+
+// 🔗 نصٌّ آمن (يُهرَّب كلّه) تصير روابطه http/https قابلةً للّمس — تُفتح في
+//    المتصفّح (على الآيفون المثبَّت: Safari، وفيه تُضاف الأيقونة الجديدة).
+//    علامة الترقيم في آخر الرابط لا تُحسب منه.
+function qmcLinkify(text) {
+    const esc = s => String(s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const src = String(text == null ? '' : text);
+    const rx = /https?:\/\/[^\s<>"«»]+/g;
+    let out = '', at = 0, m;
+    while ((m = rx.exec(src)) !== null) {
+        const url = m[0].replace(/[.,،؛:;!?)\]}]+$/, '');
+        out += esc(src.slice(at, m.index));
+        out += '<a href="' + esc(url) + '" target="_blank" rel="noopener" dir="ltr"' +
+               ' onclick="event.stopPropagation()" style="color:var(--primary,#1a73e8);text-decoration:underline;word-break:break-all">' +
+               esc(url) + '</a>';
+        at = m.index + url.length;
+        rx.lastIndex = at;
+    }
+    return out + esc(src.slice(at));
+}
+window.qmcLinkify = qmcLinkify;
 
 // تأكيد بنعم/لا
 function showConfirm(opts) {
