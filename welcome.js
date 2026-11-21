@@ -344,9 +344,99 @@
     return (h % 12 === 0 ? 12 : h % 12) + ':' + pad2(min % 60) + ' ' + per;
   }
 
-  /* ⏰ سطر معلّم الحلقة من موعد حلقته الفعليّ (نسخة circleLineFor) */
+  /* 🕌 (2026-11-21، كـprayerCircleEndMin في Flutter 11-17) آخر وقتٍ تمتدّ إليه حلقةٌ
+     بوقت صلاةٍ لا بساعة — دقائق اليوم بتوقيت غزة: وقت الصلاة التقريبيّ + ساعتان ونصف.
+     كانت «اليوم عصرا؛ يسّر الله…» تُعرض ليلًا كأنّ الحلقة لم تأتِ بعد. */
+  function prayerCircleEndMin(prayer, month) {
+    var winter = month >= 11 || month <= 3;
+    function at(h, mi) { return h * 60 + mi + 150; }
+    var p = String(prayer || '');
+    if (p.indexOf('فجر') !== -1) return winter ? at(4, 50) : at(4, 0);
+    if (p.indexOf('ظهر') !== -1) return winter ? at(11, 40) : at(12, 40);
+    if (p.indexOf('عصر') !== -1) return winter ? at(14, 30) : at(16, 20);
+    if (p.indexOf('مغرب') !== -1) return winter ? at(16, 50) : at(19, 40);
+    if (p.indexOf('عشاء') !== -1) return winter ? at(18, 10) : at(21, 5);
+    return null;
+  }
+  function prayerCircleOver(prayer, nowMin, month) {
+    var end = prayerCircleEndMin(prayer, month);
+    return end != null && nowMin >= end;
+  }
+
+  /* ▶️ الحلقة التي يذكرها السطر (كـlineCircleFor): المنعقدة الآن، ثم التالية، ثم ما
+     بوقت الصلاة ولم يمضِ، ثم آخر ما انتهى — وزرّ الرصد وإحصاؤه لها هي. */
+  function lineCircleFor(today, nowMin, month) {
+    if (!today.length) return null;
+    var timed = today.filter(function (c) { return c.start != null; }), i;
+    for (i = 0; i < timed.length; i++) {
+      var e = timed[i].end != null ? timed[i].end : timed[i].start + 120;
+      if (timed[i].start <= nowMin && nowMin < e) return timed[i];
+    }
+    for (i = 0; i < timed.length; i++) if (timed[i].start > nowMin) return timed[i];
+    var byPrayer = today.filter(function (c) { return c.start == null && c.prayer; });
+    for (i = 0; i < byPrayer.length; i++) {
+      if (!prayerCircleOver(byPrayer[i].prayer, nowMin, month)) return byPrayer[i];
+    }
+    if (byPrayer.length) return byPrayer[byPrayer.length - 1];
+    return timed.length ? timed[timed.length - 1] : today[0];
+  }
+
+  /* 📊 رصد اليوم لحلقةٍ من سجلّات الجهاز (كـ_dayStat): طلابها كما في «الحلقة»،
+     ومن سُجّل له اليوم شيء، ومن حضر (1·2·3·7)، وصفحات 1·2·7. null ⇒ لم يُعرف. */
+  function dayStat(circle) {
+    if (circle == null) return null;
+    try {
+      var stu = {}, n = 0;
+      (typeof _studentsCache !== 'undefined' ? _studentsCache : []).forEach(function (x) {
+        if (Number(x.circleNo) === circle && !stu[Number(x.id)]) { stu[Number(x.id)] = 1; n++; }
+      });
+      var d = ymdLocal(new Date()), done = {}, pres = {}, rec = 0, pr = 0, pages = 0;
+      (typeof _recordsCache !== 'undefined' ? _recordsCache : []).forEach(function (r) {
+        var k = Number(r.student);
+        if (String(r.date) !== d || !stu[k]) return;
+        var t = Number(r.type);
+        if (!done[k]) { done[k] = 1; rec++; }
+        if ((t === 1 || t === 2 || t === 3 || t === 7) && !pres[k]) { pres[k] = 1; pr++; }
+        if (t === 1 || t === 2 || t === 7) pages += parseFloat(r.amount) || 0;
+      });
+      return { students: n, recorded: rec, present: pr, pages: pages };
+    } catch (_) { return null; }
+  }
+
+  function studentsAr(n) {
+    return n === 1 ? 'طالبٌ واحد' : n === 2 ? 'طالبان' : n <= 10 ? n + ' طلاب' : n + ' طالبًا';
+  }
+  function pagesAr(p) {
+    var r = Math.round(p * 10) / 10;
+    if (r !== Math.floor(r)) return r + ' صفحة';
+    return r === 1 ? 'صفحةٌ واحدة' : r === 2 ? 'صفحتان' : r <= 10 ? r + ' صفحات' : r + ' صفحة';
+  }
+  function dayHarvestAr(st) {
+    var att = st.present >= st.students ? 'حضر طلابها كلّهم (' + st.students + ')'
+      : st.present === 0 ? 'لم يحضر أحد'
+      : 'حضر ' + st.present + ' من ' + st.students;
+    return st.pages > 0 ? att + '، وأُنجزت ' + pagesAr(st.pages) + ' تسميعًا ومراجعة' : att;
+  }
+
+  /* ⏰ سطر معلّم الحلقة من موعد حلقته الفعليّ (نسخة circleLineFor)، و📊 (11-21) برصد
+     اليوم: لا «يسّر الله» وقد اكتمل — المكتمل حصيلته، والناقص من بقي. */
   function circleLineFor(today, nowMin) {
     if (!today.length) return null;
+    var mo = new Date().getMonth() + 1;
+    var lc = lineCircleFor(today, nowMin, mo);
+    var st0 = lc ? dayStat(lc.circle) : null;
+    var st = st0 && st0.students > 0 ? st0 : null;
+    if (st && st.recorded >= st.students) {
+      return lc.title + ' اكتمل رصدها: ' + dayHarvestAr(st) + '؛ تقبّل الله منك ومنهم.';
+    }
+    function ended(title, when) {
+      if (!st) return title + ' ' + when + '؛ تقبّل الله منك، وما بقي من نشاطها يُدخَل متى تيسّر.';
+      if (st.recorded === 0) return title + ' ' + when + '، ولم يُرصد نشاطها بعد؛ يُدخَل متى تيسّر.';
+      return title + ' ' + when + '؛ رُصد ' + st.recorded + ' من ' + st.students + '، وبقي ' +
+        studentsAr(st.students - st.recorded) + ' يُدخَل نشاطهم متى تيسّر.';
+    }
+    var progress = st && st.recorded > 0
+      ? ' — رُصد ' + st.recorded + ' من ' + st.students + ' حتى الآن' : '';
     function after(m) {
       if (m < 1) return 'الآن';
       if (m === 1) return 'بعد دقيقة';
@@ -365,8 +455,8 @@
     if (on.length) {
       var c0 = on[0];
       return c0.end == null
-        ? c0.title + ' منعقدةٌ الآن؛ يسّر الله لك ولطلابك.'
-        : c0.title + ' منعقدةٌ الآن حتى ' + clock(c0.end) + '؛ يسّر الله لك ولطلابك.';
+        ? c0.title + ' منعقدةٌ الآن' + progress + '؛ يسّر الله لك ولطلابك.'
+        : c0.title + ' منعقدةٌ الآن حتى ' + clock(c0.end) + progress + '؛ يسّر الله لك ولطلابك.';
     }
     var next = timed.filter(function (c) { return c.start > nowMin; });
     if (next.length) {
@@ -374,13 +464,15 @@
       return c1.title + ' اليوم الساعة ' + clock(c1.start) + (a ? ' — ' + a : '') + '؛ طلابك على موعدٍ معك.';
     }
     var byPrayer = today.filter(function (c) { return c.start == null && c.prayer; });
+    var upcoming = byPrayer.filter(function (c) { return !prayerCircleOver(c.prayer, nowMin, mo); });
+    if (upcoming.length) {
+      return upcoming[0].title + ' اليوم ' + upcoming[0].prayer + '؛ يسّر الله لك ولطلابك.';
+    }
     if (byPrayer.length) {
-      return byPrayer[0].title + ' اليوم ' + byPrayer[0].prayer + '؛ يسّر الله لك ولطلابك.';
+      var lp = byPrayer[byPrayer.length - 1];
+      return ended(lp.title, 'كانت اليوم ' + lp.prayer);
     }
-    if (timed.length) {
-      return timed[timed.length - 1].title + ' انتهت لليوم؛ تقبّل الله منك، ' +
-        'وما بقي من نشاطها يُدخَل متى تيسّر.';
-    }
+    if (timed.length) return ended(timed[timed.length - 1].title, 'انتهت لليوم');
     return null;
   }
 
@@ -761,7 +853,10 @@
       return i.kind === 'CIRCLE' && d && daysBetween(today, d) === 0;
     }).map(function (i) {
       var st = num(i.start_min);
-      return { title: s(i.title) || '', start: st, end: num(i.end_min), prayer: st == null ? s(i.note) : null };
+      // رقم الحلقة من مفتاح الأجندة «C123:20261117» (QMC_AGENDA_PKG.derived_array)
+      var m = /^C(\d+):/.exec(String(i.key || ''));
+      return { title: s(i.title) || '', start: st, end: num(i.end_min), prayer: st == null ? s(i.note) : null,
+               circle: m ? Number(m[1]) : null };
     }).sort(function (x, y) {
       return (x.start == null ? 9999 : x.start) - (y.start == null ? 9999 : y.start);
     });
@@ -991,10 +1086,21 @@
     var b = document.querySelector('.tab-btn[data-tab="studentsTab"]');
     if (!b || b.style.display === 'none') return '';
     try { if (window.QmcTeacherDay && QmcTeacherDay.absentAllToday()) return ''; } catch (_) {}
+    // 📊 (2026-11-21، كـFlutter 11-17) لحلقة السطر الذي فوقه وحدها: «أكمل» إن رُصد لبعض
+    //    طلابها، ولا زرّ إن رُصد لكلّهم. كان «أكمل» لأيّ سجلٍّ اليوم ولو اكتمل الرصد
+    //    (بلاغ محمود الهندي 11-21: 14 من 14 والزرّ «أكمل الرصد»).
     var started = false;
     try {
-      var d = ymdLocal(new Date());
-      started = _recordsCache.some(function (r) { return String(r.date) === d; });
+      var nd = new Date();
+      var lc = lineCircleFor(todayC, nd.getHours() * 60 + nd.getMinutes(), nd.getMonth() + 1);
+      var st = lc && lc.circle != null ? dayStat(lc.circle) : null;
+      if (st && st.students > 0) {
+        if (st.recorded >= st.students) return '';
+        started = st.recorded > 0;
+      } else {
+        var d = ymdLocal(nd);
+        started = _recordsCache.some(function (r) { return String(r.date) === d; });
+      }
     } catch (_) {}
     return '<button type="button" class="wh-go" data-act="tab" data-tab="studentsTab">' +
       '<i class="fas ' + (started ? 'fa-list-check' : 'fa-play') + '"></i> ' +
