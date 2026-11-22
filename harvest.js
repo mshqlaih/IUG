@@ -188,7 +188,7 @@
     var box = document.getElementById(id);
     if (!box) return;
     var mine = h ? h.items.filter(function (i) { return !kind || i.kind === kind; }) : [];
-    if (!mine.length) { box.innerHTML = ''; return; }
+    if (!mine.length) { box.innerHTML = teaserHtml(); return; }
     var names = mine.map(function (i) { return i.name; });
     // 🔢 (2026-11-14) الرقم الأبرز على البطاقة نفسها — شريحةُ البند الأولى — لا الاسم وحده
     var lead = null;
@@ -204,7 +204,59 @@
       '<span class="hv-entry-text"><b>حصاد ' + esc(h.month) + (single ? ' · ' + esc(what) : '') + '</b><span>' +
       esc(single ? headline : what) + '</span>' +
       (provisionalShort(h) ? '<span class="hv-prov">' + esc(provisionalShort(h)) + '</span>' : '') + '</span>' +
-      (single ? '<span class="hv-entry-big">' + esc(lead.big) + '</span>' : '<i class="fas fa-chevron-left hv-entry-go"></i>') + '</button>';
+      (single ? '<span class="hv-entry-big">' + esc(lead.big) + '</span>' : '<i class="fas fa-chevron-left hv-entry-go"></i>') + '</button>' +
+      teaserHtml();
+  }
+
+  /* ⏳ (2026-11-22) تشويق الحصاد قبل إعلانه — نسخة HarvestTeaser في harvest_service.dart
+     (أيّ تغييرٍ في النصوص هناك يُنقل). org/harvest/teaser: عدّادٌ + أرقامٌ مجمّعة بلا أسماء */
+  var teaser = null;
+  async function loadTeaser() {
+    try {
+      var r = await QMC.apiFetch('org/harvest/teaser', { timeoutMs: 25000 });
+      var d = await r.json().catch(function () { return null; });
+      teaser = d && d.status === 'success' ? d : null;
+    } catch (_) { teaser = null; }
+  }
+  function arCircles(n) {
+    return n === 1 ? 'حلقة واحدة' : n === 2 ? 'حلقتان' : n >= 3 && n <= 10 ? n + ' حلقات' : n + ' حلقة';
+  }
+  function teaserDaysLeft(t) {
+    var p = String(t.reveal || '').split('-');
+    if (p.length !== 3) return 0;
+    var rv = new Date(+p[0], +p[1] - 1, +p[2]);
+    var n = new Date(); n = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    return Math.round((rv - n) / 86400000);
+  }
+  function teaserHtml() {
+    var t = teaser;
+    var roots = t && Array.isArray(t.roots) ? t.roots : [];
+    var d = t ? teaserDaysLeft(t) : 0;
+    if (!t || t.show !== true || !roots.length || d <= 0) return '';
+    var when = d === 1 ? 'غدًا' : d === 2 ? 'بعد يومين' : d <= 10 ? 'بعد ' + d + ' أيام' : 'بعد ' + d + ' يومًا';
+    var p = String(t.reveal).split('-');
+    var rv = new Date(+p[0], +p[1] - 1, +p[2]);
+    var DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    var lines = [];
+    var m = t.mine && typeof t.mine === 'object' ? t.mine : null;
+    roots.slice(0, 2).forEach(function (r, k) {
+      var on = Number(r.on_track) || 0, pages = Number(r.pages) || 0, name = String(r.name || '');
+      lines.push(on > 0
+        ? '🏅 ' + arCircles(on) + ' في ' + name + ' على طريق وسام «الرصد بيومه» حتى أمس'
+        : '🏅 لا حلقة في ' + name + ' على طريق وسام «الرصد بيومه» بعد — كن الأوّل');
+      if (k === 0 && m && Number(m.circles) > 0 && on > 0) {
+        var one = Number(m.circles) === 1, mo = Number(m.on_track) || 0;
+        lines.push(mo === 0 ? (one ? 'حلقتك ليست' : 'حلقاتك ليست') + ' منها بعد — ارصد كل يومٍ بتاريخه'
+          : mo === Number(m.circles) ? (one ? '✅ وحلقتك منها' : '✅ وحلقاتك كلّها منها')
+          : '✅ ' + mo + ' من حلقاتك منها');
+      }
+      if (pages > 0) lines.push('📖 ' + pages.toLocaleString('en-US') + ' صفحة حفظًا ومراجعةً في ' + arCircles(Number(r.circles) || 0) + ' حتى أمس');
+    });
+    return '<div class="hv-teaser"><span class="hv-entry-icon" dir="ltr">' + d + '</span><span class="hv-entry-text">' +
+      '<b>⏳ حصاد ' + esc(arMonth(t.ym)) + ' يُعلن ' + when + '</b>' +
+      '<span>صباح ' + DAYS[rv.getDay()] + ' ' + rv.getDate() + ' ' + MONTHS[rv.getMonth()] + '، إن شاء الله</span>' +
+      lines.map(function (l) { return '<span class="hv-tl">' + esc(l) + '</span>'; }).join('') +
+      '<span class="hv-prov">الترتيب والأوسمة والأعلى نموًّا تُكشف يوم الإعلان</span></span></div>';
   }
 
   /** البطاقة في الرئيسية من المحفوظ — بلا جلب (الرئيسية تعيد رسمها كثيرًا) */
@@ -214,6 +266,7 @@
 
   /** الجلب + البطاقة + الفتح وحده مرّةً من 1 إلى 5 */
   async function refresh() {
+    await loadTeaser();
     var h = await load(false);
     paintSlot('whHarvest', null, h);
     if (!h || !h.items.length) return;
@@ -487,7 +540,8 @@
     if (st.slide >= slides.length) st.slide = slides.length - 1;
     var h = '<div class="hv-bar"><button type="button" class="hv-icon" data-act="close" title="رجوع" aria-label="رجوع">' +
       '<i class="fas fa-arrow-right"></i></button><div class="hv-title">حصاد ' + esc(hv.month) + '</div>' +
-      (hv.live ? '' : '<button type="button" class="hv-live" data-act="live">هذا الشهر حتى الآن</button>') +
+      // 🔒 (2026-11-22) الشهر الجاري قبل إعلانه للمدير والمبرمج (HARVEST_LIVE)
+      (hv.live || typeof hasCapability !== 'function' || !hasCapability('HARVEST_LIVE') ? '' : '<button type="button" class="hv-live" data-act="live">هذا الشهر حتى الآن</button>') +
       '</div><div class="hv-body">';
     if (st.list.length > 1) {
       h += '<div class="hv-chips">' + st.list.map(function (x, k) {
@@ -629,6 +683,10 @@
     '.hv-outline{background:#fff;color:var(--primary);border:1px solid var(--primary-line,#c6dafc)}' +
     '.hv-tonal{background:var(--primary-wash,#e8f0fe);color:var(--primary-dark,#0d47a1)}' +
     '.hv-entry{display:flex;align-items:center;gap:12px;width:100%;text-align:right;justify-content:flex-start;background:linear-gradient(90deg,' + GOLD_SOFT + ',#fffbeb);border:1px solid ' + GOLD + '59;border-radius:14px;padding:12px 14px;margin-bottom:12px;color:inherit;font-weight:400}' +
+    '.hv-teaser{display:flex;align-items:flex-start;gap:12px;background:#fffbeb;border:1px solid ' + GOLD + '59;border-radius:14px;padding:12px 14px;margin-bottom:12px}' +
+    '.hv-teaser .hv-entry-icon{font-size:20px;font-weight:800}' +
+    '.hv-teaser .hv-entry-text span.hv-tl{color:#000000de;margin-top:2px}' +
+    '.hv-teaser .hv-entry-text span.hv-prov{white-space:normal}' +
     '.hv-entry-icon{width:42px;height:42px;border-radius:11px;background:#fff;color:' + GOLD + ';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}' +
     '.hv-entry-text{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}' +
     '.hv-entry-text b{font-size:15.5px;color:' + GOLD + '}.hv-entry-text span{font-size:13px;color:#00000089}' +
