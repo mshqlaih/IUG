@@ -4457,6 +4457,17 @@ function showModal(opts) {
         const mm = document.getElementById('modalMessage');
         if (mm) mm.innerHTML = qmcLinkify(o.message);
     }
+    // 📢 (2026-11-22) messageHtml: متنٌ منسّقٌ آمنٌ بُني بالتهريب (annHtml في inbox.js)
+    //    و boxClass صنفٌ للنافذة هذه المرّة وحدها (ann-modal: المتن وحده يُمرَّر)
+    if (o.messageHtml) {
+        const mm = document.getElementById('modalMessage');
+        if (mm) mm.innerHTML = o.messageHtml;
+    }
+    if (box) {
+        if (box.dataset.extraClass) box.classList.remove(...box.dataset.extraClass.split(' '));
+        box.dataset.extraClass = o.boxClass || '';
+        if (o.boxClass) box.classList.add(...o.boxClass.split(' '));
+    }
 
     const confirmBtn = document.getElementById('modalConfirmBtn');
     const cancelBtn  = document.getElementById('modalCancelBtn');

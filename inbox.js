@@ -30,6 +30,71 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+
+  /* 📢 (2026-11-22) متن الإعلان منسّقًا — نظير parseAnnouncement/AnnouncementBody
+     في lib/widgets/announcement_body.dart (يُعدَّلان معًا):
+     السطر الفارغ يفصل الفقرات · سطرٌ يبدأ برقم (1️⃣ · 1. · 1) · 1- · ١.) بندٌ
+     مرقّم سطره الأول عنوانه وما تحته وصفه · • أو - نقطة · الفقرة الأولى مقدّمة،
+     والمنتهية بـ«:» قبل البنود تمهيد، والأخيرة بعدها خاتمة. */
+  var ANN_NUM = new RegExp('^\\s*([0-9\\u0660-\\u0669\\u06F0-\\u06F9]{1,2})\\s*(?:\\uFE0F?\\u20E3|[.)\\-\\u2013])\\s*(.+)$');
+  var ANN_BUL = new RegExp('^\\s*[\\u2022\\-\\u2013*\\u00B7\\u25AA\\u25E6]\\s+(.+)$');
+  function annLatin(s) {
+    return String(s).replace(/[٠-٩۰-۹]/g, function (c) {
+      var k = c.charCodeAt(0);
+      return String.fromCharCode(48 + (k >= 0x06F0 ? k - 0x06F0 : k - 0x0660));
+    });
+  }
+  function parseAnnouncement(body) {
+    var raw = [], item = null, para = [];
+    function flushItem() { if (item) { raw.push(item); item = null; } }
+    function flushPara() { if (para.length) { raw.push({ kind: 'para', text: para.join('\n') }); para = []; } }
+    String(body || '').replace(/\r/g, '').split('\n').forEach(function (l0) {
+      var l = l0.trim();
+      if (!l) { flushItem(); flushPara(); return; }
+      var n = ANN_NUM.exec(l), b = n ? null : ANN_BUL.exec(l);
+      if (n || b) {
+        flushItem(); flushPara();
+        item = n ? { kind: 'item', num: annLatin(n[1]), text: n[2].trim(), detail: [] }
+                 : { kind: 'bullet', text: b[1].trim(), detail: [] };
+        return;
+      }
+      if (item) item.detail.push(l); else para.push(l);
+    });
+    flushItem(); flushPara();
+    var first = -1, last = -1, i;
+    for (i = 0; i < raw.length; i++) if (raw[i].kind !== 'para') { if (first < 0) first = i; last = i; }
+    return raw.map(function (x, i) {
+      if (x.kind !== 'para') { x.detail = x.detail.join('\n'); return x; }
+      var k = 'para';
+      if (first >= 0 && i === first - 1 && /:$/.test(x.text)) k = 'intro';
+      else if (i === 0 && raw.length > 1) k = 'lead';
+      else if (last >= 0 && i > last && i === raw.length - 1) k = 'closing';
+      return { kind: k, text: x.text };
+    });
+  }
+  function annText(s) {
+    var h = window.qmcLinkify ? qmcLinkify(s) : esc(s);
+    return h.replace(/\n/g, '<br>');
+  }
+  function annHtml(body) {
+    var bl;
+    try { bl = parseAnnouncement(body); } catch (_) { return '<div class="ann"><p class="ann-p">' + annText(body) + '</p></div>'; }
+    if (bl.length === 1 && bl[0].kind === 'para' && bl[0].text.indexOf('\n') < 0 && bl[0].text.length <= 80) {
+      return '<div class="ann ann-short"><p class="ann-p">' + annText(bl[0].text) + '</p></div>';
+    }
+    return '<div class="ann">' + bl.map(function (b) {
+      switch (b.kind) {
+        case 'lead': return '<p class="ann-lead">' + annText(b.text) + '</p>';
+        case 'intro': return '<p class="ann-intro">' + annText(b.text) + '</p>';
+        case 'closing': return '<p class="ann-outro">' + annText(b.text) + '</p>';
+        case 'item': return '<div class="ann-item"><span class="ann-num">' + esc(b.num) + '</span><div>' +
+          '<div class="ann-title">' + annText(b.text) + '</div>' +
+          (b.detail ? '<div class="ann-desc">' + annText(b.detail) + '</div>' : '') + '</div></div>';
+        case 'bullet': return '<div class="ann-bul">' + annText(b.text + (b.detail ? '\n' + b.detail : '')) + '</div>';
+        default: return '<p class="ann-p">' + annText(b.text) + '</p>';
+      }
+    }).join('') + '</div>';
+  }
   function readJson(key, dflt) {
     try { var v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? dflt : v; }
     catch (_) { return dflt; }
@@ -229,7 +294,40 @@
     '.is-dev:first-child{border-top:0}',
     '.is-dev .n{flex:1}',
     '.is-dev button{background:transparent;color:#c5221f;padding:4px 8px}',
-    '.is-steps{margin:6px 0 0;padding-right:18px}'
+    '.is-steps{margin:6px 0 0;padding-right:18px}',
+    // 📢 (2026-11-22) متن الإعلان المنسّق (annHtml) — مواصفة الخبير، بلا color-mix
+    '.ann{direction:rtl;text-align:start;font-size:14.5px;line-height:1.7;color:#202124;white-space:normal}',
+    '.ann>*{margin:0}',
+    '.ann>*+*{margin-top:12px}',
+    '.ann.ann-short{text-align:center}',
+    '.ann-lead{font-size:16px;font-weight:500;line-height:1.65}',
+    '.ann-intro{color:var(--primary);font-weight:700;font-size:14px;margin-top:16px !important}',
+    '.ann-intro+.ann-item,.ann-intro+.ann-bul{margin-top:8px}',
+    '.ann-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;background:var(--primary-wash,#e8f0fe)}',
+    '.ann-item+.ann-item,.ann-bul+.ann-bul{margin-top:8px}',
+    '.ann-num{flex:0 0 26px;height:26px;margin-top:2px;border-radius:50%;background:var(--primary);color:#fff;',
+    'font-size:13px;font-weight:700;line-height:26px;text-align:center}',
+    '.ann-title{font-weight:700;font-size:15px;line-height:1.45;color:#202124}',
+    '.ann-desc{margin-top:4px;font-size:13.5px;line-height:1.65;color:#5f6368}',
+    '.ann-bul{position:relative;padding-inline-start:14px}',
+    '.ann-bul::before{content:"";position:absolute;inset-inline-start:0;top:.75em;width:6px;height:6px;border-radius:50%;background:var(--primary)}',
+    '.ann-outro{margin-top:16px !important;padding:10px 12px;border-inline-start:3px solid var(--primary);border-radius:8px;',
+    'background:var(--primary-wash,#e8f0fe);color:var(--primary-dark,#174ea6);font-weight:500;font-size:14px;line-height:1.6}',
+    '.is-card .b .ann{font-size:14px}',
+    // النافذة: رأسٌ ثابت · المتن وحده يُمرَّر وتحته تلاشٍ ما بقي نصّ · الأزرار ثابتة
+    // (كانت .modal-box تُمرَّر كلّها فينزل زرّ «اطّلعت» تحت الحافّة)
+    '.modal-box.ann-modal{display:flex;flex-direction:column;max-height:85vh;max-height:85dvh;overflow:hidden;max-width:480px}',
+    '.modal-box.ann-modal .modal-icon{flex:none;width:48px;height:48px;font-size:24px;margin-bottom:8px}',
+    '.modal-box.ann-modal .modal-title{flex:none}',
+    '.modal-box.ann-modal .modal-message{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;',
+    'white-space:normal;text-align:start;margin:0 -20px;padding:4px 20px 12px;position:relative;scrollbar-width:thin;color:#202124}',
+    '.modal-box.ann-modal .modal-message::-webkit-scrollbar{width:4px}',
+    '.modal-box.ann-modal .modal-message::-webkit-scrollbar-thumb{background:rgba(0,0,0,.25);border-radius:2px}',
+    '.modal-box.ann-modal .ann-scope{font-size:12.5px;color:#5f6368;margin:0 0 10px}',
+    '.modal-box.ann-modal .ann-fade{position:sticky;bottom:-12px;height:32px;margin-top:-32px;pointer-events:none;',
+    'background:linear-gradient(to top,var(--surface,#fff),rgba(255,255,255,0))}',
+    '.modal-box.ann-modal .modal-message.at-end .ann-fade{display:none}',
+    '.modal-box.ann-modal .modal-actions{flex:none;margin-top:0;padding-top:12px;border-top:1px solid rgba(0,0,0,.1)}'
   ].join('');
 
   function injectCss() {
@@ -347,14 +445,32 @@
         ? '\n\n(التفاصيل في «الرسائل»)' : '';
       var scope = scopeLabel(m);
       var tgt = hasTarget(m);
-      var ok = await showConfirm({
+      // 📢 (2026-11-22) الإعلان منسّقًا، والمتن وحده يُمرَّر بتلاشٍ أسفله
+      var rich = isAnn(m) && !extra;
+      var pOk = showConfirm({
         title: m.title || 'رسالة',
         message: (scope ? scope + '\n\n' : '') + m.body + extra,
+        messageHtml: rich ? (scope ? '<p class="ann-scope">' + esc(scope) + '</p>' : '') +
+          annHtml(m.body) + '<div class="ann-fade"></div>' : null,
+        boxClass: rich ? 'ann-modal' : '',
         linkify: true,
         icon: m.severity === 'URGENT' ? '🔴' : (isAlert(m) ? '🔔' : '📢'),
         confirmText: isAnn(m) ? 'اطّلعت' : (tgt ? targetLabel(m) : 'الرسائل'),
         cancelText: 'لاحقًا'
       });
+      if (rich) {
+        var mm = document.getElementById('modalMessage');
+        if (mm) {
+          var atEnd = function () {
+            mm.classList.toggle('at-end', mm.scrollTop + mm.clientHeight >= mm.scrollHeight - 4);
+          };
+          mm.scrollTop = 0;
+          mm.onscroll = atEnd;
+          setTimeout(atEnd, 0);
+        }
+      }
+      var ok = await pOk;
+      if (rich && document.getElementById('modalMessage')) document.getElementById('modalMessage').onscroll = null;
       if (ok) {
         if (isAnn(m)) await markRead(m);
         else if (tgt) openTarget(m);
@@ -584,7 +700,8 @@
       h += '<div class="is-card' + (m.severity === 'URGENT' ? ' URGENT' : (!read && isAnn(m) ? ' unread' : '')) + '">' +
         '<div class="t">' + (isAlert(m) ? '🔔 ' : '📢 ') + esc(m.title) + '</div>' +
         (scope ? '<div class="s">' + esc(scope) + '</div>' : '') +
-        (lt || (m.body ? '<div class="b">' + (window.qmcLinkify ? qmcLinkify(m.body) : esc(m.body)) + '</div>' : '')) +
+        (lt || (m.body ? '<div class="b">' + (isAnn(m) && !rows.length ? annHtml(m.body)
+          : (window.qmcLinkify ? qmcLinkify(m.body) : esc(m.body))) + '</div>' : '')) +
         (rows.length ? rowsTable(rows) : '') +
         '<div class="f"><span>' + esc(m.created_at ? stamp(m.created_at) : (isAlert(m) ? 'تنبيه محسوب' : '')) +
         (m.data && m.data.end_at ? ' · حتى ' + esc(m.data.end_at) : '') + '</span>' +
@@ -859,5 +976,6 @@
   window.openPushSettings = openPushSettings;
   window.QMC_INBOX = { fetch: fetchMessages, all: all, unreadCount: unreadCount, refreshUi: refreshUi,
                        banners: banners, scopeLabel: scopeLabel, isAlert: isAlert,
-                       hasTarget: hasTarget, targetLabel: targetLabel, openTarget: openTarget };
+                       hasTarget: hasTarget, targetLabel: targetLabel, openTarget: openTarget,
+                       parseAnnouncement: parseAnnouncement, annHtml: annHtml, injectCss: injectCss };
 })();

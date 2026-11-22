@@ -74,9 +74,38 @@
   }
 
   /* ---------- الجلب ---------- */
+  /* ⏳ (2026-11-22، نظير Harvest.provisional في harvest_service.dart) آخر بناءٍ
+     للحصاد فجر اليوم 5 من الشهر التالي (00:30 غزة) + ساعةٌ احتياطًا؛ ما جُلب
+     قبله أوّليّ، يُكتب عليه ويُجلب من جديد كل 10 دقائق */
+  var AR_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  function finalAt(ym) {
+    var y = Number(String(ym).substr(0, 4)), m = Number(String(ym).substr(5, 2));
+    return y && m ? new Date(y, m, 5, 1, 30) : null;   // m (1-12) = فهرس الشهر التالي
+  }
+  function provisional(h) {
+    var f = h && finalAt(h.ym);
+    return !!(f && h.at && h.at < f.getTime());
+  }
+  function provisionalNote(h) {
+    if (h && h.live) {
+      return 'أرقام ' + h.period + ' — تتجدّد كل ليلة، والمقارنة بالأيام نفسها من ' + arMonth(h.prevYm);
+    }
+    if (!provisional(h)) return null;
+    var f = finalAt(h.ym), last = new Date(f.getFullYear(), f.getMonth(), 4);
+    var mon = arMonth(f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0'));
+    return 'أرقامٌ أوّليّة — تكتمل فجر ' + AR_DAYS[f.getDay()] + ' 5 ' + mon +
+      ' بما يُرصد حتى نهاية ' + AR_DAYS[last.getDay()] + ' 4 ' + mon;
+  }
+  function provisionalShort(h) {
+    if (!provisional(h)) return null;
+    var f = finalAt(h.ym);
+    return 'أرقامٌ أوّليّة حتى فجر 5 ' + arMonth(f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0'));
+  }
+
   async function load(force) {
     var want = lastMonthYm();
-    if (!force && hv && hv.ym === want && hvUser === user()) return hv;
+    var stale = hv && provisional(hv) && Date.now() - (hv.fetched || 0) > 10 * 60 * 1000;
+    if (!force && !stale && hv && hv.ym === want && hvUser === user()) return hv;
     var key = 'harvest:' + want + ':' + user();
     var data = null;
     try {
@@ -84,12 +113,24 @@
       var d = await r.json().catch(function () { return null; });
       if (d && d.status === 'success') {
         data = d;
+        d._at = Date.now();
         try { localStorage.setItem(key, JSON.stringify(d)); } catch (_) {}
       } else return null;   // رفضٌ من السيرفر (لا حصاد له) — لا يُعرض شيء
     } catch (_) {
       try { data = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { data = null; }
     }
     if (!data) return null;
+    var got = shape(data, want);
+    hvUser = user();
+    // «هذا الشهر» مفتوح ⇒ الشهر الماضي يُحفظ ليعود عند الإغلاق، ولا يحلّ محلّ المعروض
+    if (hv && hv.live) { hvBase = got; return got; }
+    hv = got;
+    return hv;
+  }
+
+  /** ردّ org/harvest ⇐ حصادٌ للعرض. 🌾 (2026-11-22، نظير Harvest في Flutter) live = الشهر
+   *  الجاري حتى أمس: العنوان «نوفمبر حتى الآن» والمقارنة «الأيام نفسها من أكتوبر» */
+  function shape(data, want) {
     var items = (Array.isArray(data.items) ? data.items : []).filter(function (x) {
       // 📚 (2026-11-14) دائرة التجويد لمشرف الدورات: CENTER نوعه TAJW (من الدورات لا الحلقات).
       //    حصاد المركز (CENTER غير TAJW) للمدير ومشرف الحلقات يبقى في أندرويد.
@@ -102,9 +143,35 @@
       };
     });
     var ym = String(data.ym || want);
-    hv = { ym: ym, prevYm: String(data.prev_ym || ''), month: arMonth(ym), prevMonth: arMonth(data.prev_ym), items: items };
-    hvUser = user();
-    return hv;
+    var live = data.live && typeof data.live === 'object' ? Number(data.live.days) || null : null;
+    var y = ym.substr(0, 4);
+    // at = متى جاء من السيرفر (المحفوظ بتاريخ حفظه)، fetched = آخر محاولة جلب
+    return { ym: ym, prevYm: String(data.prev_ym || ''), items: items, live: live,
+             month: live ? arMonth(ym) + ' حتى الآن' : arMonth(ym),
+             prevMonth: live ? 'الأيام نفسها من ' + arMonth(data.prev_ym) : arMonth(data.prev_ym),
+             period: !live ? arMonth(ym) + ' ' + y : (live === 1 ? '1 ' : '1–' + live + ' ') + arMonth(ym) + ' ' + y,
+             at: Number(data._at) || 0, fetched: Date.now() };
+  }
+
+  /** 🌾 «هذا الشهر حتى الآن» — يُعرض بدل حصاد الشهر الماضي حتى يُغلق */
+  var hvBase = null;
+  async function openLive() {
+    var now = new Date();
+    var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    var d = null;
+    try {
+      var r = await QMC.apiFetch('org/harvest?ym=' + encodeURIComponent(ym), { timeoutMs: 25000 });
+      d = await r.json().catch(function () { return null; });
+    } catch (_) { d = null; }
+    var live = d && d.status === 'success' && d.live ? shape(d, ym) : null;
+    if (!live || !live.items.length) {
+      if (typeof showToast === 'function') showToast('لا أرقام لـ' + arMonth(ym) + ' بعد — تُحسب كل ليلة حتى اليوم السابق');
+      return;
+    }
+    hvBase = hv;
+    hv = live;
+    st = { list: live.items, item: 0, slide: 0, sharing: false };
+    render();
   }
 
   function seenKey(ym) { return 'harvest_seen:' + ym + ':' + user(); }
@@ -135,7 +202,8 @@
     box.innerHTML = '<button type="button" class="hv-entry" onclick="QmcHarvest.open(' + (kind ? '\'' + kind + '\'' : '') + ')">' +
       '<span class="hv-entry-icon"><i class="fas fa-wand-magic-sparkles"></i></span>' +
       '<span class="hv-entry-text"><b>حصاد ' + esc(h.month) + (single ? ' · ' + esc(what) : '') + '</b><span>' +
-      esc(single ? headline : what) + '</span></span>' +
+      esc(single ? headline : what) + '</span>' +
+      (provisionalShort(h) ? '<span class="hv-prov">' + esc(provisionalShort(h)) + '</span>' : '') + '</span>' +
       (single ? '<span class="hv-entry-big">' + esc(lead.big) + '</span>' : '<i class="fas fa-chevron-left hv-entry-go"></i>') + '</button>';
   }
 
@@ -286,6 +354,17 @@
       sub: (n(i, 'regular') || 0) + ' من ' + (n(i, 'students') || 0) + ' حضروا 90٪ من لقاءاتهم فأكثر',
       delta: da[0], up: da[1] });
 
+    // 🏅 (2026-11-22، نظير HarvestItem.onTime في Flutter) «الرصد بيومه» — يُقاس من 8 أيام
+    var od = n(i, 'ot_days'), oo = n(i, 'ot_of');
+    var ot = od != null && oo != null && oo >= 8
+      ? { days: Math.round(od), of: Math.round(oo), badge: i.cur.ot_badge === 'Y' } : null;
+    var otUnit = ot ? 'من ' + ot.of + ' ' + (ot.of <= 10 ? 'أيام' : 'يومًا') + ' رُصدت في يومها' : '';
+    if (ot) out.push(ot.badge
+      ? { kicker: '🏅 وسام «الرصد بيومه»', big: String(ot.days), unit: otUnit,
+          sub: 'نالت الحلقة الوسام: رُصدت 90٪ من أيامها فأكثر في يومها، أوّلًا بأوّل', foot: 'انضباطٌ يُشكر عليه' }
+      : { kicker: 'الرصد بيومه', big: Math.round(100 * ot.days / ot.of) + '٪', unit: 'من أيام الحلقة رُصدت في يومها',
+          sub: ot.days + ' ' + otUnit + '\nالوسام لمن رصد 90٪ من أيامه في يومها، والأيام التي لم تُرصد أصلًا تُحسب متأخّرة' });
+
     var passed = Math.round(n(i, 'passed') || 0);
     var dx = diff(passed, p(i, 'passed'));
     out.push(passed > 0
@@ -332,6 +411,10 @@
           i.cur.best_name != null ? 'أعلاها ' + f(n(i, 'best')) + ' لـ' + i.cur.best_name : null]
       : ['warn', 'لا اختبار ناجح هذا الشهر', 'رشّح من أتمّ جزءه']);
     if (topOk) points.push(['star', 'الأكثر تسميعًا وسردًا: ' + i.cur.top_name, f(n(i, 'top_pnew')) + ' صفحة']);
+    if (ot) {
+      var otN = ot.days + ' من ' + ot.of + ' ' + (ot.of <= 10 ? 'أيام' : 'يومًا') + ' في يومها';
+      points.push(ot.badge ? ['star', '🏅 وسام «الرصد بيومه»', otN] : ['info', 'رُصد ' + otN, 'الوسام عند 90٪']);
+    }
     if (ranked) points.push([rank <= 3 ? 'star' : 'info', 'المرتبة ' + Math.round(rank) + ' من ' + Math.round(ofN), 'في ' + (i.cur.center || 'المركز')]);
     out.push({ kicker: 'خلاصة ' + hv.month, points: points, foot: 'بارك الله في الجهد' });
     return out;
@@ -365,7 +448,7 @@
     var h = '<div class="hv-card"><div class="hv-progress">';
     for (var k = 0; k < count; k++) h += '<span class="' + (k <= st.slide ? 'on' : '') + '"></span>';
     h += '</div><div class="hv-meta"><span class="hv-ellipsis">' + esc(it.name) + '</span><span>' +
-      esc(hv.month + ' ' + hv.ym.substr(0, 4)) + '</span></div><div class="hv-main"><div class="hv-kicker">' + esc(s.kicker) + '</div>';
+      esc(hv.period) + '</span></div><div class="hv-main"><div class="hv-kicker">' + esc(s.kicker) + '</div>';
     if (s.points) {
       h += s.points.map(function (pt) {
         return '<div class="hv-point hv-' + pt[0] + '"><i class="fas ' + TONE_ICON[pt[0]] + '"></i><span><b>' + esc(pt[1]) + '</b>' +
@@ -378,7 +461,9 @@
         (s.delta ? '<div class="hv-delta ' + (s.up == null ? '' : s.up ? 'up' : 'down') + '">' + esc(s.delta) + '</div>' : '') +
         (s.foot ? '<div class="hv-foot">' + esc(s.foot) + '</div>' : '');
     }
-    return h + '</div><div class="hv-brand">تطبيق الصفوة لمتابعة الحلقات القرآنية</div></div>';
+    var note = provisionalNote(hv);
+    return h + '</div>' + (note ? '<div class="hv-prov-note">' + esc(note) + '</div>' : '') +
+      '<div class="hv-brand">تطبيق الصفوة لمتابعة الحلقات القرآنية</div></div>';
   }
 
   /* ---------- الشاشة ---------- */
@@ -401,7 +486,9 @@
     var slides = slidesOf(it);
     if (st.slide >= slides.length) st.slide = slides.length - 1;
     var h = '<div class="hv-bar"><button type="button" class="hv-icon" data-act="close" title="رجوع" aria-label="رجوع">' +
-      '<i class="fas fa-arrow-right"></i></button><div class="hv-title">حصاد ' + esc(hv.month) + '</div></div><div class="hv-body">';
+      '<i class="fas fa-arrow-right"></i></button><div class="hv-title">حصاد ' + esc(hv.month) + '</div>' +
+      (hv.live ? '' : '<button type="button" class="hv-live" data-act="live">هذا الشهر حتى الآن</button>') +
+      '</div><div class="hv-body">';
     if (st.list.length > 1) {
       h += '<div class="hv-chips">' + st.list.map(function (x, k) {
         return '<button type="button" data-act="item" data-i="' + k + '" class="' + (k === st.item ? 'on' : '') + '">' + esc(x.name) + '</button>';
@@ -430,6 +517,7 @@
     if (!b || b.disabled) return;
     switch (b.dataset.act) {
       case 'close': return close();
+      case 'live': return openLive();
       case 'prev': return go(-1);
       case 'next': return go(1);
       case 'share': return share();
@@ -483,6 +571,8 @@
   }
 
   function close() {
+    // من «هذا الشهر» ⇒ يعود حصاد الشهر الماضي (البطاقة في الرئيسية له)
+    if (hv && hv.live && hvBase) { hv = hvBase; hvBase = null; }
     var el = document.getElementById('harvestScreen');
     if (el) el.style.display = 'none';
     document.body.classList.remove('hv-open');
@@ -529,6 +619,9 @@
     '.hv-info{background:#1d5f8a12}.hv-info i{color:#1d5f8a}' +
     '.hv-foot{margin-top:6px;font-size:14.5px;font-weight:600;color:' + GOLD + '}' +
     '.hv-brand{text-align:center;font-size:11px;color:#00000061}' +
+    '.hv-live{margin-inline-start:auto;background:none;border:1px solid ' + GOLD + '80;color:' + GOLD + ';border-radius:16px;padding:5px 10px;font-size:12.5px;font-weight:600;white-space:nowrap}' +
+    '.hv-prov-note{text-align:center;font-size:12px;font-weight:600;color:#92400e;line-height:1.4;margin-bottom:6px}' +
+    '.hv-entry-text span.hv-prov{font-size:12px;font-weight:600;color:#92400e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.hv-export{width:360px}.hv-export .hv-main{flex:none;overflow:visible;padding:28px 0}' +
     '.hv-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}' +
     '.hv-btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;border-radius:22px;padding:9px 14px;font-size:14px}' +

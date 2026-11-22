@@ -40,7 +40,9 @@
   };
   var PERIOD_ICON = {
     morning: 'fa-sun', noon: 'fa-cloud-sun', asr: 'fa-cloud-sun',
-    evening: 'fa-moon', night: 'fa-bed'
+    // 🌙 (11-21) الليل كان fa-bed: «سرير» لم يعرفه المستخدم ⇒ قمرٌ وراءه
+    //    سحابة للمساء، والقمر وحده لليل (كـbedtime في نسخة Flutter)
+    evening: 'fa-cloud-moon', night: 'fa-moon'
   };
   // ألوان السماء في كل فترة — والنصّ فوقها أبيض
   var SKY = {
