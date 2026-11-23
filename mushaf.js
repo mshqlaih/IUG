@@ -588,6 +588,7 @@
   function status(text) {
     var box = S.el.querySelector('#musStatus');
     if (text != null) { box.innerHTML = text; return; }
+    if (S.readOnly) { box.textContent = 'قراءة — تقليب الصفحات بالأسهم'; return; }
     if (S.start != null) {
       box.innerHTML = 'البداية: <b>' + esc(shortLabel(S.start)) + '</b> — اضغط آية النهاية' +
         '<a data-act="reset">إلغاء</a>';
@@ -716,6 +717,8 @@
   }
 
   function onAyaTap(tag) {
+    // 📖 (2026-11-23) فتحٌ للقراءة (الكهف يوم الجمعة) ⇒ لا تحديد ولا ملء حقول
+    if (S.readOnly) return;
     if (S.start == null || S.end != null) {
       S.start = tag; S.end = null;
       paintSelection();
@@ -797,9 +800,27 @@
   // ── المدخل ────────────────────────────────────────────────────────────
   // يُفتح على «الآية من» إن مُلئت (يملؤها التطبيق بالآية التالية عند اختيار
   // النوع) وتُميَّز بالكهرمانيّ، وإلا على آخر صفحةٍ فُتحت.
+  /* 📖 (2026-11-23) للقراءة على صفحةٍ بعينها (سورة الكهف من الرئيسية يوم الجمعة)
+     — المصحف نفسه بلا تحديد آيات ولا مساسٍ بحقول النشاط */
+  window.openMushafAt = function (page) {
+    if (typeof QMC === 'undefined') return;
+    if (!S.el) build();
+    S.readOnly = true;
+    S.el.style.display = 'flex';
+    document.documentElement.style.overflow = 'hidden';
+    if (lsGet(LS_NIGHT) == null) S.night = !!(window.QmcAppearance && QmcAppearance.isDark());
+    applyLook();
+    S.start = null; S.end = null; S.suggest = null;
+    status();
+    Promise.race([checkVersion(), new Promise(function (r) { setTimeout(r, 3000); })]).then(function () {
+      loadPage(Math.min(PAGES, Math.max(1, Number(page) || 1)));
+    });
+  };
+
   window.openMushafPicker = function () {
     if (typeof QMC === 'undefined') return;
     if (!S.el) build();
+    S.readOnly = false;
     S.el.style.display = 'flex';
     document.documentElement.style.overflow = 'hidden';
     // 🌙 (2026-11-14) لم يختر في المصحف ليلًا ولا نهارًا ⇒ يتبع وضع التطبيق

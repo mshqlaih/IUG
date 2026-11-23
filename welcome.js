@@ -1120,7 +1120,16 @@
     } else {
       h += '<div style="font-size:13.5px;line-height:1.45;margin-top:2px">' + esc(o.line) + '</div>';
     }
+    // 🕌 (2026-11-23) الكهف · الصلاة على النبيّ ﷺ · ساعة الاستجابة (adhkar.js) —
+    //    متى كان اليوم جمعة أيًّا كانت المناسبة المعروضة (جمعةٌ في رمضان)
+    if (window.QmcAdhkar) { try { h += QmcAdhkar.fridayHtml(state.now, syncUser()); } catch (_) {} }
     return h + '</div></div>';
+  }
+
+  /* 📿 (2026-11-23) أذكار الصباح والمساء (adhkar.js) */
+  function adhkarHtml() {
+    if (!window.QmcAdhkar) return '';
+    try { return QmcAdhkar.homeHtml(state.now, syncUser()); } catch (_) { return ''; }
   }
 
   function agendaHtml() {
@@ -1536,6 +1545,7 @@
     r.innerHTML = '<div class="wh">' +
       heroHtml(role, w) +
       occasionHtml(w) +
+      adhkarHtml() +
       inviteHtml() +
       // 🧭 (11-14، قرار المستخدم) إشارةٌ بعدد ما يحتاج تدخّلك تنقل إلى اللوحة
       //    آخر الصفحة — فلا تدفع كثرةُ البنود المواعيدَ ويومَ المحفّظ إلى الأسفل
@@ -1752,7 +1762,9 @@
   setInterval(function () {
     if (!isActive() || document.hidden) return;
     var n = new Date();
-    if (periodOf(n) !== periodOf(state.now) || n.getDate() !== state.now.getDate() || n.getMinutes() % 5 === 0) {
+    var fh = window.QmcAdhkar ? QmcAdhkar.fridayHour : function () { return null; };
+    if (periodOf(n) !== periodOf(state.now) || n.getDate() !== state.now.getDate() || n.getMinutes() % 5 === 0 ||
+        fh(n) !== fh(state.now)) {
       state.now = n;
       paint();
     }
@@ -1768,6 +1780,8 @@
     // 📬 الصندوق تحدّث (inbox.js refreshUi) ⇒ بطاقات تنبيهاته في «يحتاج تدخّلك»
     repaintInsights: function () { if (isActive()) paintInsights(); },
     refreshIfActive: refreshIfActive,
+    // 📿 عدّ الأذكار والصلاة ﷺ (adhkar.js) — رسمٌ بلا جلب
+    repaint: function () { if (isActive()) paint(); },
     noteTab: noteTab,
     emptyCircles: emptyCircles,
     studentsAdded: studentsAdded,
