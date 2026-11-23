@@ -276,14 +276,18 @@
     var st = document.createElement('style');
     st.id = 'adkCss';
     st.textContent =
-      '.adk-card{display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;padding:10px 12px;border-radius:14px;' +
-      'border:1px solid var(--border-color,#ddd);background:var(--card-bg,#fff);text-align:start;font:inherit;color:inherit;cursor:pointer}' +
+      // 📐 (11-23) كـ.wh-card حرفيًّا (بلاغ المستخدم: «ممتدّة يسارًا وغير منسّقة») — div لا button،
+      //    فبلا border-box يُضاف الحشو والإطار إلى width:100% فتخرج عن العمود
+      '.adk-card{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;margin-top:12px;' +
+      'padding:12px;border-radius:14px;border:1px solid #e0e0e0;background:#fff;text-align:start;font:inherit;' +
+      'color:inherit;cursor:pointer}' +
       '.adk-card.done{border-color:rgba(27,94,32,.35)}' +
       '.adk-ic{flex:0 0 46px;height:46px;border-radius:12px;background:rgba(27,94,32,.1);color:#1B5E20;display:flex;align-items:center;justify-content:center;font-size:21px}' +
       '.adk-b{flex:1;min-width:0}.adk-h{font-size:13px;font-weight:700;color:#1B5E20}.adk-s{font-size:13.5px;line-height:1.35;margin-top:3px}' +
       '.adk-bar{height:5px;border-radius:4px;background:rgba(27,94,32,.12);margin-top:6px;overflow:hidden}' +
       '.adk-bar>i{display:block;height:100%;background:#1B5E20}' +
-      '.adk-x{flex:0 0 auto;border:0;background:none;color:#999;font-size:16px;padding:6px;cursor:pointer}' +
+      '.adk-x{flex:0 0 auto;border:0;background:none;color:#999;font-size:16px;padding:4px;margin:-4px;cursor:pointer}' +
+      '.adk-sala,.adk-d,.adk-hour{box-sizing:border-box}' +
       '.adk-fri{margin-top:10px;display:flex;flex-direction:column;gap:8px}' +
       '.adk-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}' +
       '.adk-btn{border:1px solid rgba(154,107,31,.45);background:#fff;color:#7A5A1F;border-radius:10px;padding:7px 12px;font:inherit;font-size:13.5px;cursor:pointer}' +
