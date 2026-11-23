@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quran-app-v2.61';
+const CACHE_NAME = 'quran-app-v2.62';
 
 // كود التطبيق: يتغيّر مع كل تحديث ⇒ الشبكة أولاً حتى يصل الجديد فوراً
 // ✅ exam.html (الاختبار الإلكتروني): مخزَّنةٌ مع الصفحات كي تفتح بلا شبكة بعد
@@ -18,6 +18,7 @@ const CACHE_NAME = 'quran-app-v2.61';
 // ✅ welcome.js (2026-11-09): 🏠 الرئيسية — التحية ومواعيدي والاختصارات و«يحتاج تدخّلك»
 //    (org/welcome · org/branding · org/agenda · org/insights)
 // ✅ adhkar.js (2026-11-23): 📿 أذكار الصباح والمساء + 🕌 الجمعة في الرئيسية (على الجهاز وحده)
+// ✅ insight_share.js (2026-11-23): بطاقة «يحتاج تدخّلك» صورةً وورقة PDF (بلا شبكة)
 // ✅ teacher_day.js (2026-11-13): يوم المحفّظ — «لن أحضر» والنيابة (org/teacher-day)
 // ✅ status_req.js (2026-11-13): حالات الطلاب وطلبات تغييرها (org/students · org/status-request*)
 // ✅ share_card.js (2026-11-13): مشاركة النشاط بطاقةً ونصًّا منسّقًا (بلا شبكة)
@@ -32,12 +33,12 @@ const SHELL_FILES = ['index.html', 'login.html', 'exam.html', 'exam_cq.js', 'app
                      'course_roles.js', 'course_extras.js', 'mushaf.js', 'inbox.js', 'appearance.js', 'help.js',
                      'account.js', 'claims.js', 'schedule.js', 'harvest.js', 'adm_record.js', 'welcome.js',
                      'teacher_day.js', 'status_req.js', 'share_card.js', 'partial_days.js', 'row_entry.js',
-                     'reports.js', 'adhkar.js', 'app.css', 'safwa.css', 'shell.css', 'dark.css'];
+                     'reports.js', 'adhkar.js', 'insight_share.js', 'app.css', 'safwa.css', 'shell.css', 'dark.css'];
 const SHELL = ['./', './index.html', './login.html', './exam.html', './exam_cq.js', './app.css', './safwa.css', './shell.css', './dark.css', './app.js', './api.js',
                './courses.js', './course_roles.js', './course_extras.js', './mushaf.js', './inbox.js',
                './appearance.js', './help.js', './account.js', './claims.js', './schedule.js', './harvest.js', './adm_record.js', './welcome.js',
                './teacher_day.js', './status_req.js', './share_card.js', './partial_days.js', './row_entry.js',
-               './reports.js', './adhkar.js'];
+               './reports.js', './adhkar.js', './insight_share.js'];
 
 // ثابت لا يتغيّر عملياً ⇒ الكاش أولاً (أسرع وأخفّ على الشبكة)
 // Font Awesome محلي وضروري: بدونه تتحوّل كل الأيقونات إلى مربّعات دون اتصال.

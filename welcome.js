@@ -560,6 +560,7 @@
     insightsErr: null,
     insightsBusy: false,
     open: {},               // بطاقات «يحتاج تدخّلك» المفتوحة
+    sharing: null,          // { code, kind } — صورةٌ أو ورقةٌ تُعدّ الآن
     fetched: {},            // ما جُلب في هذه الجلسة: welcome · brand · agenda · insights (وقته)
     user: null
   };
@@ -947,6 +948,9 @@
       '.wh-ic-row b{font-size:14px;font-weight:600;display:block}' +
       '.wh-ic-row small{font-size:12px;color:#757575;display:block}' +
       '.wh-ic-row div{font-size:13px;line-height:1.4;color:var(--c);margin-top:3px}' +
+      '.wh-ic-acts{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 12px 10px}' +
+      '.wh-ic-acts .wh-ic-go{margin:0}.wh-ic-sp{flex:1}' +
+      '.wh-ic-sh{width:44px;height:44px;font-size:17px;color:#4b5563}.wh-ic-sh:disabled{opacity:.5}' +
       '.wh-ic-go{margin:4px 12px 12px;border:0;border-radius:18px;padding:8px 14px;background:var(--s);color:var(--c);' +
       'font:inherit;font-size:13.5px;cursor:pointer}' +
       '.wh-note{padding:10px;border-radius:12px;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;font-size:13.5px}' +
@@ -1508,15 +1512,64 @@
         if (!c.inboxCode && count > items.length) {
           h += '<div class="wh-ic-row"><small>وغيرهم ' + (count - items.length) + '</small></div>';
         }
-        if (tgt) {
-          h += '<button type="button" class="wh-ic-go" data-act="go" data-target="' + tgt[0] + '"' +
-            (tgt[0] === 'inboxtgt' ? ' data-code="' + esc(code) + '"' : '') + '>' +
-            '<i class="fas fa-arrow-up-right-from-square"></i> ' + esc(tgt[1]) + '</button>';
+        // 🔣 (11-23، نظير CardActionsBar) الرئيسيّ بنصّه، والصورة والورقة
+        //    أيقونتان في السطر نفسه
+        var canSh = window.QmcInsightShare && QmcInsightShare.canShare(c, c.inboxCode ? inboxMsgOf(c) : null);
+        if (tgt || canSh) {
+          h += '<div class="wh-ic-acts">';
+          if (tgt) {
+            h += '<button type="button" class="wh-ic-go" data-act="go" data-target="' + tgt[0] + '"' +
+              (tgt[0] === 'inboxtgt' ? ' data-code="' + esc(code) + '"' : '') + '>' +
+              '<i class="fas fa-arrow-up-right-from-square"></i> ' + esc(tgt[1]) + '</button>';
+          }
+          if (canSh) {
+            var busy = state.sharing && state.sharing.code === code ? state.sharing.kind : null;
+            h += '<span class="wh-ic-sp"></span>' +
+              [['image', 'fa-image', 'صورة'], ['pdf', 'fa-file-pdf', 'PDF']].map(function (k) {
+                return '<button type="button" class="wh-ib wh-ic-sh" data-act="share" data-kind="' + k[0] + '" data-code="' + esc(code) + '"' +
+                  ' title="' + k[2] + '" aria-label="' + k[2] + '"' + (state.sharing ? ' disabled' : '') + '>' +
+                  '<i class="fas ' + (busy === k[0] ? 'fa-spinner fa-spin' : k[1]) + '"></i></button>';
+              }).join('');
+          }
+          h += '</div>';
         }
       }
       h += '</div>';
     });
     return h + tail;
+  }
+
+  /** 🖼️📄 البطاقة صورةً أو ورقة (insight_share.js) — الجاري منهما يدور والآخر معطّل */
+  async function shareCard(code, kind) {
+    if (state.sharing || !window.QmcInsightShare) return;
+    var d = state.insights && state.insights.data;
+    var card = d ? sortedCards(d).filter(function (x) { return String(x.code) === code; })[0] : null;
+    if (!card) return;
+    var msg = card.inboxCode ? inboxMsgOf(card) : null;
+    // تنبيهٌ بجدوله ⇒ ورقته؛ والمجمّع بلا جدول ⇒ بنوده كبطاقة اللوحة
+    if (msg && !(msg.data && Array.isArray(msg.data.rows) && msg.data.rows.length)) msg = null;
+    var at = null;
+    if (!msg && d.at) { at = new Date(String(d.at).replace(' ', 'T')); if (isNaN(at)) at = null; }
+    if (!at && state.insights.at) at = new Date(state.insights.at);
+    var center = '';
+    if (card.center_no != null && Array.isArray(d.centers)) {
+      var ct = d.centers.filter(function (x) { return String(x.center_no) === String(card.center_no); })[0];
+      if (ct) center = s(ct.name) || '';
+    }
+    var w = welcomeNow();
+    var org = (w && w.root_name) || (state.brand && state.brand.name) || '';
+    if (msg && window.QMC_INBOX) center = QMC_INBOX.scopeLabel(msg) || center;
+    state.sharing = { code: code, kind: kind };
+    paintInsights();
+    try {
+      await QmcInsightShare.share(card, kind, { org: org, center: center, at: at, msg: msg });
+    } catch (err) {
+      var t = (kind === 'pdf' ? 'تعذّر إعداد الورقة: ' : 'تعذّرت مشاركة الصورة: ') + ((err && err.message) || err);
+      try { showToast(t); } catch (_) { alert(t); }
+    } finally {
+      state.sharing = null;
+      paintInsights();
+    }
   }
 
   function paintInsights() {
@@ -1595,6 +1648,8 @@
     } else if (act === 'why') {
       // 📊 تعريف الرقم — لا رقمٌ بلا سبب
       if (el.dataset.why) { try { showToast(el.dataset.why); } catch (_) { alert(el.dataset.why); } }
+    } else if (act === 'share') {
+      shareCard(el.dataset.code, el.dataset.kind);
     } else if (act === 'go') {
       var t = el.dataset.target;
       if (t === 'inbox') { if (typeof openInbox === 'function') openInbox(); }
