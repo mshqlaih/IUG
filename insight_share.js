@@ -214,7 +214,37 @@
     });
   }
 
-  async function drawPng(card, ctx) {
+  /* 📑 الطويلة صفحاتٌ لا صورةٌ واحدة (2026-11-26) — نظير balancedPages في
+     lib/utils/share_image_pages.dart: «29 دورة مفتوحة بلا رصد» صورةٌ واحدة طولها
+     ≈9000 يصغّرها الواتساب إلى 1600 فلا تُقرأ (وهنا كان المقياس يُخفض فوقها لحدّ
+     iOS). ارتفاع الصفحة ≤ 1.45 × عرضها ⇒ بعد الضغط عرضها ≥ 1100 ≈ عرض الشاشة.
+     متوازنة: أقلّ عدد صفحات ثم أصغر حدّ يحفظه (10/10/9 لا 12/12/5)؛ بندٌ أطول من
+     الصفحة وحده. يُرجع [[من، إلى)] لكل صفحة. */
+  var MAX_RATIO = 1.45;
+  function balancedPages(hs, first, rest) {
+    if (!hs.length) return [[0, 0]];
+    function fill(f, r) {
+      var out = [], start = 0, used = 0, cap = f;
+      for (var i = 0; i < hs.length; i++) {
+        if (i > start && used + hs[i] > cap) { out.push([start, i]); start = i; used = 0; cap = r; }
+        used += hs[i];
+      }
+      out.push([start, hs.length]);
+      return out;
+    }
+    var n = fill(first, rest).length;
+    if (n === 1) return fill(first, rest);
+    var lo = 0, hi = Math.min(first, rest);
+    for (var k = 0; k < 30; k++) {
+      var mid = (lo + hi) / 2;
+      if (fill(first - mid, rest - mid).length <= n) lo = mid; else hi = mid;
+    }
+    return fill(first - lo, rest - lo);
+  }
+
+  /** صفحات الصورة (Blob لكل صفحة). كل صفحةٍ تقوم بنفسها إن أُعيد توجيهها وحدها:
+   *  المؤسسة والعنوان «(2 من 3)» والتاريخ؛ السبب في الأولى، والترقيم متّصل. */
+  async function drawPngs(card, ctx) {
     try { if (document.fonts && document.fonts.load) await Promise.all([document.fonts.load(font(20, true)), document.fonts.load(font(20, false))]); } catch (_) {}
     var msg = ctx.msg;
     var sev = msg ? ((msg.severity === 'WARN' || msg.severity === 'URGENT') ? 'warn' : 'info') : card.sev;
@@ -229,42 +259,74 @@
 
     var g = document.createElement('canvas').getContext('2d');
     var full = W - PAD * 2, BOX = 54, NUMW = 34;
-    // ── التخطيط أوّلًا (الارتفاع يُعرف بعده) ──
-    var ops = [], y = PAD;
-    function text(b, right, color, top) { ops.push({ t: 'text', b: b, x: right, y: top, c: color }); return blockH(b); }
-    if (ctx.org) y += text(wrap(g, ctx.org, 15, false, full), W - PAD, MUTED, y);
-    if (ctx.center && ctx.center !== ctx.org) y += text(wrap(g, ctx.center, 14, false, full), W - PAD, MUTED, y);
-    y += 8;
-    var tb = wrap(g, title, 23, true, full - (count > 0 ? BOX + 14 : 0));
-    var top = y, th0 = blockH(tb);
-    if (count > 0) ops.push({ t: 'box', x: PAD + full - BOX, y: top, w: BOX, h: BOX, c: soft, n: String(count), nc: accent });
-    text(tb, W - PAD - (count > 0 ? BOX + 14 : 0), accent, top + (count > 0 && th0 < BOX ? (BOX - th0) / 2 : 0));
-    y = top + Math.max(th0, count > 0 ? BOX : 0);
-    if (why) { y += 6; y += text(wrap(g, why, 16, false, full), W - PAD, MUTED, y); }
-    y += 14;
+    function text(ops, b, right, color, top) { ops.push({ t: 'text', b: b, x: right, y: top, c: color }); return blockH(b); }
+
+    // الترويسة في [ops] من أعلى الصفحة؛ يُرجع y بعدها. ops = [] ⇒ قياسٌ وحسب
+    function header(ops, page, n) {
+      var y = PAD;
+      if (ctx.org) y += text(ops, wrap(g, ctx.org, 15, false, full), W - PAD, MUTED, y);
+      if (ctx.center && ctx.center !== ctx.org) y += text(ops, wrap(g, ctx.center, 14, false, full), W - PAD, MUTED, y);
+      y += 8;
+      var label = n > 1 ? '  (' + (page + 1) + ' من ' + n + ')' : '';
+      var tb = wrap(g, title + label, 23, true, full - (count > 0 ? BOX + 14 : 0));
+      var top = y, th0 = blockH(tb);
+      if (count > 0) ops.push({ t: 'box', x: PAD + full - BOX, y: top, w: BOX, h: BOX, c: soft, n: String(count), nc: accent });
+      text(ops, tb, W - PAD - (count > 0 ? BOX + 14 : 0), accent, top + (count > 0 && th0 < BOX ? (BOX - th0) / 2 : 0));
+      y = top + Math.max(th0, count > 0 ? BOX : 0);
+      if (why && page === 0) { y += 6; y += text(ops, wrap(g, why, 16, false, full), W - PAD, MUTED, y); }
+      return y + 14;
+    }
+
+    // البنود مخطَّطةً مرّةً
     var tw = full - NUMW;
-    rows.forEach(function (r, i) {
+    var laid = rows.map(function (r) {
       var nb = wrap(g, r.name, 17, true, tw);
       var sb = r.sub ? wrap(g, r.sub, 14, false, tw) : null;
       var rb = r.reason ? wrap(g, r.reason, 15, false, tw) : null;
-      var h = 10 + blockH(nb) + (sb ? blockH(sb) : 0) + (rb ? blockH(rb) + 2 : 0) + 10;
-      if (i % 2 === 1) ops.push({ t: 'rect', x: PAD, y: y, w: full, h: h, c: '#F7F9FA' });
-      ops.push({ t: 'num', x: W - PAD - NUMW / 2, y: y + 10, n: String(i + 1) });
-      var yy = y + 10, right = W - PAD - NUMW;
-      yy += text(nb, right, INK, yy);
-      if (sb) yy += text(sb, right, MUTED, yy);
-      if (rb) text(rb, right, accent, yy + 2);
-      y += h;
-      ops.push({ t: 'line', y: y });
+      return { nb: nb, sb: sb, rb: rb, h: 10 + blockH(nb) + (sb ? blockH(sb) : 0) + (rb ? blockH(rb) + 2 : 0) + 10 };
     });
-    if (!msg && count > rows.length && rows.length) { y += 8; y += text(wrap(g, 'وغيرهم ' + (count - rows.length) + ' — في التطبيق', 14, false, full), W - PAD, MUTED, y); }
-    y += 16;
+    var moreB = (!msg && count > rows.length && rows.length)
+      ? wrap(g, 'وغيرهم ' + (count - rows.length) + ' — في التطبيق', 14, false, full) : null;
     var at = ctx.at;
-    var stamp = at ? 'آخر تحديث: ⁦' + pad2(at.getDate()) + '/' + pad2(at.getMonth() + 1) + '/' + at.getFullYear() + ' ' + pad2(at.getHours()) + ':' + pad2(at.getMinutes()) + '⁩' : '';
-    y += text(wrap(g, APP + (stamp ? ' · ' + stamp : ''), 12.5, false, full), W - PAD, MUTED, y);
-    y += PAD;
+    // التاريخ معزولٌ يسارًا لليمين (U+2066 … U+2069)
+    var LRI = String.fromCharCode(0x2066), PDI = String.fromCharCode(0x2069);
+    var stamp = at ? 'آخر تحديث: ' + LRI + pad2(at.getDate()) + '/' + pad2(at.getMonth() + 1) + '/' + at.getFullYear() + ' ' + pad2(at.getHours()) + ':' + pad2(at.getMinutes()) + PDI : '';
+    var stampB = wrap(g, APP + (stamp ? ' · ' + stamp : ''), 12.5, false, full);
+    var footH = (moreB ? 8 + blockH(moreB) : 0) + 16 + blockH(stampB) + PAD;
 
-    // ── الرسم: المقياس 3 ما لم يتجاوز حدّ iOS للوحة (~16.7 مليون بكسل) ──
+    // الميزانية بافتراض «(x من n)» في العنوان — أحوط من دونه
+    var maxH = W * MAX_RATIO;
+    var pages = balancedPages(laid.map(function (r) { return r.h; }),
+      maxH - header([], 0, 99) - footH, maxH - header([], 1, 99) - footH);
+
+    var blobs = [];
+    for (var p = 0; p < pages.length; p++) {
+      var ops = [], y = header(ops, p, pages.length);
+      for (var i = pages[p][0]; i < pages[p][1]; i++) {
+        var r = laid[i];
+        if (i % 2 === 1) ops.push({ t: 'rect', x: PAD, y: y, w: full, h: r.h, c: '#F7F9FA' });
+        ops.push({ t: 'num', x: W - PAD - NUMW / 2, y: y + 10, n: String(i + 1) });
+        var yy = y + 10, right = W - PAD - NUMW;
+        yy += text(ops, r.nb, right, INK, yy);
+        if (r.sb) yy += text(ops, r.sb, right, MUTED, yy);
+        if (r.rb) text(ops, r.rb, right, accent, yy + 2);
+        y += r.h;
+        ops.push({ t: 'line', y: y });
+      }
+      if (moreB && p === pages.length - 1) { y += 8; y += text(ops, moreB, W - PAD, MUTED, y); }
+      y += 16;
+      y += text(ops, stampB, W - PAD, MUTED, y);
+      y += PAD;
+      var blob = await renderPage(ops, y, accent, full);
+      if (!blob) throw new Error('تعذّر رسم الصورة');
+      blobs.push(blob);
+    }
+    return blobs;
+  }
+
+  // ── رسم صفحة: المقياس 3 ما لم يتجاوز حدّ iOS للوحة (~16.7 مليون بكسل) — لا
+  //    يُبلغ إلا ببندٍ واحدٍ أطول من الصفحة ──
+  async function renderPage(ops, y, accent, full) {
     var sc = Math.min(3, Math.sqrt(16000000 / (W * y)), 16000 / y);
     var cv = document.createElement('canvas');
     cv.width = Math.round(W * sc); cv.height = Math.round(y * sc);
@@ -292,6 +354,32 @@
     return await new Promise(function (res) { cv.toBlob(res, 'image/png'); });
   }
 
+  /** عدّة صور: على الجوال ورقة مشاركةٍ واحدة (تصل إلى الواتساب معًا بترتيبها)،
+   *  وإلا تنزيلٌ متتابع بفاصلٍ (المتصفّح قد يسأل مرّةً «السماح بتنزيل ملفّات متعدّدة») */
+  function deliverMany(list, type) {
+    if (list.length === 1) return deliver(list[0].blob, list[0].name, type);
+    function downloadAll() {
+      list.forEach(function (f, i) {
+        setTimeout(function () {
+          var url = URL.createObjectURL(f.blob), a = document.createElement('a');
+          a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.parentNode.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+        }, i * 400);
+      });
+    }
+    var mobile = typeof crIsMobile === 'function' ? crIsMobile() : /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+    try {
+      if (mobile && typeof File !== 'undefined' && navigator.canShare && navigator.share) {
+        var files = list.map(function (f) { return new File([f.blob], f.name, { type: type }); });
+        if (navigator.canShare({ files: files })) {
+          navigator.share({ files: files }).catch(function (err) { if (!err || err.name !== 'AbortError') downloadAll(); });
+          return;
+        }
+      }
+    } catch (_) { /* تنزيل */ }
+    downloadAll();
+  }
+
   function fileName(title, at) {
     var day = at ? at.getDate() + '-' + (at.getMonth() + 1) + '-' + at.getFullYear() : '';
     return (title + (day ? ' ' + day : '')).replace(/[\\\/:*?"<>|()+«»]/g, '').replace(/\s+/g, ' ').trim();
@@ -316,9 +404,11 @@
     var font = 'font-family:Tajawal,"Segoe UI",Tahoma,sans-serif;';
     var name = fileName(ctx.msg ? ctx.msg.title : card.title, ctx.at);
     if (kind === 'image') {
-      var blob = await drawPng(card, ctx);
-      if (!blob) throw new Error('تعذّر رسم الصورة');
-      deliver(blob, name + '.png', 'image/png');
+      // 📑 الطويلة صفحاتٌ مرقّمة « - 1 من 3»
+      var blobs = await drawPngs(card, ctx);
+      deliverMany(blobs.map(function (b, i) {
+        return { blob: b, name: name + (blobs.length > 1 ? ' - ' + (i + 1) + ' من ' + blobs.length : '') + '.png' };
+      }), 'image/png');
       return;
     }
     var box = document.createElement('div');
@@ -347,5 +437,5 @@
 
   window.QmcInsightShare = { share: share, canShare: canShare,
     // للفحص في المتصفّح (scratchpad) — لا يستعملهما التطبيق
-    _png: drawPng, _html: function (c, x) { return x.msg ? inboxHtml(x.msg, x, true) : cardHtml(c, x, true); } };
+    _png: drawPngs, _pages: balancedPages, _html: function (c, x) { return x.msg ? inboxHtml(x.msg, x, true) : cardHtml(c, x, true); } };
 })();
